@@ -217,6 +217,8 @@ const METRIC_DEFS = [
   ["operatingCashFlow", "Flujo operativo", "Caja", "usd"],
   ["fcf", "Free cash flow", "Caja", "usd"],
   ["peRatio", "P/E", "Valuación", "x"],
+  ["peForward", "P/E forward", "Valuación", "x"],
+  ["peg", "PEG", "Valuación", "x"],
   ["pbRatio", "P/B", "Valuación", "x"],
   ["psRatio", "P/S", "Valuación", "x"],
   ["dividendYield", "Dividend yield", "Dividendos", "pct"],
@@ -323,6 +325,37 @@ function buildSeries(facts, priceMonthly, sharesNow) {
   out.revenueGrowth.quarterly = growth(out.revenue.quarterly, 4);
   out.epsGrowth.annual = growth(out.eps.annual, 1);
   out.epsGrowth.quarterly = growth(out.eps.quarterly, 4);
+
+  // P/E forward y PEG históricos (Yahoo solo da el valor actual):
+  //  - P/E forward(t) = precio(t) / EPS realizado de los 12 meses siguientes
+  //  - PEG(t)         = P/E(t) / crecimiento del EPS (CAGR 3a en anual; interanual del EPS TTM en trimestral). Se descartan PEG > 10.
+  const epsAt = (end) => flowAt(A.epsDiluted, end);
+  out.peForward.annual = annEnds.map((end, i) => {
+    const next = annEnds[i + 1] ? epsAt(annEnds[i + 1]) : null;
+    const price = priceAt(end);
+    return { p: end.slice(0, 4), e: end, v: price != null && next > 0 ? round(price / next, 4) : null };
+  });
+  out.peg.annual = annEnds.map((end, i) => {
+    const pe = out.peRatio.annual[i]?.v;
+    const a = i >= 3 ? epsAt(annEnds[i - 3]) : null, b = epsAt(end);
+    const cagr = a > 0 && b > 0 ? (Math.pow(b / a, 1 / 3) - 1) * 100 : null;
+    const v = pe > 0 && cagr > 0 ? pe / cagr : null;
+    return { p: end.slice(0, 4), e: end, v: v != null && v <= 10 ? round(v, 4) : null };
+  });
+  const ttmEps = qEnds.map((e) => ttm(Q.epsDiluted, e));
+  out.peForward.quarterly = qEnds.map((end, i) => {
+    const fwd = ttmEps[i + 4], fEnd = qEnds[i + 4];
+    const ok = fwd > 0 && fEnd && days(end, fEnd) > 330 && days(end, fEnd) < 400;
+    const price = priceAt(end);
+    return { p: end, e: end, v: ok && price != null ? round(price / fwd, 4) : null };
+  });
+  out.peg.quarterly = qEnds.map((end, i) => {
+    const pe = out.peRatio.quarterly[i]?.v;
+    const cur = ttmEps[i], prev = i >= 4 ? ttmEps[i - 4] : null;
+    const g = prev > 0 && cur > 0 ? (cur / prev - 1) * 100 : null;
+    const v = pe > 0 && g > 0 ? pe / g : null;
+    return { p: end, e: end, v: v != null && v <= 10 ? round(v, 4) : null };
+  });
   return out;
 }
 
@@ -481,17 +514,20 @@ export default async function handler(req, res) {
     // Registro genérico: cada métrica con su serie anual y trimestral y su valor actual
     const metrics = {};
     for (const [key, label, category, unit] of METRIC_DEFS) {
-      const cur = current[key] !== undefined && current[key] !== null ? current[key] : lastVal(m[key].quarterly) ?? lastVal(m[key].annual);
+      const onlyCurrent = key === "peForward" || key === "peg";
+      const cur = onlyCurrent ? current[key] ?? null : current[key] !== undefined && current[key] !== null ? current[key] : lastVal(m[key].quarterly) ?? lastVal(m[key].annual);
       metrics[key] = {
         label, category, unit,
+        note: key === "peForward"
+          ? "Historia = precio ÷ EPS real de los 12 meses siguientes (no son estimaciones de la época). La línea punteada es el P/E forward actual de Yahoo, basado en estimaciones."
+          : key === "peg"
+          ? "Historia = P/E ÷ crecimiento del EPS (CAGR 3 años en anual, variación interanual del EPS TTM en trimestral; se ocultan valores > 10). La línea punteada es el PEG actual de Yahoo, basado en estimaciones."
+          : undefined,
         current: cur == null ? null : round(cur, 4),
         annual: m[key].annual.map((x) => ({ p: x.p, v: x.v })),
         quarterly: m[key].quarterly.map((x) => ({ p: x.p, v: x.v })),
       };
     }
-    // Métricas solo con valor actual (sin serie histórica en SEC)
-    metrics.peForward = { label: "P/E forward", category: "Valuación", unit: "x", current: round(current.peForward, 3), annual: [], quarterly: [] };
-    metrics.peg = { label: "PEG", category: "Valuación", unit: "x", current: round(current.peg, 3), annual: [], quarterly: [] };
     metrics.peRatio.current = round(current.peRatio, 3) ?? metrics.peRatio.current;
     metrics.pbRatio.current = round(current.pbRatio, 3) ?? metrics.pbRatio.current;
     metrics.psRatio.current = round(current.psRatio, 3) ?? metrics.psRatio.current;
