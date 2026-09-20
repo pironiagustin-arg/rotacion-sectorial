@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RRG Acciones</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262a33; --text:#e6e8eb; --muted:#8b8f99; --accent:#4C6EF5; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:18px; margin:0; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  nav a:hover, nav a.active { color:var(--text); }
+  .container { padding:20px; max-width:1200px; margin:0 auto; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .chart-wrap { height:560px; position:relative; }
+  .muted { color:var(--muted); font-size:13px; margin-top:8px; }
+  .quad-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:10px; }
+  .quad-legend span { display:flex; align-items:center; gap:6px; }
+  .sw { width:10px; height:10px; border-radius:2px; }
+  .range-btn { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; margin-right:6px; }
+  .range-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .controls-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between; }
+  .add-row { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
+  input[type=text] { background:var(--panel); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-size:14px; width:130px; text-transform:uppercase; }
+  button.primary { background:var(--accent); color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:14px; }
+  .bench-label { color:var(--muted); font-size:13px; }
+  .playback { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .play-btn { background:var(--accent); color:#fff; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; }
+  input[type=range] { flex:1; min-width:160px; accent-color:var(--accent); }
+  .frame-date { font-size:12px; color:var(--muted); min-width:90px; text-align:right; }
+  .legend-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .chip { background:#11141a; border:1px solid var(--border); color:var(--muted); padding:5px 10px; border-radius:14px; font-size:12px; cursor:pointer; user-select:none; display:flex; align-items:center; gap:6px; transition:all .15s; }
+  .chip.selected { color:#fff; font-weight:600; border-color:transparent; }
+  .chip .rm { opacity:0.6; }
+  .chip .rm:hover { opacity:1; }
+  .reset-link { color:var(--muted); font-size:12px; cursor:pointer; text-decoration:underline; margin-top:8px; display:inline-block; }
+  .empty { padding:60px; text-align:center; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔄 RRG — Acciones puntuales</h1>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/rotation.html">RRG</a>
+    <a href="/rotation-stocks.html" class="active">RRG Acciones</a>
+    <a href="/fundamentals.html">Fundamental</a>
+    <a href="/watchlist.html">Watchlist</a>
+  </nav>
+</header>
+<div class="container">
+  <div class="panel">
+    <div class="add-row">
+      <input type="text" id="tickerInput" placeholder="AAPL" maxlength="8" />
+      <button class="primary" id="addBtn">Agregar</button>
+      <span class="bench-label">Benchmark: SPY (S&P 500)</span>
+    </div>
+
+    <div class="controls-row">
+      <div id="rangeControls"></div>
+    </div>
+    <div class="chart-wrap"><canvas id="rrgChart"></canvas></div>
+    <div id="emptyState" class="empty" style="display:none;">Agregá al menos un ticker (ej: AAPL, MSFT, NVDA) para ver su RRG contra el S&P 500.</div>
+
+    <div class="legend-chips" id="legendChips"></div>
+    <span class="reset-link" id="resetHighlight">Quitar selección</span>
+
+    <div class="playback">
+      <button class="play-btn" id="playBtn" title="Reproducir movimiento histórico">▶</button>
+      <input type="range" id="frameSlider" min="0" max="100" value="100" />
+      <span class="frame-date" id="frameDate"></span>
+    </div>
+
+    <div class="quad-legend">
+      <span><span class="sw" style="background:#2F9E44"></span>Leading</span>
+      <span><span class="sw" style="background:#F59F00"></span>Weakening</span>
+      <span><span class="sw" style="background:#E03131"></span>Lagging</span>
+      <span><span class="sw" style="background:#4C6EF5"></span>Improving</span>
+    </div>
+    <p class="muted">Eje X: RS-Ratio vs S&P 500 · Eje Y: RS-Momentum. Click en una acción para resaltarla, ▶ para ver la película del movimiento.</p>
+  </div>
+</div>
+<script>
+const RANGES = [{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'},{k:'3y',label:'3A'}];
+const TAIL = 8;
+const STORAGE_KEY = 'rrg_stocks_list';
+let currentRange = '1y';
+let chart = null;
+let fullData = null;
+let metaData = null;
+let selectedSymbol = null;
+let playing = false;
+let playTimer = null;
+
+function getList() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) { return []; }
+}
+function saveList(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+
+function buildRangeButtons() {
+  const wrap = document.getElementById('rangeControls');
+  wrap.innerHTML = '<span class="muted" style="margin-right:8px;">Rango:</span>';
+  RANGES.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'range-btn' + (r.k===currentRange?' active':'');
+    btn.textContent = r.label;
+    btn.onclick = () => { currentRange = r.k; document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); stopPlayback(); load(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function quadColor(x, y) {
+  if (x >= 100 && y >= 100) return '#2F9E44';
+  if (x >= 100 && y < 100) return '#F59F00';
+  if (x < 100 && y < 100) return '#E03131';
+  return '#4C6EF5';
+}
+
+function buildLegendChips() {
+  const wrap = document.getElementById('legendChips');
+  wrap.innerHTML = '';
+  if (!fullData) return;
+  Object.keys(fullData).forEach(sym => {
+    const points = fullData[sym];
+    if (!points.length) return;
+    const last = points[points.length - 1];
+    const color = quadColor(last.x, last.y);
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (selectedSymbol === sym ? ' selected' : '');
+    chip.style.borderColor = selectedSymbol === sym ? color : '';
+    chip.style.background = selectedSymbol === sym ? color : '';
+    chip.innerHTML = `<span>${sym}</span><span class="rm" data-sym="${sym}">✕</span>`;
+    chip.querySelector('span:first-child').onclick = () => { selectedSymbol = selectedSymbol === sym ? null : sym; buildLegendChips(); renderStatic(); };
+    chip.querySelector('.rm').onclick = (e) => { e.stopPropagation(); removeTicker(sym); };
+    wrap.appendChild(chip);
+  });
+}
+
+function datasetsForFrame(idx) {
+  const datasets = [];
+  for (const sym of Object.keys(fullData)) {
+    const series = fullData[sym];
+    if (!series.length) continue;
+    const endIdx = idx == null ? series.length - 1 : Math.min(idx, series.length - 1);
+    const startIdx = Math.max(0, endIdx - TAIL + 1);
+    const points = series.slice(startIdx, endIdx + 1);
+    const last = points[points.length - 1];
+    const quadCol = quadColor(last.x, last.y);
+    const isDimmed = !playing && selectedSymbol !== sym;
+    const color = isDimmed ? '#3a3f4b' : quadCol;
+    datasets.push({
+      label: sym,
+      data: points.map(p => ({ x: p.x, y: p.y })),
+      showLine: true,
+      borderColor: color,
+      backgroundColor: color,
+      pointRadius: points.map((_, i) => i === points.length - 1 ? 7 : 2.5),
+      borderWidth: isDimmed ? 1 : 2,
+      order: isDimmed ? 2 : 1,
+      tension: 0.2,
+    });
+  }
+  return datasets;
+}
+
+function renderChart(datasets) {
+  const canvas = document.getElementById('rrgChart');
+  if (chart) chart.destroy();
+  chart = new Chart(canvas.getContext('2d'), {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: RS-Ratio ${ctx.parsed.x.toFixed(2)}, RS-Mom ${ctx.parsed.y.toFixed(2)}` } },
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const sym = chart.data.datasets[elements[0].datasetIndex].label;
+        selectedSymbol = selectedSymbol === sym ? null : sym;
+        buildLegendChips();
+        renderStatic();
+      },
+      scales: {
+        x: { min: 94, max: 106, title: { display: true, text: 'RS-Ratio', color: '#8b8f99' }, ticks: { color: '#8b8f99' }, grid: { color: (c) => c.tick.value === 100 ? '#4C6EF5' : '#262a33' } },
+        y: { min: 94, max: 106, title: { display: true, text: 'RS-Momentum', color: '#8b8f99' }, ticks: { color: '#8b8f99' }, grid: { color: (c) => c.tick.value === 100 ? '#4C6EF5' : '#262a33' } },
+      }
+    }
+  });
+}
+
+function renderStatic() {
+  renderChart(datasetsForFrame(null));
+  document.getElementById('frameDate').textContent = '';
+}
+
+function maxFrames() {
+  if (!fullData || !Object.keys(fullData).length) return 0;
+  return Math.max(...Object.values(fullData).map(s => s.length)) - 1;
+}
+
+function renderFrame(idx) {
+  renderChart(datasetsForFrame(idx));
+  const anySeries = Object.values(fullData).find(s => s.length > idx);
+  const t = anySeries ? anySeries[Math.min(idx, anySeries.length - 1)].t : null;
+  document.getElementById('frameDate').textContent = t ? new Date(t).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' }) : '';
+  document.getElementById('frameSlider').value = idx;
+}
+
+function stopPlayback() {
+  playing = false;
+  clearInterval(playTimer);
+  document.getElementById('playBtn').textContent = '▶';
+}
+
+function togglePlay() {
+  if (!fullData || !Object.keys(fullData).length) return;
+  if (playing) { stopPlayback(); renderStatic(); return; }
+  const total = maxFrames();
+  const minStart = Math.min(TAIL, total);
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸';
+  let idx = minStart;
+  renderFrame(idx);
+  playTimer = setInterval(() => {
+    idx++;
+    if (idx > total) { stopPlayback(); renderStatic(); return; }
+    renderFrame(idx);
+  }, 140);
+}
+
+function removeTicker(sym) {
+  const list = getList().filter(s => s !== sym);
+  saveList(list);
+  load();
+}
+
+async function load() {
+  const list = getList();
+  const emptyEl = document.getElementById('emptyState');
+  const chartWrap = document.querySelector('.chart-wrap');
+  if (!list.length) {
+    emptyEl.style.display = 'block';
+    chartWrap.style.display = 'none';
+    fullData = {};
+    buildLegendChips();
+    return;
+  }
+  emptyEl.style.display = 'none';
+  chartWrap.style.display = 'block';
+  try {
+    const r = await fetch(`/api/rrg?symbols=${encodeURIComponent(list.join(','))}&range=${currentRange}`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    fullData = data.rrg;
+    metaData = data.meta;
+    selectedSymbol = null;
+    const total = maxFrames();
+    document.getElementById('frameSlider').max = total;
+    document.getElementById('frameSlider').value = total;
+    buildLegendChips();
+    renderStatic();
+  } catch (e) {
+    chartWrap.innerHTML = `<p class="muted">Error cargando RRG: ${e.message}</p>`;
+  }
+}
+
+document.getElementById('playBtn').onclick = togglePlay;
+document.getElementById('frameSlider').addEventListener('input', (e) => {
+  if (playing) stopPlayback();
+  renderFrame(Number(e.target.value));
+});
+document.getElementById('resetHighlight').onclick = () => { selectedSymbol = null; buildLegendChips(); renderStatic(); };
+document.getElementById('addBtn').onclick = () => {
+  const input = document.getElementById('tickerInput');
+  const sym = input.value.trim().toUpperCase();
+  if (!sym) return;
+  const list = getList();
+  if (!list.includes(sym)) { list.push(sym); saveList(list); }
+  input.value = '';
+  load();
+};
+document.getElementById('tickerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('addBtn').click(); });
+
+buildRangeButtons();
+load();
+setInterval(() => { if (!playing) load(); }, 90000);
+</script>
+</body>
+</html>

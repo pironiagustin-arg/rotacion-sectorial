@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RRG · Rotación Sectorial</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262a33; --text:#e6e8eb; --muted:#8b8f99; --accent:#4C6EF5; --gray:#3a3f4b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:18px; margin:0; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  nav a:hover, nav a.active { color:var(--text); }
+  .container { padding:20px; max-width:1200px; margin:0 auto; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .chart-wrap { height:560px; position:relative; }
+  .muted { color:var(--muted); font-size:13px; margin-top:8px; }
+  .quad-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:10px; }
+  .quad-legend span { display:flex; align-items:center; gap:6px; }
+  .sw { width:10px; height:10px; border-radius:2px; }
+  .range-btn { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; margin-right:6px; }
+  .range-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .controls-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between; }
+  .playback { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .play-btn { background:var(--accent); color:#fff; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; }
+  .play-btn:disabled { opacity:0.5; cursor:default; }
+  input[type=range] { flex:1; min-width:160px; accent-color:var(--accent); }
+  .frame-date { font-size:12px; color:var(--muted); min-width:90px; text-align:right; }
+  .legend-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .chip { background:#11141a; border:1px solid var(--border); color:var(--muted); padding:5px 12px; border-radius:14px; font-size:12px; cursor:pointer; user-select:none; transition:all .15s; }
+  .chip.selected { color:#fff; font-weight:600; border-color:transparent; }
+  .reset-link { color:var(--muted); font-size:12px; cursor:pointer; text-decoration:underline; margin-top:8px; display:inline-block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔄 RRG — Relative Rotation Graph</h1>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/rotation.html" class="active">RRG</a>
+    <a href="/rotation-stocks.html">RRG Acciones</a>
+    <a href="/fundamentals.html">Fundamental</a>
+    <a href="/watchlist.html">Watchlist</a>
+  </nav>
+</header>
+<div class="container">
+  <div class="panel">
+    <div class="controls-row">
+      <div id="rangeControls"></div>
+    </div>
+    <div class="chart-wrap"><canvas id="rrgChart"></canvas></div>
+
+    <div class="legend-chips" id="legendChips"></div>
+    <span class="reset-link" id="resetHighlight">Quitar selección</span>
+
+    <div class="playback">
+      <button class="play-btn" id="playBtn" title="Reproducir movimiento histórico">▶</button>
+      <input type="range" id="frameSlider" min="0" max="100" value="100" />
+      <span class="frame-date" id="frameDate"></span>
+    </div>
+
+    <div class="quad-legend">
+      <span><span class="sw" style="background:#2F9E44"></span>Leading (fuerte y con momentum)</span>
+      <span><span class="sw" style="background:#F59F00"></span>Weakening (fuerte, perdiendo momentum)</span>
+      <span><span class="sw" style="background:#E03131"></span>Lagging (débil y sin momentum)</span>
+      <span><span class="sw" style="background:#4C6EF5"></span>Improving (débil, ganando momentum)</span>
+    </div>
+    <p class="muted">Eje X: RS-Ratio (fuerza relativa normalizada vs S&P 500) · Eje Y: RS-Momentum (aceleración de esa fuerza). Hacé click en un sector para resaltarlo, o usá ▶ para ver la película del movimiento histórico.</p>
+  </div>
+</div>
+<script>
+const RANGES = [{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'},{k:'3y',label:'3A'}];
+const TAIL = 8; // puntos de cola visibles en modo estático
+let currentRange = '1y';
+let chart = null;
+let fullData = null; // { symbol: [{x,y,t}, ...] }
+let selectedSymbol = null; // símbolo resaltado por click
+let frameIndex = null; // índice de frame actual (null = mostrar cola final estática)
+let playing = false;
+let playTimer = null;
+
+function buildRangeButtons() {
+  const wrap = document.getElementById('rangeControls');
+  wrap.innerHTML = '<span class="muted" style="margin-right:8px;">Rango:</span>';
+  RANGES.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'range-btn' + (r.k===currentRange?' active':'');
+    btn.textContent = r.label;
+    btn.onclick = () => { currentRange = r.k; document.querySelectorAll('.range-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); stopPlayback(); load(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function quadColor(x, y) {
+  if (x >= 100 && y >= 100) return '#2F9E44';
+  if (x >= 100 && y < 100) return '#F59F00';
+  if (x < 100 && y < 100) return '#E03131';
+  return '#4C6EF5';
+}
+
+function buildLegendChips() {
+  const wrap = document.getElementById('legendChips');
+  wrap.innerHTML = '';
+  Object.keys(fullData).forEach(sym => {
+    const points = fullData[sym];
+    if (!points.length) return;
+    const last = points[points.length - 1];
+    const color = quadColor(last.x, last.y);
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (selectedSymbol === sym ? ' selected' : '');
+    chip.textContent = sym;
+    chip.style.borderColor = selectedSymbol === sym ? color : '';
+    chip.style.background = selectedSymbol === sym ? color : '';
+    chip.onclick = () => { selectedSymbol = selectedSymbol === sym ? null : sym; buildLegendChips(); renderStatic(); };
+    wrap.appendChild(chip);
+  });
+}
+
+function datasetsForFrame(idx) {
+  const datasets = [];
+  for (const sym of Object.keys(fullData)) {
+    const series = fullData[sym];
+    if (!series.length) continue;
+    const endIdx = idx == null ? series.length - 1 : Math.min(idx, series.length - 1);
+    const startIdx = Math.max(0, endIdx - TAIL + 1);
+    const points = series.slice(startIdx, endIdx + 1);
+    const last = points[points.length - 1];
+    const quadCol = quadColor(last.x, last.y);
+    const isDimmed = !playing && selectedSymbol !== sym;
+    const color = isDimmed ? '#3a3f4b' : quadCol;
+    datasets.push({
+      label: sym,
+      data: points.map(p => ({ x: p.x, y: p.y })),
+      showLine: true,
+      borderColor: color,
+      backgroundColor: color,
+      pointRadius: points.map((_, i) => i === points.length - 1 ? 7 : 2.5),
+      borderWidth: isDimmed ? 1 : 2,
+      order: isDimmed ? 2 : 1,
+      tension: 0.2,
+    });
+  }
+  return datasets;
+}
+
+function renderChart(datasets) {
+  const canvas = document.getElementById('rrgChart');
+  const ctx = canvas.getContext('2d');
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: (ctx) => `${ctx.dataset.label}: RS-Ratio ${ctx.parsed.x.toFixed(2)}, RS-Mom ${ctx.parsed.y.toFixed(2)}` }
+        },
+      },
+      onClick: (evt, elements) => {
+        if (!elements.length) return;
+        const sym = chart.data.datasets[elements[0].datasetIndex].label;
+        selectedSymbol = selectedSymbol === sym ? null : sym;
+        buildLegendChips();
+        renderStatic();
+      },
+      scales: {
+        x: { min: 94, max: 106, title: { display: true, text: 'RS-Ratio', color: '#8b8f99' }, ticks: { color: '#8b8f99' }, grid: { color: (c) => c.tick.value === 100 ? '#4C6EF5' : '#262a33' } },
+        y: { min: 94, max: 106, title: { display: true, text: 'RS-Momentum', color: '#8b8f99' }, ticks: { color: '#8b8f99' }, grid: { color: (c) => c.tick.value === 100 ? '#4C6EF5' : '#262a33' } },
+      }
+    }
+  });
+}
+
+function renderStatic() {
+  renderChart(datasetsForFrame(null));
+  document.getElementById('frameDate').textContent = '';
+}
+
+function maxFrames() {
+  return Math.max(...Object.values(fullData).map(s => s.length)) - 1;
+}
+
+function renderFrame(idx) {
+  frameIndex = idx;
+  renderChart(datasetsForFrame(idx));
+  const anySeries = Object.values(fullData).find(s => s.length > idx);
+  const t = anySeries ? anySeries[Math.min(idx, anySeries.length - 1)].t : null;
+  document.getElementById('frameDate').textContent = t ? new Date(t).toLocaleDateString('es-AR', { day:'2-digit', month:'short', year:'numeric' }) : '';
+  document.getElementById('frameSlider').value = idx;
+}
+
+function stopPlayback() {
+  playing = false;
+  clearInterval(playTimer);
+  document.getElementById('playBtn').textContent = '▶';
+  frameIndex = null;
+}
+
+function togglePlay() {
+  if (playing) { stopPlayback(); renderStatic(); return; }
+  const total = maxFrames();
+  const minStart = Math.min(TAIL, total);
+  playing = true;
+  document.getElementById('playBtn').textContent = '⏸';
+  let idx = minStart;
+  renderFrame(idx);
+  playTimer = setInterval(() => {
+    idx++;
+    if (idx > total) { stopPlayback(); renderStatic(); return; }
+    renderFrame(idx);
+  }, 140);
+}
+
+document.getElementById('playBtn').onclick = togglePlay;
+document.getElementById('frameSlider').addEventListener('input', (e) => {
+  if (playing) stopPlayback();
+  renderFrame(Number(e.target.value));
+});
+document.getElementById('resetHighlight').onclick = () => { selectedSymbol = null; buildLegendChips(); renderStatic(); };
+
+async function load() {
+  const panelWrap = document.querySelector('.chart-wrap');
+  try {
+    const r = await fetch(`/api/sectors?range=${currentRange}`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    fullData = data.rrg;
+    selectedSymbol = null;
+    const total = maxFrames();
+    document.getElementById('frameSlider').max = total;
+    document.getElementById('frameSlider').value = total;
+    buildLegendChips();
+    renderStatic();
+  } catch (e) {
+    panelWrap.innerHTML = `<p class="muted">Error cargando RRG: ${e.message}</p>`;
+  }
+}
+
+buildRangeButtons();
+load();
+setInterval(() => { if (!playing) load(); }, 90000);
+</script>
+</body>
+</html>

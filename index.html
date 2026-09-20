@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rotación Sectorial vs S&P 500</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #262a33; --text: #e6e8eb;
+    --muted: #8b8f99; --accent: #4C6EF5; --green: #2F9E44; --red: #E03131;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:18px; margin:0; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  nav a:hover, nav a.active { color:var(--text); }
+  .container { padding:20px; max-width:1200px; margin:0 auto; }
+  .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+  .range-btn { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
+  .range-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .chart-wrap { height:440px; position:relative; }
+  .legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .legend-item { display:flex; align-items:center; gap:6px; padding:5px 10px; border-radius:16px; border:1px solid var(--border); cursor:pointer; font-size:12px; user-select:none; }
+  .legend-item.off { opacity:0.35; }
+  .dot { width:10px; height:10px; border-radius:50%; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+  .card .name { font-size:12px; color:var(--muted); }
+  .card .val { font-size:20px; font-weight:600; margin-top:4px; }
+  .up { color:var(--green); } .down { color:var(--red); }
+  .alert-tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-top:6px; }
+  .alert-alcista { background:rgba(47,158,68,0.18); color:#69db7c; }
+  .alert-bajista { background:rgba(224,49,49,0.18); color:#ff8787; }
+  .alert-neutral { background:rgba(139,143,153,0.15); color:var(--muted); }
+  .muted { color:var(--muted); font-size:12px; }
+  .loading { padding:40px; text-align:center; color:var(--muted); }
+  select { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Rotación Sectorial vs S&P 500</h1>
+  <nav>
+    <a href="/" class="active">Dashboard</a>
+    <a href="/rotation.html">RRG</a>
+    <a href="/rotation-stocks.html">RRG Acciones</a>
+    <a href="/fundamentals.html">Fundamental</a>
+    <a href="/watchlist.html">Watchlist</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="controls" id="rangeControls">
+    <span class="muted">Rango:</span>
+  </div>
+
+  <div class="panel">
+    <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <strong>Alertas de fuerza relativa</strong>
+      <span class="muted" id="lastUpdate"></span>
+    </div>
+    <div class="grid" id="alertsGrid"><div class="loading">Cargando…</div></div>
+  </div>
+</div>
+
+<script>
+const RANGES = [
+  {k:'1w', label:'1S'}, {k:'1m', label:'1M'}, {k:'3m', label:'3M'},
+  {k:'6m', label:'6M'}, {k:'1y', label:'1A'}, {k:'3y', label:'3A'}, {k:'5y', label:'5A'}
+];
+let currentRange = '1y';
+let currentData = null;
+let hidden = new Set();
+let chart = null;
+
+function fmtPct(v) {
+  if (v == null || isNaN(v)) return '—';
+  const s = v >= 0 ? '+' : '';
+  return `${s}${v.toFixed(2)}%`;
+}
+
+function buildRangeButtons() {
+  const wrap = document.getElementById('rangeControls');
+  RANGES.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'range-btn' + (r.k === currentRange ? ' active' : '');
+    btn.textContent = r.label;
+    btn.dataset.range = r.k;
+    btn.onclick = () => { currentRange = r.k; load(); };
+    wrap.appendChild(btn);
+  });
+}
+
+function updateActiveButtons() {
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.range === currentRange);
+  });
+}
+
+function renderChart(data) {
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  const labels = data.series[0].dates.map(t => {
+    const d = new Date(t);
+    if (['1w'].includes(currentRange)) return d.toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+    return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year: (currentRange==='3y'||currentRange==='5y') ? '2-digit' : undefined});
+  });
+  const datasets = data.series
+    .filter(s => !hidden.has(s.symbol))
+    .map(s => ({
+      label: s.name,
+      symbol: s.symbol,
+      data: s.rel_spread_pct,
+      borderColor: s.color,
+      backgroundColor: s.color,
+      borderWidth: s.is_benchmark ? 3 : 1.75,
+      borderDash: s.is_benchmark ? [] : [],
+      pointRadius: 0,
+      tension: 0.15,
+    }));
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: ${fmtPct(ctx.parsed.y)}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#8b8f99', maxTicksLimit: 10 }, grid: { color: '#262a33' } },
+        y: {
+          ticks: { color: '#8b8f99', callback: (v) => v + '%' },
+          grid: { color: '#262a33' },
+          title: { display: true, text: 'Distancia acumulada vs S&P 500 (%)', color: '#8b8f99' }
+        }
+      }
+    }
+  });
+}
+
+function renderLegend(data) {
+  const wrap = document.getElementById('legend');
+  wrap.innerHTML = '';
+  data.series.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'legend-item' + (hidden.has(s.symbol) ? ' off' : '');
+    el.innerHTML = `<span class="dot" style="background:${s.color}"></span>${s.symbol} · ${s.name}`;
+    el.onclick = () => {
+      if (hidden.has(s.symbol)) hidden.delete(s.symbol); else hidden.add(s.symbol);
+      renderLegend(data);
+      renderChart(data);
+    };
+    wrap.appendChild(el);
+  });
+}
+
+function renderAlerts(data) {
+  const grid = document.getElementById('alertsGrid');
+  grid.innerHTML = '';
+  data.series.filter(s => !s.is_benchmark).forEach(s => {
+    const a = data.alerts[s.symbol] || {};
+    const live = data.live[s.symbol] || {};
+    const chg = live.changePercent;
+    let tag = '<span class="alert-tag alert-neutral">Neutral</span>';
+    if (a.status === 'rotacion_alcista') tag = '<span class="alert-tag alert-alcista">↑ Rotación alcista</span>';
+    if (a.status === 'rotacion_bajista') tag = '<span class="alert-tag alert-bajista">↓ Rotación bajista</span>';
+    if (a.status === 'insuficiente_historial') tag = '<span class="alert-tag alert-neutral">Sin datos suf.</span>';
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML = `
+      <div class="name">${s.symbol} · ${s.name}</div>
+      <div class="val ${chg >= 0 ? 'up' : 'down'}">${fmtPct(chg)}</div>
+      <div class="muted">RS mom. 20d: ${a.momentum_20d != null ? fmtPct(a.momentum_20d) : '—'} (z=${a.z ?? '—'})</div>
+      ${tag}
+    `;
+    grid.appendChild(div);
+  });
+}
+
+async function load() {
+  updateActiveButtons();
+  try {
+    const r = await fetch(`/api/sectors?range=${currentRange}`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    currentData = data;
+    renderChart(data);
+    renderLegend(data);
+    renderAlerts(data);
+    document.getElementById('lastUpdate').textContent = 'Actualizado: ' + new Date(data.last_update).toLocaleTimeString('es-AR');
+  } catch (e) {
+    document.getElementById('alertsGrid').innerHTML = `<div class="loading">Error cargando datos: ${e.message}</div>`;
+  }
+}
+
+buildRangeButtons();
+load();
+setInterval(load, 90000);
+</script>
+</body>
+</html>

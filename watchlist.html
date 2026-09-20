@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Watchlist</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262a33; --text:#e6e8eb; --muted:#8b8f99; --accent:#4C6EF5; --green:#2F9E44; --red:#E03131; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:18px; margin:0; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  nav a:hover, nav a.active { color:var(--text); }
+  .container { padding:20px; max-width:1000px; margin:0 auto; }
+  .lists-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+  .list-tab { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:7px 14px; border-radius:16px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px; }
+  .list-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .list-tab .del { opacity:0.6; font-size:11px; }
+  .list-tab .del:hover { opacity:1; }
+  button.ghost { background:transparent; border:1px dashed var(--border); color:var(--muted); padding:7px 14px; border-radius:16px; cursor:pointer; font-size:13px; }
+  .add-row { display:flex; gap:8px; margin-bottom:16px; }
+  input[type=text] { background:var(--panel); border:1px solid var(--border); color:var(--text); padding:9px 14px; border-radius:8px; font-size:14px; text-transform:uppercase; }
+  button.primary { background:var(--accent); color:#fff; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:14px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:14px; }
+  th { color:var(--muted); font-weight:500; font-size:12px; text-transform:uppercase; }
+  .up { color:var(--green); } .down { color:var(--red); }
+  .sym-link { color:var(--text); text-decoration:none; font-weight:600; }
+  .sym-link:hover { color:var(--accent); }
+  .rm-btn { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:16px; }
+  .rm-btn:hover { color:var(--red); }
+  .empty { padding:40px; text-align:center; color:var(--muted); }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:6px 16px 16px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⭐ Watchlist</h1>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/rotation.html">RRG</a>
+    <a href="/rotation-stocks.html">RRG Acciones</a>
+    <a href="/fundamentals.html">Fundamental</a>
+    <a href="/watchlist.html" class="active">Watchlist</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="lists-row" id="listsRow"></div>
+  <div class="add-row">
+    <input type="text" id="tickerInput" placeholder="AAPL" maxlength="8" />
+    <button class="primary" id="addBtn">Agregar a esta lista</button>
+  </div>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Ticker</th><th>Precio</th><th>Var. %</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="emptyMsg" class="empty" style="display:none;">Lista vacía — agregá un ticker arriba.</div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'watchlists_v2';
+const OLD_KEY = 'watchlist'; // formato viejo de lista única, para migrar
+
+function load() {
+  let raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) return JSON.parse(raw);
+  // Migración desde formato viejo (lista única)
+  const old = localStorage.getItem(OLD_KEY);
+  const migrated = { lists: { 'Principal': old ? JSON.parse(old) : [] }, active: 'Principal' };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+  return migrated;
+}
+function save(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+let state = load();
+
+function renderTabs() {
+  const wrap = document.getElementById('listsRow');
+  wrap.innerHTML = '';
+  Object.keys(state.lists).forEach(name => {
+    const tab = document.createElement('div');
+    tab.className = 'list-tab' + (name === state.active ? ' active' : '');
+    tab.innerHTML = `<span>${name}</span>` + (Object.keys(state.lists).length > 1 ? `<span class="del" data-name="${name}">✕</span>` : '');
+    tab.querySelector('span:first-child').onclick = () => { state.active = name; save(state); renderTabs(); renderRows(); };
+    const del = tab.querySelector('.del');
+    if (del) del.onclick = (e) => {
+      e.stopPropagation();
+      if (!confirm(`¿Borrar la lista "${name}"?`)) return;
+      delete state.lists[name];
+      if (state.active === name) state.active = Object.keys(state.lists)[0];
+      save(state); renderTabs(); renderRows();
+    };
+    wrap.appendChild(tab);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'ghost';
+  addBtn.textContent = '+ Nueva lista';
+  addBtn.onclick = () => {
+    const name = prompt('Nombre de la nueva lista:');
+    if (!name || state.lists[name]) return;
+    state.lists[name] = [];
+    state.active = name;
+    save(state); renderTabs(); renderRows();
+  };
+  wrap.appendChild(addBtn);
+}
+
+async function fetchQuote(sym) {
+  try {
+    const r = await fetch(`/api/sectors?range=1m`);
+    // api/sectors solo trae sectores; para tickers arbitrarios usamos el precio de fundamentals (más liviano: solo el chart de Yahoo vía ese endpoint)
+  } catch (e) {}
+  return null;
+}
+
+async function fetchPrice(sym) {
+  try {
+    const r = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}`);
+    const d = await r.json();
+    const hist = d.history?.price || d.history?.annual ? d.history.price : null;
+    let changePct = null;
+    const priceHist = d.history?.price;
+    if (priceHist && priceHist.length >= 2) {
+      const last = priceHist[priceHist.length - 1].c;
+      const prev = priceHist[priceHist.length - 2].c;
+      changePct = ((last / prev) - 1) * 100;
+    }
+    return { price: d.price, changePct, error: d.error };
+  } catch (e) {
+    return { error: e.message };
+  }
+}
+
+async function renderRows() {
+  const tbody = document.getElementById('rows');
+  const list = state.lists[state.active] || [];
+  document.getElementById('emptyMsg').style.display = list.length ? 'none' : 'block';
+  tbody.innerHTML = list.map(sym => `<tr data-sym="${sym}">
+    <td><a class="sym-link" href="/fundamentals.html?symbol=${sym}" onclick="localStorage.setItem('fund_recent', JSON.stringify([...new Set(['${sym}', ...(JSON.parse(localStorage.getItem('fund_recent')||'[]'))])]))">${sym}</a></td>
+    <td class="p">…</td><td class="c">…</td>
+    <td><button class="rm-btn" data-sym="${sym}">✕</button></td>
+  </tr>`).join('');
+
+  tbody.querySelectorAll('.rm-btn').forEach(btn => {
+    btn.onclick = () => {
+      const sym = btn.dataset.sym;
+      state.lists[state.active] = state.lists[state.active].filter(s => s !== sym);
+      save(state); renderRows();
+    };
+  });
+
+  for (const sym of list) {
+    const q = await fetchPrice(sym);
+    const row = tbody.querySelector(`tr[data-sym="${sym}"]`);
+    if (!row) continue;
+    if (q.error) {
+      row.querySelector('.p').textContent = '—';
+      row.querySelector('.c').textContent = 'error';
+      continue;
+    }
+    row.querySelector('.p').textContent = q.price != null ? q.price.toFixed(2) : '—';
+    const c = row.querySelector('.c');
+    if (q.changePct != null) {
+      c.textContent = (q.changePct >= 0 ? '+' : '') + q.changePct.toFixed(2) + '%';
+      c.className = 'c ' + (q.changePct >= 0 ? 'up' : 'down');
+    } else {
+      c.textContent = '—';
+    }
+  }
+}
+
+document.getElementById('addBtn').onclick = () => {
+  const input = document.getElementById('tickerInput');
+  const sym = input.value.trim().toUpperCase();
+  if (!sym) return;
+  if (!state.lists[state.active]) state.lists[state.active] = [];
+  if (!state.lists[state.active].includes(sym)) state.lists[state.active].push(sym);
+  save(state);
+  input.value = '';
+  renderRows();
+};
+document.getElementById('tickerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('addBtn').click(); });
+
+renderTabs();
+renderRows();
+</script>
+</body>
+</html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Análisis Fundamental</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --border:#262a33; --text:#e6e8eb; --muted:#8b8f99; --accent:#4C6EF5; --green:#2F9E44; --red:#E03131; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
+  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:18px; margin:0; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  nav a:hover, nav a.active { color:var(--text); }
+  .container { padding:20px; max-width:1200px; margin:0 auto; }
+  .search-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  input[type=text] { background:var(--panel); border:1px solid var(--border); color:var(--text); padding:9px 14px; border-radius:8px; font-size:14px; width:140px; text-transform:uppercase; }
+  button, select { font-family:inherit; }
+  button.primary { background:var(--accent); color:#fff; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:14px; }
+  .recent { display:flex; gap:6px; flex-wrap:wrap; }
+  .recent button { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; }
+  .recent button:hover { color:var(--text); }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
+  .header-row { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .company-name { font-size:22px; font-weight:600; }
+  .company-sub, .muted { color:var(--muted); font-size:13px; }
+  .lynch-row { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .lynch-badge { display:inline-block; background:#232838; border:1px solid var(--border); border-radius:999px; padding:3px 12px; font-size:12px; }
+  select { background:#12151b; border:1px solid var(--border); color:var(--text); padding:7px 10px; border-radius:8px; font-size:13px; }
+  .score-ring { text-align:center; }
+  .score-num { font-size:34px; font-weight:700; line-height:1; }
+  .score-label { font-size:11px; color:var(--muted); margin-top:4px; }
+  .price-big { font-size:26px; font-weight:600; text-align:right; }
+  .score-detail { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  .score-detail span { font-size:12px; color:var(--muted); background:#12151b; border:1px solid var(--border); border-radius:6px; padding:3px 8px; }
+  .cards-title { font-size:12px; color:var(--muted); margin:0 0 10px; }
+  .metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
+  .metric { background:#12151b; border:1px solid var(--border); border-left:4px solid #3a3f4b; border-radius:8px; padding:10px 12px; cursor:pointer; transition:background .15s; }
+  .metric:hover { background:#161a22; }
+  .metric.good { border-left-color:var(--green); }
+  .metric.bad { border-left-color:var(--red); }
+  .metric.sel { outline:1px solid var(--accent); }
+  .metric .k { font-size:11px; color:var(--muted); }
+  .metric .v { font-size:18px; font-weight:600; margin-top:2px; }
+  .metric .d { font-size:11px; margin-top:2px; color:var(--muted); min-height:14px; }
+  .metric.good .d { color:#69db7c; }
+  .metric.bad .d { color:#ff8787; }
+  .controls { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:center; margin-bottom:14px; }
+  .controls label.lbl { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; }
+  .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .seg button { background:#12151b; color:var(--muted); border:none; padding:6px 12px; font-size:12px; cursor:pointer; border-right:1px solid var(--border); }
+  .seg button:last-child { border-right:none; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  .toggle { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .chart-wrap { position:relative; height:380px; }
+  .loading { color:var(--muted); padding:40px; text-align:center; }
+  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; }
+  @media (max-width:640px) { .chart-wrap { height:300px; } .price-big { text-align:left; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>🔎 Análisis Fundamental</h1>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/rotation.html">RRG</a>
+    <a href="/rotation-stocks.html">RRG Acciones</a>
+    <a href="/fundamentals.html" class="active">Fundamental</a>
+    <a href="/watchlist.html">Watchlist</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div class="search-row">
+    <input type="text" id="tickerInput" placeholder="AAPL" maxlength="8" />
+    <button class="primary" id="searchBtn">Buscar</button>
+    <div class="recent" id="recentList"></div>
+  </div>
+  <div id="content"><div class="loading">Buscá un ticker (ej: AAPL, MSFT, KO, NVDA) para ver su análisis fundamental.</div></div>
+</div>
+
+<script>
+const COLORS = ['#4C6EF5', '#F59F00'];
+// Métricas donde un valor MÁS BAJO es mejor (para colorear las tarjetas)
+const LOWER_BETTER = new Set(['peRatio', 'peForward', 'peg', 'pbRatio', 'psRatio', 'debtToEquity', 'payoutRatio']);
+const CARD_KEYS = ['peRatio', 'peForward', 'peg', 'pbRatio', 'psRatio', 'roe', 'roic', 'roa', 'grossMargin', 'opMargin', 'netMargin', 'fcfMargin', 'revenueGrowth', 'epsGrowth', 'dividendYield', 'payoutRatio', 'debtToEquity', 'currentRatio'];
+const DEV = 0.08; // ±8% respecto al promedio histórico propio
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+};
+
+let recent = store.get('fund_recent', []);
+let sel = store.get('fund_sel', ['revenue', 'netMargin']);              // 1 o 2 métricas
+let mode = store.get('fund_mode', 'annual');                             // annual | quarterly
+let lookback = store.get('fund_lookback', { annual: 5, quarterly: 8 }); // 0 = todo
+let showAvg = store.get('fund_avg', true);
+let data = null, chart = null;
+
+function fmtBig(v) {
+  if (v == null) return '—';
+  const a = Math.abs(v), s = v < 0 ? '-' : '';
+  if (a >= 1e12) return s + (a / 1e12).toFixed(2) + 'T';
+  if (a >= 1e9) return s + (a / 1e9).toFixed(2) + 'B';
+  if (a >= 1e6) return s + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return s + (a / 1e3).toFixed(2) + 'K';
+  return s + a.toFixed(2);
+}
+function fmt(v, unit) {
+  if (v == null || !isFinite(v)) return '—';
+  if (unit === 'usd') return fmtBig(v);
+  if (unit === 'usdps') return '$' + v.toFixed(2);
+  if (unit === 'pct') return v.toFixed(1) + '%';
+  if (unit === 'x') return v.toFixed(2) + '×';
+  return String(v);
+}
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function renderRecent() {
+  const w = document.getElementById('recentList');
+  w.innerHTML = '';
+  recent.slice(0, 8).forEach((sym) => {
+    const b = document.createElement('button');
+    b.textContent = sym;
+    b.onclick = () => { document.getElementById('tickerInput').value = sym; search(sym); };
+    w.appendChild(b);
+  });
+}
+
+function series(key) { return (data.metrics[key] && data.metrics[key][mode]) || []; }
+function hasSeries(key) { const m = data.metrics[key]; return !!m && (m.annual.some((x) => x.v != null) || m.quarterly.some((x) => x.v != null)); }
+function avgHist(key) {
+  const a = (data.metrics[key]?.annual || []).slice(-10).map((x) => x.v).filter((v) => v != null && isFinite(v));
+  const q = (data.metrics[key]?.quarterly || []).map((x) => x.v).filter((v) => v != null && isFinite(v));
+  const use = a.length >= 3 ? a : q;
+  return use.length >= 3 ? use.reduce((x, y) => x + y, 0) / use.length : null;
+}
+
+function cardsHtml() {
+  return CARD_KEYS.filter((k) => data.metrics[k]).map((k) => {
+    const m = data.metrics[k];
+    const cur = m.current, avg = avgHist(k);
+    let cls = '', note = '';
+    if (cur != null && avg != null && avg !== 0) {
+      const dev = (cur - avg) / Math.abs(avg);
+      if (Math.abs(dev) >= DEV) cls = (LOWER_BETTER.has(k) ? dev < 0 : dev > 0) ? 'good' : 'bad';
+      note = (dev >= 0 ? '+' : '') + (dev * 100).toFixed(0) + '% vs prom. ' + fmt(avg, m.unit);
+    } else if (!hasSeries(k)) {
+      note = 'solo valor actual';
+    }
+    return `<div class="metric ${cls}${sel.includes(k) ? ' sel' : ''}" data-key="${k}" title="Click para graficar">
+      <div class="k">${esc(m.label)}</div><div class="v">${fmt(cur, m.unit)}</div><div class="d">${note}</div></div>`;
+  }).join('');
+}
+
+function optionsHtml(selected) {
+  const groups = {};
+  Object.entries(data.metrics).forEach(([k, m]) => { if (hasSeries(k)) (groups[m.category] = groups[m.category] || []).push([k, m.label]); });
+  let h = '<option value="">— ninguna —</option>';
+  Object.entries(groups).forEach(([cat, arr]) => {
+    h += `<optgroup label="${esc(cat)}">` + arr.map(([k, l]) => `<option value="${k}" ${k === selected ? 'selected' : ''}>${esc(l)}</option>`).join('') + '</optgroup>';
+  });
+  return h;
+}
+function lookbackOptions() { return mode === 'annual' ? [3, 5, 10, 0] : [4, 8, 12, 0]; }
+
+function buildChart() {
+  if (chart) { chart.destroy(); chart = null; }
+  const keys = sel.filter((k) => k && data.metrics[k] && hasSeries(k)).slice(0, 2);
+  const box = document.getElementById('chartBox');
+  if (!keys.length) { box.innerHTML = '<div class="loading">Elegí al menos una métrica.</div>'; return; }
+  box.innerHTML = '<canvas id="mainChart"></canvas>';
+
+  const set = new Set();
+  keys.forEach((k) => series(k).forEach((x) => set.add(x.p)));
+  let labels = [...set].sort();
+  const n = lookback[mode];
+  if (n && labels.length > n) labels = labels.slice(-n);
+
+  const datasets = [];
+  const scales = { x: { ticks: { color: '#8b8f99', maxRotation: 0, autoSkip: true }, grid: { color: '#262a33' } } };
+  keys.forEach((k, i) => {
+    const m = data.metrics[k];
+    const map = new Map(series(k).map((x) => [x.p, x.v]));
+    const vals = labels.map((l) => (map.has(l) ? map.get(l) : null));
+    const axis = i === 0 ? 'y' : 'y1';
+    const color = COLORS[i];
+    const isBar = m.unit === 'usd' && i === 0;
+    datasets.push({ label: m.label, _k: k, data: vals, yAxisID: axis, borderColor: color, backgroundColor: isBar ? color + 'cc' : color,
+      type: isBar ? 'bar' : 'line', borderWidth: 2, pointRadius: 3, tension: 0.2, spanGaps: true, order: isBar ? 2 : 1 });
+    if (showAvg) {
+      const w = mode === 'annual' ? 3 : 4;
+      const ma = vals.map((_, idx) => {
+        const win = vals.slice(Math.max(0, idx - w + 1), idx + 1).filter((v) => v != null);
+        return win.length >= 2 ? win.reduce((a, b) => a + b, 0) / win.length : null;
+      });
+      datasets.push({ label: m.label + ' (prom. móvil ' + w + ')', _k: k, data: ma, yAxisID: axis, type: 'line', borderColor: color, borderDash: [6, 5], borderWidth: 1.5, pointRadius: 0, tension: 0.3, spanGaps: true, order: 0 });
+    }
+    scales[axis] = {
+      type: 'linear', position: i === 0 ? 'left' : 'right',
+      ticks: { color, callback: (v) => fmt(v, m.unit) },
+      grid: { color: '#262a33', drawOnChartArea: i === 0 },
+      title: { display: keys.length > 1, text: m.label, color },
+    };
+  });
+
+  chart = new Chart(document.getElementById('mainChart').getContext('2d'), {
+    data: { labels: labels.map((l) => (mode === 'annual' ? l : l.slice(2, 7).replace('-', '/'))), datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#8b8f99', boxWidth: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + fmt(c.parsed.y, data.metrics[c.dataset._k]?.unit) } },
+      },
+      scales,
+    },
+  });
+}
+
+function render() {
+  const c = document.getElementById('content');
+  if (chart) { chart.destroy(); chart = null; }
+  if (data.error) { c.innerHTML = `<div class="loading">${esc(data.error)}</div>`; return; }
+
+  if (data.history?.source === 'yahoo_price_only') {
+    c.innerHTML = `<div class="panel">
+      <div class="header-row"><div><div class="company-name">${esc(data.symbol)}</div>
+      <div class="company-sub">${esc(data.name || '')} · ${esc(data.exchange || '')} · ${esc(data.currency || '')}</div></div>
+      <div class="price-big">${data.price != null ? data.price.toFixed(2) : '—'}</div></div>
+      <p class="muted" style="margin-top:14px;">${esc(data.note || '')}</p>
+      <div class="chart-wrap" style="margin-top:10px;"><canvas id="priceChart"></canvas></div></div>`;
+    const h = data.history.price || [];
+    chart = new Chart(document.getElementById('priceChart').getContext('2d'), {
+      type: 'line',
+      data: { labels: h.map((x) => new Date(x.t).toLocaleDateString('es-AR', { month: '2-digit', year: '2-digit' })), datasets: [{ label: 'Precio', data: h.map((x) => x.c), borderColor: '#4C6EF5', borderWidth: 1.5, pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#8b8f99', maxTicksLimit: 10 }, grid: { color: '#262a33' } }, y: { ticks: { color: '#8b8f99' }, grid: { color: '#262a33' } } } },
+    });
+    return;
+  }
+
+  const sc = data.score || {};
+  const scoreColor = sc.total >= 60 ? '#69db7c' : sc.total <= 40 ? '#ff8787' : '#e6e8eb';
+  const compLabels = { growth: 'Crecimiento', profitability: 'Rentabilidad', valuation: 'Valuación', health: 'Solvencia' };
+  const lynchOpts = Object.entries(data.lynchOptions || {}).map(([k, l]) => `<option value="${k}" ${data.lynch?.forced && k === data.lynch?.type ? 'selected' : ''}>${esc(l)}</option>`).join('');
+
+  c.innerHTML = `
+  <div class="panel">
+    <div class="header-row">
+      <div>
+        <div class="company-name">${esc(data.name)} <span class="muted">${esc(data.symbol)}</span></div>
+        <div class="company-sub">${esc(data.exchange || '')} · Market cap: ${fmtBig(data.marketCap)} ${esc(data.currency || '')} · Historial ${data.history.annualYears}a / ${data.history.quarterlyPeriods}t</div>
+        <div class="lynch-row"><span class="lynch-badge">${esc(data.lynch?.label || '—')}</span>
+          <select id="lynchSel" title="Clasificación Lynch"><option value="" ${data.lynch?.forced ? '' : 'selected'}>Auto</option>${lynchOpts}</select></div>
+      </div>
+      <div class="score-ring"><div class="score-num" style="color:${scoreColor}">${sc.total ?? '—'}</div><div class="score-label">Score vs. propio historial</div></div>
+      <div><div class="price-big">${data.price != null ? data.price.toFixed(2) : '—'}</div><div class="muted" style="text-align:right">${esc(data.currency || '')}</div></div>
+    </div>
+    <div class="score-detail">${Object.entries(sc.components || {}).map(([k, v]) => `<span>${compLabels[k] || k}: <b>${v ?? '—'}</b> <i>(×${sc.weights?.[k] ?? 1})</i></span>`).join('')}</div>
+  </div>
+
+  <div class="panel">
+    <p class="cards-title">Verde/rojo: la métrica actual se desvía más de ±8% de su promedio histórico, a favor / en contra. Click en una tarjeta para graficarla.</p>
+    <div class="metrics-grid" id="cards">${cardsHtml()}</div>
+  </div>
+
+  <div class="panel">
+    <div class="controls">
+      <label class="lbl"><span class="dot" style="background:${COLORS[0]}"></span>Eje izq.<select id="selA">${optionsHtml(sel[0])}</select></label>
+      <label class="lbl"><span class="dot" style="background:${COLORS[1]}"></span>Eje der.<select id="selB">${optionsHtml(sel[1])}</select></label>
+      <div class="seg" id="modeSeg"><button data-m="annual" class="${mode === 'annual' ? 'on' : ''}">Anual</button><button data-m="quarterly" class="${mode === 'quarterly' ? 'on' : ''}">Trimestral</button></div>
+      <div class="seg" id="lbSeg">${lookbackOptions().map((n) => `<button data-n="${n}" class="${lookback[mode] === n ? 'on' : ''}">${n ? 'Últ. ' + n : 'Todo'}</button>`).join('')}</div>
+      <label class="toggle"><input type="checkbox" id="chkAvg" ${showAvg ? 'checked' : ''}/> Promedio móvil</label>
+    </div>
+    <div class="chart-wrap" id="chartBox"></div>
+  </div>`;
+
+  wire();
+  buildChart();
+}
+
+function wire() {
+  const $ = (id) => document.getElementById(id);
+  const pick = () => { sel = [$('selA').value, $('selB').value].filter(Boolean); store.set('fund_sel', sel); render(); };
+  $('selA').onchange = pick;
+  $('selB').onchange = pick;
+  $('modeSeg').onclick = (e) => { const m = e.target.dataset.m; if (!m) return; mode = m; store.set('fund_mode', mode); render(); };
+  $('lbSeg').onclick = (e) => { if (e.target.dataset.n == null) return; lookback[mode] = Number(e.target.dataset.n); store.set('fund_lookback', lookback); render(); };
+  $('chkAvg').onchange = () => { showAvg = $('chkAvg').checked; store.set('fund_avg', showAvg); buildChart(); };
+  $('lynchSel').onchange = () => search(data.symbol, $('lynchSel').value);
+  $('cards').onclick = (e) => {
+    const el = e.target.closest('.metric'); if (!el) return;
+    const k = el.dataset.key;
+    if (!hasSeries(k)) return;
+    sel = sel.includes(k) ? sel.filter((x) => x !== k) : [...sel, k].slice(-2);
+    store.set('fund_sel', sel); render();
+  };
+}
+
+async function search(symOverride, lynch) {
+  const sym = (symOverride || document.getElementById('tickerInput').value || '').trim().toUpperCase();
+  if (!sym) return;
+  document.getElementById('tickerInput').value = sym;
+  document.getElementById('content').innerHTML = '<div class="loading">Cargando…</div>';
+  try {
+    const r = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}` + (lynch ? `&lynch=${encodeURIComponent(lynch)}` : ''));
+    data = await r.json();
+    render();
+    if (!data.error) {
+      recent = [sym, ...recent.filter((s) => s !== sym)].slice(0, 10);
+      store.set('fund_recent', recent);
+      renderRecent();
+    }
+  } catch (e) {
+    document.getElementById('content').innerHTML = `<div class="loading">Error: ${esc(e.message)}</div>`;
+  }
+}
+
+document.getElementById('searchBtn').onclick = () => search();
+document.getElementById('tickerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+renderRecent();
+const qs = new URLSearchParams(location.search).get('symbol');
+if (qs) search(qs);
+</script>
+</body>
+</html>
