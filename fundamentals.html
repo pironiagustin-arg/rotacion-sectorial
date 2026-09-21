@@ -214,12 +214,12 @@ const LABEL_EN = {
   currentRatio: 'Current Ratio', altmanZ: 'Altman Z-Score',
   operatingCashFlow: 'Operating Cash Flow', fcf: 'Free Cash Flow', ebitda: 'EBITDA',
   revenue: 'Revenue', grossProfit: 'Gross Profit', operatingIncome: 'Operating Income', netIncome: 'Net Income', eps: 'Diluted EPS',
-  totalDebt: 'Total Debt', inventory: 'Inventory',
+  totalDebt: 'Total Debt', inventory: 'Inventory', rsi14: 'RSI (14)', macd: 'MACD',
 };
 const CAT_EN = {
   'Valuación · Múltiplos': 'Valuation · Multiples', 'Valuación · Yields': 'Valuation · Yields', 'Márgenes': 'Margins',
   'Rentabilidad': 'Profitability', 'Crecimiento': 'Growth', 'Dividendos': 'Dividends', 'Solvencia': 'Solvency',
-  'Caja': 'Cash Flow', 'Resultados': 'Income Statement', 'Balance': 'Balance Sheet',
+  'Caja': 'Cash Flow', 'Resultados': 'Income Statement', 'Balance': 'Balance Sheet', 'Técnico': 'Technical',
 };
 const NOTE_EN = {
   peForward: 'Current (card) = price ÷ NTM EPS, Yahoo consensus. The chart shows history: price ÷ realized EPS of the following 12 months.',
@@ -232,13 +232,15 @@ const NOTE_EN = {
   debtPaybackYield: '(Debt repayment − debt issuance) ÷ market cap. Negative = the company is taking on more debt.',
   shareholderYield: 'Dividends + buybacks + net debt repayment, over market cap.',
   buybackYield: 'Share buybacks (LTM) ÷ market cap.',
+  rsi14: '14-period RSI on daily closing price. ≤35 oversold, 35–70 neutral, >70 overbought.',
+  macd: 'MACD (12, 26, 9) on daily closing price. MACD > signal: bullish. MACD < signal: bearish.',
 };
 function mLabel(k) { const m = M(k); return LANG === 'en' ? (LABEL_EN[k] || m.label) : m.label; }
 function catLabel(cat) { return LANG === 'en' ? (CAT_EN[cat] || cat) : cat; }
 function mNote(k) { const m = M(k); if (LANG === 'en' && NOTE_EN[k]) return NOTE_EN[k]; return m.note; }
 
 const COLORS = ['#4C6EF5', '#F59F00', '#2F9E44', '#E64980', '#AE3EC9', '#20C997'];
-const CAT_ORDER = ['Valuación · Múltiplos', 'Valuación · Yields', 'Márgenes', 'Rentabilidad', 'Crecimiento', 'Dividendos', 'Solvencia', 'Caja', 'Resultados', 'Balance'];
+const CAT_ORDER = ['Técnico', 'Valuación · Múltiplos', 'Valuación · Yields', 'Márgenes', 'Rentabilidad', 'Crecimiento', 'Dividendos', 'Solvencia', 'Caja', 'Resultados', 'Balance'];
 const MAX_PER_PANEL = 4, MAX_PANELS = 4;
 const SCORE_GROUPS_T = [
   [['Valuación', 'Valuation'], ['Valuación · Múltiplos', 'Valuación · Yields']],
@@ -379,6 +381,7 @@ function fmt(v, unit) {
   if (unit === 'usdps') return '$' + v.toFixed(2);
   if (unit === 'pct') return v.toFixed(Math.abs(v) < 10 ? 2 : 1) + '%';
   if (unit === 'x') return v.toFixed(2) + '×';
+  if (unit === 'num') return v.toFixed(2);
   return String(v);
 }
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -442,34 +445,74 @@ function favRank(k) {
   return d > 0 ? m.rank3y : d < 0 ? 100 - m.rank3y : null;
 }
 function slope(k, n) { const a = ann(k); if (a.length < n + 1) return null; return a[a.length - 1].v - a[a.length - 1 - n].v; }
+// Bandas de tus dos capturas: la general (image1, "de manual") y la de Tech/Fast Grower (image2, más
+// permisiva para valuar crecimiento). fastGrower usa la de Tech; el resto, la general. Cyclical invierte el P/E.
+function band4(v, b1, b2, b3, s1, s2, s3, s4) { return v <= b1 ? s1 : v <= b2 ? s2 : v <= b3 ? s3 : s4; }
 function ruleScore(k) {
   const v = cur(k), t = typeKey();
   if (v == null) return null;
+  const isTech = t === 'fastGrower';
   switch (k) {
     case 'peRatio':
       if (v <= 0) return null;
-      if (t === 'cyclical') return v < 10 ? 10 : v < 15 ? 35 : v < 25 ? 65 : 90;
-      return v < 15 ? 100 : v < 25 ? 70 : v < 30 ? 45 : 20;
+      if (t === 'cyclical') return v < 10 ? 10 : v < 15 ? 35 : v < 25 ? 65 : 90; // invertido: P/E bajo = pico del ciclo
+      if (isTech) return band4(v, 23, 40, 65, 100, 70, 40, 15); // Barato/Razonable/Caro/Muy caro
+      return band4(v, 12, 18, 35, 100, 70, 40, 15); // Muy barato/Razonable/Caro/Muy caro
+    case 'peForward': return v <= 0 ? null : v < 20 ? 100 : v <= 35 ? 65 : 25; // Barato/Razonable/Caro
+    case 'psRatio': return isTech ? band4(v, 4, 8, 12, 100, 70, 40, 15) : null; // Barato/Razonable/Caro/Muy caro (Tech)
+    case 'evEbitda': return band4(v, 15, 25, 35, 100, 70, 40, 15); // Atractivo/Razonable/Caro/Muy caro
     case 'peg': return v <= 0 ? null : v < 1 ? 100 : v <= 1.5 ? 75 : v <= 2 ? 45 : 15;
-    case 'roe': { const de = cur('debtToEquity'); if (v > 25 && de != null && de > 1.5) return 30; return v > 15 ? 100 : v >= 10 ? 60 : 20; }
+    case 'roe': {
+      const de = cur('debtToEquity'); if (v > 25 && de != null && de > 1.5) return 30; // ROE alto + deuda alta = trampa
+      if (isTech) return v > 25 ? 100 : v >= 15 ? 65 : 30; // "Excelente" > 25%
+      return v >= 18 ? 100 : v >= 12 ? 70 : v >= 7 ? 40 : 15;
+    }
+    case 'roa': return isTech ? (v > 12 ? 100 : v >= 6 ? 60 : 25) : (v >= 6 ? 100 : v >= 3 ? 65 : v >= 1 ? 35 : 15);
     case 'roic': return v > 12 ? 100 : v >= 8 ? 55 : 20;
+    case 'grossMargin': return v >= 40 ? 100 : v >= 25 ? 70 : v >= 10 ? 40 : 15;
+    case 'opMargin': return v >= 20 ? 100 : v >= 10 ? 70 : v >= 5 ? 40 : 15;
+    case 'netMargin': {
+      if (isTech) return v > 20 ? 100 : v >= 12 ? 65 : 25; // Excelente >20% / Bueno-Aceptable 12-20%
+      return v >= 12 ? 100 : v >= 6 ? 65 : v >= 2 ? 35 : 10;
+    }
+    case 'debtToEquity': {
+      if (isTech) return v <= 0.5 ? 100 : v <= 1.2 ? 60 : 15; // Excelente/Aceptable/Peligro
+      return v <= 0.3 ? 100 : v <= 1.5 ? 65 : v <= 3 ? 35 : 10;
+    }
     case 'debtToEbitda': return v < 1 ? 100 : v < 2 ? 85 : v < 3 ? 60 : v < 5 ? 25 : 5;
-    case 'netDebtToEbitda': return v < 0 ? 100 : v < 1 ? 100 : v < 2 ? 85 : v < 3 ? 60 : v < 5 ? 25 : 5;
+    case 'netDebtToEbitda': {
+      if (v < 0) return 100;
+      if (isTech) return v < 1 ? 100 : v <= 2.5 ? 60 : 15; // Excelente / Aceptable / Peligro
+      return v < 1 ? 100 : v < 2 ? 85 : v < 3 ? 60 : v < 5 ? 25 : 5;
+    }
     case 'fcfYield': return v > 8 ? 100 : v > 5 ? 85 : v >= 2 ? 55 : v >= 0 ? 25 : 0;
     case 'payoutRatio': return v <= 60 ? 100 : v <= 70 ? 75 : v <= 80 ? 40 : 10;
     case 'dividendYield': return t === 'slowGrower' ? (v >= 3 && v <= 6 ? 100 : v > 6 ? 70 : v >= 2 ? 60 : 25) : null;
-    case 'opMargin': { const s = slope(k, 3); return s == null ? null : s >= 0 ? 85 : s > -3 ? 55 : 25; }
     case 'altmanZ': return v > 2.99 ? 100 : v >= 1.8 ? 50 : 10;
-    case 'currentRatio': return v >= 1.5 ? 100 : v >= 1 ? 65 : 25;
-    case 'pbRatio': return t === 'assetPlay' ? (v < 1 ? 100 : v < 1.5 ? 70 : v < 3 ? 40 : 15) : null;
+    case 'currentRatio': {
+      if (isTech) return v > 1.5 ? 100 : v >= 1 ? 60 : 15; // Muy líquida / Equilibrada / Problemas de caja
+      return v >= 2 ? 100 : v >= 1.5 ? 75 : v >= 1 ? 45 : 15;
+    }
+    case 'pbRatio': {
+      if (t === 'assetPlay') return v < 1 ? 100 : v < 1.5 ? 70 : v < 3 ? 40 : 15;
+      if (isTech) return v >= 5 && v <= 12 ? 100 : v < 5 ? 65 : v <= 15 ? 50 : 20; // "normal para Tech" 5x-12x
+      return null;
+    }
+    case 'epsGrowth': { const a = ann(k); const g = a.length ? a[a.length - 1].v : null; return g == null ? null : g >= 25 ? 100 : g >= 15 ? 70 : g >= 5 ? 40 : 15; }
     case 'revenueGrowth': {
       const a = ann(k); const g = a.length ? a[a.length - 1].v : null; if (g == null) return null;
       if (t === 'fastGrower') return g > 20 ? 100 : g >= 10 ? 60 : 20;
       if (t === 'stalwart') return g >= 8 ? 100 : g >= 4 ? 60 : 30;
-      return null;
+      return g >= 20 ? 100 : g >= 10 ? 70 : g >= 0 ? 40 : 15; // Excelente/Bueno/Bajo/Negativo
     }
     default: return null;
   }
+}
+// bolita de RSI(14) y MACD: técnicos de precio, no entran al score (dir:0) pero se colorean por regla
+function techScore(k) {
+  if (k === 'rsi14') { const v = cur('rsi14'); return v == null ? null : v <= 35 ? 100 : v <= 70 ? 55 : 15; }
+  if (k === 'macd') { const m = cur('macd'), sg = cur('macdSignal'); if (m == null || sg == null) return null; return m > sg ? 100 : m < sg ? 15 : 55; }
+  return null;
 }
 function metricScore(k) {
   const f = favRank(k), r = ruleScore(k);
@@ -569,10 +612,15 @@ const EYE_OFF = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" str
 const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
 
 function favColor(f) { return f == null ? '#6b7280' : f >= 70 ? '#2F9E44' : f <= 30 ? '#E03131' : '#9aa0aa'; }
+function techLine(k) {
+  if (k === 'rsi14') { const v = cur('rsi14'); if (v == null) return ''; return v <= 35 ? tt('Sobrevendido (oportunidad)', 'Oversold (opportunity)') : v <= 70 ? tt('Zona neutral', 'Neutral zone') : tt('Sobrecomprado', 'Overbought'); }
+  if (k === 'macd') { const m = cur('macd'), sgv = cur('macdSignal'); if (m == null || sgv == null) return ''; return m > sgv ? tt('Alcista (MACD > señal)', 'Bullish (MACD > signal)') : m < sgv ? tt('Bajista (MACD < señal)', 'Bearish (MACD < signal)') : tt('Posible cambio de tendencia', 'Possible trend change'); }
+  return null;
+}
 function cardsHtml() {
   const act = panels[active]?.sel || [];
   const ex = excludedSet();
-  return byCategory(() => true).map(([cat, keys]) => {
+  return byCategory((k) => !data.metrics[k].hidden).map(([cat, keys]) => {
     const withData = keys.filter((k) => data.metrics[k].current != null);
     const isCollapsed = !!collapsed[cat];
     const cards = keys.map((k) => {
@@ -580,6 +628,8 @@ function cardsHtml() {
       const hasVal = m.current != null;
       const off = ex.has(k) || !hasVal;
       const isScore = scorable(k);
+      const isTech = k === 'rsi14' || k === 'macd';
+      const colorScore = isScore ? metricScore(k) : isTech ? techScore(k) : null;
       const inv = T().invert && T().invert.includes(k);
       const rankTip = m.rank3y != null ? `${tt(UI.perc3y[0], UI.perc3y[1])} ${m.rank3y} ${tt(UI.minMax[0], UI.minMax[1])} · ${tt(UI.avg3y[0], UI.avg3y[1])} ${fmt(m.avg3y, m.unit)}${inv ? ' · ' + tt(UI.invertedCyc[0], UI.invertedCyc[1]) : ''}` : tt(UI.noRankHist[0], UI.noRankHist[1]);
       const slider = m.rank3y != null
@@ -587,11 +637,16 @@ function cardsHtml() {
         : `<div class="rank none" title="${esc(rankTip)}"></div>`;
       const w = (T().w || {})[k];
       const cardTitle = mNote(k) || tt(UI.yourClick[0], UI.yourClick[1]);
-      return `<div class="metric${off ? ' off' : ''}${act.includes(k) ? ' sel' : ''}${!hasVal ? ' nodata' : ''}" data-key="${k}" style="border-left-color:${isScore && !off ? favColor(metricScore(k)) : '#3a3f4b'}" title="${esc(cardTitle)}">
+      const techSub = isTech ? techLine(k) : null;
+      let bottomLine;
+      if (isScore) bottomLine = slider;
+      else if (isTech && techSub) bottomLine = `<div class="d" style="color:${colorScore != null ? favColor(colorScore) : ''}">${esc(techSub)}</div>`;
+      else bottomLine = `<div class="d">${!hasVal ? tt(UI.noData[0], UI.noData[1]) : m.unit === 'usd' || m.unit === 'usdps' ? (k === 'dividendsPerShare' ? tt(UI.ttm[0], UI.ttm[1]) : tt(UI.lastQ[0], UI.lastQ[1])) : ''}</div>`;
+      return `<div class="metric${off && isScore ? ' off' : ''}${act.includes(k) ? ' sel' : ''}${!hasVal ? ' nodata' : ''}" data-key="${k}" style="border-left-color:${colorScore != null && (!isScore || !off) ? favColor(colorScore) : '#3a3f4b'}" title="${esc(cardTitle)}">
         ${hasVal && isScore ? `<button class="eye" data-act="eye" data-k="${k}" title="${esc(off ? tt(UI.eyeShow[0], UI.eyeShow[1]) : tt(UI.eyeHide[0], UI.eyeHide[1]))}">${off ? EYE_OFF : EYE}</button>` : ''}
         <div class="k">${esc(mLabel(k))}${w > 1 && isScore ? ` <span class="wt" title="${esc(tt(UI.keyMetricTip[0], UI.keyMetricTip[1]))} ${esc(T().name)}">★</span>` : ''}</div>
         <div class="v">${hasVal ? fmt(m.current, m.unit) : '—'}</div>
-        ${isScore ? slider : `<div class="d">${!hasVal ? tt(UI.noData[0], UI.noData[1]) : m.unit === 'usd' || m.unit === 'usdps' ? (k === 'dividendsPerShare' ? tt(UI.ttm[0], UI.ttm[1]) : tt(UI.lastQ[0], UI.lastQ[1])) : ''}</div>`}
+        ${bottomLine}
       </div>`;
     }).join('');
     const scorableKeys = withData.filter(scorable);
@@ -826,6 +881,47 @@ function refreshSelection() {
   document.querySelectorAll('.metric').forEach((el) => el.classList.toggle('sel', act.includes(el.dataset.key)));
 }
 
+
+// ---------- técnicos (RSI 14 y MACD 12/26/9) calculados del historial de precio diario ----------
+function computeEMA(vals, period) {
+  const k = 2 / (period + 1);
+  const out = [];
+  let ema = null;
+  vals.forEach((v) => { ema = ema == null ? v : v * k + ema * (1 - k); out.push(ema); });
+  return out;
+}
+function computeRSI14(closes) {
+  if (closes.length < 15) return null;
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= 14; i++) { const d = closes[i] - closes[i - 1]; if (d >= 0) gains += d; else losses -= d; }
+  let avgGain = gains / 14, avgLoss = losses / 14;
+  for (let i = 15; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    avgGain = (avgGain * 13 + Math.max(d, 0)) / 14;
+    avgLoss = (avgLoss * 13 + Math.max(-d, 0)) / 14;
+  }
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+function computeMACD(closes) {
+  if (closes.length < 35) return { macd: null, signal: null };
+  const ema12 = computeEMA(closes, 12), ema26 = computeEMA(closes, 26);
+  const macdLine = closes.map((_, i) => ema12[i] - ema26[i]);
+  const signalLine = computeEMA(macdLine.slice(25), 9); // el MACD solo es válido desde que ambas EMA existen
+  return { macd: macdLine[macdLine.length - 1], signal: signalLine[signalLine.length - 1] };
+}
+function attachTechnicals(d) {
+  const closes = (d.history?.price || []).map((p) => p.c).filter((c) => c != null);
+  const rsi = computeRSI14(closes);
+  const { macd, signal } = computeMACD(closes);
+  const empty = { annual: [], quarterly: [] };
+  d.metrics.rsi14 = { label: 'RSI (14)', category: 'Técnico', unit: 'num', dir: 0, current: rsi == null ? null : round2(rsi), rank3y: null, avg3y: null, note: 'RSI de 14 períodos sobre el precio de cierre diario. ≤35 sobrevendido, 35–70 neutral, >70 sobrecomprado.', ...empty };
+  d.metrics.macd = { label: 'MACD', category: 'Técnico', unit: 'num', dir: 0, current: macd == null ? null : round2(macd), rank3y: null, avg3y: null, note: 'MACD (12, 26, 9) sobre el precio de cierre diario. MACD > señal: alcista. MACD < señal: bajista.', ...empty };
+  d.metrics.macdSignal = { label: 'MACD Signal', category: 'Técnico', unit: 'num', dir: 0, current: signal == null ? null : round2(signal), rank3y: null, avg3y: null, ...empty, hidden: true };
+}
+function round2(v) { return Math.round(v * 100) / 100; }
+
 async function search(symOverride, lynch) {
   const sym = (symOverride || document.getElementById('tickerInput').value || '').trim().toUpperCase();
   if (!sym) return;
@@ -834,6 +930,7 @@ async function search(symOverride, lynch) {
   try {
     const r = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}` + (lynch ? `&lynch=${encodeURIComponent(lynch)}` : ''));
     data = await r.json();
+    if (!data.error && data.metrics) attachTechnicals(data);
     render();
     if (!data.error) {
       recent = [sym, ...recent.filter((s) => s !== sym)].slice(0, 10);

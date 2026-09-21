@@ -35,6 +35,17 @@
   .chip { background:#11141a; border:1px solid var(--border); color:var(--muted); padding:5px 12px; border-radius:14px; font-size:12px; cursor:pointer; user-select:none; transition:all .15s; }
   .chip.selected { color:#fff; font-weight:600; border-color:transparent; }
   .reset-link { color:var(--muted); font-size:12px; cursor:pointer; text-decoration:underline; margin-top:8px; display:inline-block; }
+  .follow-toggle { font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:14px; }
+  .wl-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+  .wl-table th { text-align:left; color:var(--muted); font-weight:500; padding:6px 10px; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+  .wl-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .wl-table tr:last-child td { border-bottom:none; }
+  .wl-table tr { cursor:pointer; }
+  .wl-table tr:hover td { background:#1b1f28; }
+  .wl-table tr.sel td { background:#1b2033; }
+  .wl-sym { font-weight:600; }
+  .wl-quad { display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:12px; font-size:12px; font-weight:600; }
+  .wl-num { color:var(--muted); font-variant-numeric:tabular-nums; }
 </style>
 </head>
 <body>
@@ -58,6 +69,7 @@
 
     <div class="legend-chips" id="legendChips"></div>
     <span class="reset-link" id="resetHighlight">Quitar selección</span>
+    <label class="follow-toggle" id="followToggleWrap" style="display:none;"><input type="checkbox" id="followOnly"/> Ver solo este sector</label>
 
     <div class="playback">
       <button class="play-btn" id="playBtn" title="Reproducir movimiento histórico">▶</button>
@@ -73,6 +85,13 @@
     </div>
     <p class="muted">Eje X: RS-Ratio (fuerza relativa normalizada vs S&P 500) · Eje Y: RS-Momentum (aceleración de esa fuerza). Hacé click en un sector para resaltarlo, o usá ▶ para ver la película del movimiento histórico.</p>
   </div>
+
+  <div class="panel">
+    <div class="controls-row" style="margin-bottom:10px;">
+      <b style="font-size:14px;">Watchlist — cuadrante actual</b>
+    </div>
+    <div id="watchlistWrap"><p class="muted">Cargando…</p></div>
+  </div>
 </div>
 <script>
 const RANGES = [{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'},{k:'3y',label:'3A'}];
@@ -81,6 +100,7 @@ let currentRange = '1y';
 let chart = null;
 let fullData = null; // { symbol: [{x,y,t}, ...] }
 let selectedSymbol = null; // símbolo resaltado por click
+let metaData = null; // { symbol: {name,color,is_benchmark} }
 let frameIndex = null; // índice de frame actual (null = mostrar cola final estática)
 let playing = false;
 let playTimer = null;
@@ -117,14 +137,16 @@ function buildLegendChips() {
     chip.textContent = sym;
     chip.style.borderColor = selectedSymbol === sym ? color : '';
     chip.style.background = selectedSymbol === sym ? color : '';
-    chip.onclick = () => { selectedSymbol = selectedSymbol === sym ? null : sym; buildLegendChips(); renderStatic(); };
+    chip.onclick = () => { selectedSymbol = selectedSymbol === sym ? null : sym; buildLegendChips(); renderStatic(); updateFollowToggle(); buildWatchlist(); };
     wrap.appendChild(chip);
   });
 }
 
 function datasetsForFrame(idx) {
+  const followOnly = document.getElementById('followOnly')?.checked;
   const datasets = [];
   for (const sym of Object.keys(fullData)) {
+    if (followOnly && selectedSymbol && sym !== selectedSymbol) continue;
     const series = fullData[sym];
     if (!series.length) continue;
     const endIdx = idx == null ? series.length - 1 : Math.min(idx, series.length - 1);
@@ -132,7 +154,7 @@ function datasetsForFrame(idx) {
     const points = series.slice(startIdx, endIdx + 1);
     const last = points[points.length - 1];
     const quadCol = quadColor(last.x, last.y);
-    const isDimmed = !playing && selectedSymbol !== sym;
+    const isDimmed = !followOnly && selectedSymbol && selectedSymbol !== sym;
     const color = isDimmed ? '#3a3f4b' : quadCol;
     datasets.push({
       label: sym,
@@ -171,6 +193,8 @@ function renderChart(datasets) {
         selectedSymbol = selectedSymbol === sym ? null : sym;
         buildLegendChips();
         renderStatic();
+        updateFollowToggle();
+        buildWatchlist();
       },
       scales: {
         x: { min: 94, max: 106, title: { display: true, text: 'RS-Ratio', color: '#8b8f99' }, ticks: { color: '#8b8f99' }, grid: { color: (c) => c.tick.value === 100 ? '#4C6EF5' : '#262a33' } },
@@ -217,7 +241,7 @@ function togglePlay() {
     idx++;
     if (idx > total) { stopPlayback(); renderStatic(); return; }
     renderFrame(idx);
-  }, 140);
+  }, 320);
 }
 
 document.getElementById('playBtn').onclick = togglePlay;
@@ -225,7 +249,55 @@ document.getElementById('frameSlider').addEventListener('input', (e) => {
   if (playing) stopPlayback();
   renderFrame(Number(e.target.value));
 });
-document.getElementById('resetHighlight').onclick = () => { selectedSymbol = null; buildLegendChips(); renderStatic(); };
+function updateFollowToggle() {
+  const wrap = document.getElementById('followToggleWrap');
+  wrap.style.display = selectedSymbol ? 'flex' : 'none';
+  if (!selectedSymbol) document.getElementById('followOnly').checked = false;
+}
+document.getElementById('followOnly').addEventListener('change', () => { if (playing) stopPlayback(); renderStatic(); });
+document.getElementById('resetHighlight').onclick = () => { selectedSymbol = null; buildLegendChips(); renderStatic(); updateFollowToggle(); buildWatchlist(); };
+
+function quadInfo(x, y) {
+  if (x >= 100 && y >= 100) return { key: 'leading', label: 'Leading', color: '#2F9E44' };
+  if (x >= 100 && y < 100) return { key: 'weakening', label: 'Weakening', color: '#F59F00' };
+  if (x < 100 && y < 100) return { key: 'lagging', label: 'Lagging', color: '#E03131' };
+  return { key: 'improving', label: 'Improving', color: '#4C6EF5' };
+}
+function buildWatchlist() {
+  const wrap = document.getElementById('watchlistWrap');
+  const syms = fullData ? Object.keys(fullData).filter(s => fullData[s] && fullData[s].length) : [];
+  if (!syms.length) { wrap.innerHTML = '<p class="muted">Sin datos.</p>'; return; }
+  const rows = syms.map(sym => {
+    const series = fullData[sym];
+    const last = series[series.length - 1];
+    const q = quadInfo(last.x, last.y);
+    const prev = series.length > 1 ? series[series.length - 2] : null;
+    const dx = prev ? last.x - prev.x : null;
+    const name = metaData && metaData[sym] ? metaData[sym].name : '';
+    return { sym, name, last, q, dx };
+  }).sort((a, b) => b.last.x - a.last.x);
+
+  let html = '<table class="wl-table"><thead><tr><th>Sector</th><th>Cuadrante</th><th>RS-Ratio</th><th>RS-Momentum</th><th>Δ período</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const arrow = r.dx == null ? '—' : (r.dx >= 0 ? '↗' : '↘') + ' ' + (r.dx >= 0 ? '+' : '') + r.dx.toFixed(2);
+    html += `<tr class="${selectedSymbol === r.sym ? 'sel' : ''}" data-sym="${r.sym}">
+      <td><span class="wl-sym">${r.sym}</span>${r.name ? ' <span class="muted">· ' + r.name + '</span>' : ''}</td>
+      <td><span class="wl-quad" style="background:${r.q.color}22;color:${r.q.color}">${r.q.label}</span></td>
+      <td class="wl-num">${r.last.x.toFixed(2)}</td>
+      <td class="wl-num">${r.last.y.toFixed(2)}</td>
+      <td class="wl-num">${arrow}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('tr[data-sym]').forEach(tr => {
+    tr.onclick = () => {
+      const sym = tr.dataset.sym;
+      selectedSymbol = selectedSymbol === sym ? null : sym;
+      buildLegendChips(); renderStatic(); updateFollowToggle(); buildWatchlist();
+    };
+  });
+}
 
 async function load() {
   const panelWrap = document.querySelector('.chart-wrap');
@@ -234,12 +306,15 @@ async function load() {
     const data = await r.json();
     if (data.error) throw new Error(data.error);
     fullData = data.rrg;
+    metaData = data.meta || null;
     selectedSymbol = null;
     const total = maxFrames();
     document.getElementById('frameSlider').max = total;
     document.getElementById('frameSlider').value = total;
     buildLegendChips();
     renderStatic();
+    updateFollowToggle();
+    buildWatchlist();
   } catch (e) {
     panelWrap.innerHTML = `<p class="muted">Error cargando RRG: ${e.message}</p>`;
   }

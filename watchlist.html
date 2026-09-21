@@ -58,7 +58,7 @@
   </div>
   <div class="panel">
     <table>
-      <thead><tr><th>Ticker</th><th>Precio</th><th>Var. %</th><th></th></tr></thead>
+      <thead><tr><th>Ticker</th><th>Precio</th><th>Var. %</th><th>P/E</th><th>PEG</th><th>Ingresos YoY</th><th>EV/EBITDA</th><th></th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
     <div id="emptyMsg" class="empty" style="display:none;">Lista vacía — agregá un ticker arriba.</div>
@@ -125,7 +125,6 @@ async function fetchPrice(sym) {
   try {
     const r = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}`);
     const d = await r.json();
-    const hist = d.history?.price || d.history?.annual ? d.history.price : null;
     let changePct = null;
     const priceHist = d.history?.price;
     if (priceHist && priceHist.length >= 2) {
@@ -133,11 +132,20 @@ async function fetchPrice(sym) {
       const prev = priceHist[priceHist.length - 2].c;
       changePct = ((last / prev) - 1) * 100;
     }
-    return { price: d.price, changePct, error: d.error };
+    const m = d.metrics || {};
+    return {
+      price: d.price, changePct, error: d.error,
+      pe: m.peRatio?.current ?? null,
+      peg: m.peg?.current ?? null,
+      revYoY: m.revenueGrowth?.current ?? null,
+      evEbitda: m.evEbitda?.current ?? null,
+    };
   } catch (e) {
     return { error: e.message };
   }
 }
+function fmtX(v) { return v == null || !isFinite(v) ? '—' : v.toFixed(2) + '×'; }
+function fmtPctCell(v) { return v == null || !isFinite(v) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
 
 async function renderRows() {
   const tbody = document.getElementById('rows');
@@ -146,6 +154,7 @@ async function renderRows() {
   tbody.innerHTML = list.map(sym => `<tr data-sym="${sym}">
     <td><a class="sym-link" href="/fundamentals.html?symbol=${sym}" onclick="localStorage.setItem('fund_recent', JSON.stringify([...new Set(['${sym}', ...(JSON.parse(localStorage.getItem('fund_recent')||'[]'))])]))">${sym}</a></td>
     <td class="p">…</td><td class="c">…</td>
+    <td class="m-pe">…</td><td class="m-peg">…</td><td class="m-rev">…</td><td class="m-ev">…</td>
     <td><button class="rm-btn" data-sym="${sym}">✕</button></td>
   </tr>`).join('');
 
@@ -164,6 +173,10 @@ async function renderRows() {
     if (q.error) {
       row.querySelector('.p').textContent = '—';
       row.querySelector('.c').textContent = 'error';
+      row.querySelector('.m-pe').textContent = '—';
+      row.querySelector('.m-peg').textContent = '—';
+      row.querySelector('.m-rev').textContent = '—';
+      row.querySelector('.m-ev').textContent = '—';
       continue;
     }
     row.querySelector('.p').textContent = q.price != null ? q.price.toFixed(2) : '—';
@@ -174,6 +187,12 @@ async function renderRows() {
     } else {
       c.textContent = '—';
     }
+    row.querySelector('.m-pe').textContent = fmtX(q.pe);
+    row.querySelector('.m-peg').textContent = fmtX(q.peg);
+    const revCell = row.querySelector('.m-rev');
+    revCell.textContent = fmtPctCell(q.revYoY);
+    revCell.className = 'm-rev ' + (q.revYoY == null ? '' : q.revYoY >= 0 ? 'up' : 'down');
+    row.querySelector('.m-ev').textContent = fmtX(q.evEbitda);
   }
 }
 

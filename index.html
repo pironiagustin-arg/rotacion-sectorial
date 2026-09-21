@@ -41,6 +41,20 @@
   .muted { color:var(--muted); font-size:12px; }
   .loading { padding:40px; text-align:center; color:var(--muted); }
   select { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:13px; }
+  .mkt-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
+  .mkt-card { background:#12151b; border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+  .mkt-card .name { font-size:12px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
+  .mkt-card .val { font-size:26px; font-weight:700; margin-top:6px; }
+  .mkt-card .sub { font-size:12px; color:var(--muted); margin-top:4px; }
+  .gauge-wrap { position:relative; height:10px; background:#232838; border-radius:6px; margin-top:10px; overflow:hidden; }
+  .gauge-fill { position:absolute; top:0; bottom:0; left:0; border-radius:6px; }
+  .fg-scale { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-top:4px; }
+  .treasury-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+  .treasury-card { background:#12151b; border:1px solid var(--border); border-radius:10px; padding:12px 14px; text-align:center; }
+  .treasury-card .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .treasury-card .y { font-size:20px; font-weight:700; margin-top:4px; }
+  .treasury-card .chg { font-size:12px; margin-top:3px; }
+  .curve-note { font-size:11px; color:var(--muted); margin-top:10px; }
 </style>
 </head>
 <body>
@@ -72,6 +86,17 @@
       <span class="muted" id="lastUpdate"></span>
     </div>
     <div class="grid" id="alertsGrid"><div class="loading">Cargando…</div></div>
+  </div>
+
+  <div class="panel">
+    <div style="margin-bottom:10px;"><strong>Sentimiento de mercado</strong></div>
+    <div class="mkt-row" id="mktRow"><div class="loading">Cargando…</div></div>
+  </div>
+
+  <div class="panel">
+    <div style="margin-bottom:10px;"><strong>Curva de rendimientos del Tesoro (UST)</strong></div>
+    <div class="treasury-row" id="treasuryRow"><div class="loading">Cargando…</div></div>
+    <p class="curve-note" id="curveNote"></p>
   </div>
 </div>
 
@@ -214,6 +239,80 @@ async function load() {
 buildRangeButtons();
 load();
 setInterval(load, 90000);
+
+// ---------- VIX, Fear & Greed, Treasuries ----------
+function fgColor(score) {
+  if (score == null) return '#8b8f99';
+  if (score <= 25) return '#E03131';
+  if (score <= 45) return '#F76707';
+  if (score <= 55) return '#F59F00';
+  if (score <= 75) return '#74B816';
+  return '#2F9E44';
+}
+const FG_LABEL_ES = { 'extreme fear': 'Miedo extremo', fear: 'Miedo', neutral: 'Neutral', greed: 'Codicia', 'extreme greed': 'Codicia extrema' };
+function vixColor(change) { if (change == null) return '#8b8f99'; return change <= 0 ? '#2F9E44' : '#E03131'; }
+
+function renderMarketWidgets(m) {
+  const wrap = document.getElementById('mktRow');
+  const vix = m.vix || {}, fg = m.fearGreed || {};
+  const vixChangeTxt = vix.change != null ? (vix.change >= 0 ? '+' : '') + vix.change.toFixed(2) + ' (' + (vix.changePercent >= 0 ? '+' : '') + vix.changePercent.toFixed(2) + '%)' : '—';
+  const fgLabel = fg.rating ? (FG_LABEL_ES[fg.rating] || fg.rating) : '—';
+  wrap.innerHTML = `
+    <div class="mkt-card">
+      <div class="name">VIX <span class="muted">Índice de volatilidad</span></div>
+      <div class="val" style="color:${vixColor(vix.change)}">${vix.value != null ? vix.value.toFixed(2) : '—'}</div>
+      <div class="sub" style="color:${vixColor(vix.change)}">${vixChangeTxt}</div>
+      <div class="sub" style="margin-top:8px;">${vix.value == null ? '' : vix.value < 15 ? 'Complacencia / calma' : vix.value < 20 ? 'Normal' : vix.value < 30 ? 'Nerviosismo' : 'Pánico'}</div>
+    </div>
+    <div class="mkt-card">
+      <div class="name">Fear &amp; Greed Index <span class="muted">CNN</span></div>
+      <div class="val" style="color:${fgColor(fg.score)}">${fg.score != null ? Math.round(fg.score) : '—'} <span style="font-size:14px;font-weight:600;">${fgLabel}</span></div>
+      <div class="gauge-wrap"><div class="gauge-fill" style="width:${fg.score ?? 0}%;background:${fgColor(fg.score)}"></div></div>
+      <div class="fg-scale"><span>Miedo extremo</span><span>Neutral</span><span>Codicia extrema</span></div>
+      <div class="sub" style="margin-top:8px;">Hace 1 semana: ${fg.previousWeek ?? '—'} · Hace 1 mes: ${fg.previousMonth ?? '—'}</div>
+    </div>
+  `;
+}
+
+function renderTreasuries(m) {
+  const wrap = document.getElementById('treasuryRow');
+  const list = m.treasuries || [];
+  wrap.innerHTML = list.map(t => {
+    const chg = t.changeBps;
+    const cls = chg == null ? '' : chg >= 0 ? 'up' : 'down';
+    const chgTxt = chg == null ? '—' : (chg >= 0 ? '+' : '') + chg.toFixed(1) + ' pb';
+    return `<div class="treasury-card">
+      <div class="lbl">${t.label}</div>
+      <div class="y">${t.yield != null ? t.yield.toFixed(2) + '%' : '—'}</div>
+      <div class="chg ${cls}">${chgTxt}</div>
+    </div>`;
+  }).join('');
+  const t3m = list.find(t => t.key === '3m'), t10y = list.find(t => t.key === '10y');
+  const note = document.getElementById('curveNote');
+  if (t3m && t10y && t3m.yield != null && t10y.yield != null) {
+    const spread = t10y.yield - t3m.yield;
+    note.textContent = spread < 0
+      ? `Curva invertida: el bono a 3 meses rinde ${Math.abs(spread).toFixed(2)} pts más que el de 10 años (spread ${spread.toFixed(2)}%). Señal históricamente asociada a recesión.`
+      : `Curva normal: el bono a 10 años rinde ${spread.toFixed(2)} pts más que el de 3 meses.`;
+  } else {
+    note.textContent = '';
+  }
+}
+
+async function loadMarket() {
+  try {
+    const r = await fetch('/api/market');
+    const m = await r.json();
+    renderMarketWidgets(m);
+    renderTreasuries(m);
+  } catch (e) {
+    document.getElementById('mktRow').innerHTML = `<div class="loading">Error: ${e.message}</div>`;
+    document.getElementById('treasuryRow').innerHTML = '';
+  }
+}
+loadMarket();
+setInterval(loadMarket, 120000);
+
 </script>
 <script>
 (function () {
