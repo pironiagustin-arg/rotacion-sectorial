@@ -12,6 +12,9 @@
   header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
   header h1 { font-size:18px; margin:0; }
   nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  .langsw { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; margin-left:16px; vertical-align:middle; }
+  .langsw button { background:#12151b; color:var(--muted); border:none; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; }
+  .langsw button.on { background:var(--accent); color:#fff; }
   nav a:hover, nav a.active { color:var(--text); }
   .container { padding:20px; max-width:1200px; margin:0 auto; }
   .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
@@ -36,13 +39,14 @@
 </head>
 <body>
 <header>
-  <h1>🔄 RRG — Relative Rotation Graph</h1>
+  <h1 id="pageH1">🔄 RRG — Relative Rotation Graph</h1>
   <nav>
-    <a href="/">Dashboard</a>
-    <a href="/rotation.html" class="active">RRG</a>
-    <a href="/rotation-stocks.html">RRG Acciones</a>
-    <a href="/fundamentals.html">Fundamental</a>
-    <a href="/watchlist.html">Watchlist</a>
+    <a id="navDash" href="/">Dashboard</a>
+    <a id="navRrg" href="/rotation.html" class="active">RRG</a>
+    <a id="navRrgStocks" href="/rotation-stocks.html">RRG Acciones</a>
+    <a id="navFund" href="/fundamentals.html">Fundamental</a>
+    <a id="navWatch" href="/watchlist.html">Watchlist</a>
+    <span class="langsw"><button id="langEs">ES</button><button id="langEn">EN</button></span>
   </nav>
 </header>
 <div class="container">
@@ -244,6 +248,30 @@ async function load() {
 buildRangeButtons();
 load();
 setInterval(() => { if (!playing) load(); }, 90000);
+</script>
+<script>
+(function () {
+  var NAV_T = { es:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Acciones',fund:'Fundamental',watch:'Watchlist'}, en:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Stocks',fund:'Fundamentals',watch:'Watchlist'} };
+  var PAGE_T = { es: '🔄 RRG — Relative Rotation Graph', en: '🔄 RRG — Relative Rotation Graph' };
+  var LANG_KEY = 'fund_lang';
+  function getLang() { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'es'; } catch (e) { return 'es'; } }
+  function apply(lang) {
+    var t = NAV_T[lang];
+    var ids = { navDash:t.dash, navRrg:t.rrg, navRrgStocks:t.rrgs, navFund:t.fund, navWatch:t.watch };
+    Object.keys(ids).forEach(function (id) { var el = document.getElementById(id); if (el) el.textContent = ids[id]; });
+    var h1 = document.getElementById('pageH1'); if (h1) h1.textContent = PAGE_T[lang];
+    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
+    if (es) es.classList.toggle('on', lang === 'es');
+    if (en) en.classList.toggle('on', lang === 'en');
+  }
+  window.__setSiteLang = function (l) { try { localStorage.setItem(LANG_KEY, l); } catch (e) {} apply(l); };
+  document.addEventListener('DOMContentLoaded', function () {
+    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
+    if (es) es.onclick = function () { window.__setSiteLang('es'); };
+    if (en) en.onclick = function () { window.__setSiteLang('en'); };
+    apply(getLang());
+  });
+})();
 </script>
 </body>
 </html>

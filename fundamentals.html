@@ -3,109 +3,116 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Análisis Fundamental</title>
+<title id="pageTitle">Análisis Fundamental</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root { --bg:#0f1115; --panel:#171a21; --border:#262a33; --text:#e6e8eb; --muted:#8b8f99; --accent:#4C6EF5; --green:#2F9E44; --red:#E03131; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
-  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-  header h1 { font-size:18px; margin:0; }
-  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  header { padding:14px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+  header h1 { font-size:17px; margin:0; }
+  nav { display:flex; align-items:center; gap:2px; }
+  nav a { color:var(--muted); text-decoration:none; margin-left:14px; font-size:13.5px; }
   nav a:hover, nav a.active { color:var(--text); }
-  .container { padding:20px; max-width:1200px; margin:0 auto; }
-  .search-row { display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+  .langsw { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; margin-left:16px; }
+  .langsw button { background:#12151b; color:var(--muted); border:none; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; }
+  .langsw button.on { background:var(--accent); color:#fff; }
+  .container { padding:18px 20px 40px; max-width:1180px; margin:0 auto; }
+  .search-row { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; align-items:center; }
   input[type=text] { background:var(--panel); border:1px solid var(--border); color:var(--text); padding:9px 14px; border-radius:8px; font-size:14px; width:140px; text-transform:uppercase; }
   button, select { font-family:inherit; }
   button.primary { background:var(--accent); color:#fff; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:14px; }
   .recent { display:flex; gap:6px; flex-wrap:wrap; }
   .recent button { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; }
   .recent button:hover { color:var(--text); }
-  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:16px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:14px; }
   .header-row { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
-  .company-name { font-size:22px; font-weight:600; }
-  .company-sub, .muted { color:var(--muted); font-size:13px; }
-  .lynch-row { display:flex; align-items:center; gap:8px; margin-top:8px; flex-wrap:wrap; }
-  .lynch-badge { display:inline-block; background:#232838; border:1px solid var(--border); border-radius:999px; padding:3px 12px; font-size:12px; }
-  select { background:#12151b; border:1px solid var(--border); color:var(--text); padding:7px 10px; border-radius:8px; font-size:13px; }
+  .company-name { font-size:20px; font-weight:600; }
+  .company-sub, .muted { color:var(--muted); font-size:12.5px; }
+  .lynch-row { display:flex; align-items:center; gap:8px; margin-top:7px; flex-wrap:wrap; }
+  .lynch-badge { display:inline-block; background:#232838; border:1px solid var(--border); border-radius:999px; padding:3px 11px; font-size:11.5px; }
+  select { background:#12151b; border:1px solid var(--border); color:var(--text); padding:6px 9px; border-radius:8px; font-size:12.5px; }
   .score-ring { text-align:center; }
-  .score-num { font-size:34px; font-weight:700; line-height:1; }
-  .score-label { font-size:11px; color:var(--muted); margin-top:4px; }
-  .price-big { font-size:26px; font-weight:600; text-align:right; }
-  .score-detail { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
-  .score-detail span { font-size:12px; color:var(--muted); background:#12151b; border:1px solid var(--border); border-radius:6px; padding:3px 8px; }
-  .cards-title { font-size:12px; color:var(--muted); margin:0 0 10px; }
-  .metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
-  .metric { background:#12151b; border:1px solid var(--border); border-left:4px solid #3a3f4b; border-radius:8px; padding:10px 12px; cursor:pointer; transition:background .15s; }
+  .score-num { font-size:32px; font-weight:700; line-height:1; }
+  .score-label { font-size:10.5px; color:var(--muted); margin-top:4px; }
+  .price-big { font-size:24px; font-weight:600; text-align:right; }
+  .score-detail { display:flex; gap:8px; flex-wrap:wrap; margin-top:11px; align-items:center; }
+  .score-detail span { font-size:11.5px; color:var(--muted); background:#12151b; border:1px solid var(--border); border-radius:6px; padding:3px 8px; }
+  .cards-title { font-size:11.5px; color:var(--muted); margin:0 0 12px; line-height:1.5; }
+  .cards-title b { color:#b8bcc4; }
+  .metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+  .metric { background:#12151b; border:1px solid var(--border); border-left:3px solid #3a3f4b; border-radius:7px; padding:8px 10px; cursor:pointer; transition:background .15s; position:relative; }
   .metric:hover { background:#161a22; }
-  .metric.good { border-left-color:var(--green); }
-  .metric.bad { border-left-color:var(--red); }
-  .metric.sel { outline:1px solid var(--accent); }
-  .metric .k { font-size:11px; color:var(--muted); }
-  .metric .v { font-size:18px; font-weight:600; margin-top:2px; }
-  .metric .d { font-size:11px; margin-top:2px; color:var(--muted); min-height:14px; }
-  .metric.good .d { color:#69db7c; }
-  .metric.bad .d { color:#ff8787; }
-  .controls { display:flex; flex-wrap:wrap; gap:12px 18px; align-items:center; margin-bottom:14px; }
+  .metric.sel { outline:1.5px solid var(--accent); outline-offset:-1px; }
+  .metric .k { font-size:10.5px; color:var(--muted); padding-right:18px; line-height:1.25; }
+  .metric .v { font-size:16px; font-weight:600; margin-top:2px; }
+  .metric .d { font-size:10.5px; margin-top:2px; color:var(--muted); min-height:12px; }
+  .metric .eye { position:absolute; top:5px; right:5px; background:none; border:none; color:var(--muted); cursor:pointer; padding:2px; border-radius:5px; line-height:0; }
+  .metric .eye:hover { color:var(--text); background:#232838; }
+  .metric.off { opacity:.36; filter:grayscale(.8); }
+  .metric.off .k { text-decoration:line-through; }
+  .metric.nodata { opacity:.28; cursor:default; }
+  .metric .wt { color:#F59F00; font-size:10px; }
+  .rank { position:relative; height:16px; margin-top:6px; }
+  .rank .track { position:absolute; left:0; right:0; top:7px; height:2.5px; border-radius:2px; background:#2a2f3a; }
+  .rank .dot { position:absolute; top:0; transform:translateX(-50%); min-width:18px; height:16px; border-radius:8px; color:#fff; font-size:9.5px; font-weight:600; display:flex; align-items:center; justify-content:center; padding:0 4px; }
+  .rank.none { height:0; margin:0; }
+  .controls { display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; margin-bottom:12px; }
   .controls label.lbl { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; }
   .seg { display:inline-flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-  .seg button { background:#12151b; color:var(--muted); border:none; padding:6px 12px; font-size:12px; cursor:pointer; border-right:1px solid var(--border); }
+  .seg button { background:#12151b; color:var(--muted); border:none; padding:6px 11px; font-size:11.5px; cursor:pointer; border-right:1px solid var(--border); }
   .seg button:last-child { border-right:none; }
   .seg button.on { background:var(--accent); color:#fff; }
   .toggle { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px; cursor:pointer; }
-  .chart-wrap { position:relative; height:380px; }
+  .chart-wrap { position:relative; height:360px; }
   .loading { color:var(--muted); padding:40px; text-align:center; }
-  .dot { display:inline-block; width:9px; height:9px; border-radius:50%; }
-  @media (max-width:640px) { .chart-wrap { height:300px; } .price-big { text-align:left; } }
-  .cat { margin-bottom:14px; } .cat:last-child { margin-bottom:0; }
-  .cat-title { font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; padding-bottom:5px; border-bottom:1px solid var(--border); }
+  @media (max-width:640px) { .chart-wrap { height:280px; } .price-big { text-align:left; } }
+  .cat { margin-bottom:6px; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+  .cat:last-child { margin-bottom:0; }
+  .cat-title { font-size:11.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:#b8bcc4; padding:9px 12px; background:#12151b; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
+  .cat-title:hover { background:#161a22; }
+  .cat-title .left { display:flex; align-items:center; gap:8px; }
+  .cat-title .chev { transition:transform .15s; color:var(--muted); display:flex; }
+  .cat.collapsed .chev { transform:rotate(-90deg); }
+  .cat-title .count { color:var(--muted); font-weight:400; font-size:10.5px; text-transform:none; letter-spacing:0; }
+  .cat-title .grp { background:none; border:none; color:var(--muted); cursor:pointer; padding:3px 4px; border-radius:6px; line-height:0; }
+  .cat-title .grp:hover { color:var(--text); background:#232838; }
+  .cat-body { padding:10px; }
+  .cat.collapsed .cat-body { display:none; }
   .chart-panel.active { border-color:var(--accent); }
-  .ptitle { font-size:12px; font-weight:600; color:var(--muted); }
-  .chip { display:inline-flex; align-items:center; gap:6px; background:#12151b; border:1px solid var(--border); border-radius:999px; padding:3px 6px 3px 10px; font-size:12px; }
-  .chip .x { background:none; border:none; color:var(--muted); cursor:pointer; font-size:15px; line-height:1; padding:0 4px; }
+  .ptitle { font-size:11.5px; font-weight:600; color:var(--muted); }
+  .chip { display:inline-flex; align-items:center; gap:6px; background:#12151b; border:1px solid var(--border); border-radius:999px; padding:3px 6px 3px 10px; font-size:11.5px; }
+  .chip .x { background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; padding:0 4px; }
   .chip .x:hover { color:#ff8787; }
+  .dot2 { display:inline-block; width:9px; height:9px; border-radius:50%; }
   .rm { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:5px 9px; cursor:pointer; margin-left:auto; }
   .rm:hover { color:#ff8787; border-color:#ff8787; }
-  .addpanel { width:100%; background:transparent; border:1px dashed var(--border); color:var(--muted); padding:14px; border-radius:12px; cursor:pointer; font-size:14px; margin-bottom:16px; }
+  .addpanel { width:100%; background:transparent; border:1px dashed var(--border); color:var(--muted); padding:13px; border-radius:12px; cursor:pointer; font-size:13.5px; margin-bottom:14px; }
   .addpanel:hover { color:var(--text); border-color:var(--accent); }
-  .footnote { font-size:11px; color:var(--muted); margin-top:10px; line-height:1.5; }
+  .footnote { font-size:10.5px; color:var(--muted); margin-top:9px; line-height:1.5; }
   .footnote div { margin-top:3px; }
-  .metric { position:relative; }
-  .metric .eye { position:absolute; top:6px; right:6px; background:none; border:none; color:var(--muted); cursor:pointer; padding:2px; border-radius:6px; line-height:0; }
-  .metric .eye:hover { color:var(--text); background:#232838; }
-  .metric.off { opacity:.38; filter:grayscale(.8); }
-  .metric.off .k { text-decoration:line-through; }
-  .metric.nodata { opacity:.3; cursor:default; }
-  .metric .wt { color:#F59F00; font-size:11px; }
-  .metric .k { padding-right:20px; }
-  .rank { position:relative; height:18px; margin-top:8px; }
-  .rank .track { position:absolute; left:0; right:0; top:8px; height:3px; border-radius:2px; background:#2a2f3a; }
-  .rank .dot { position:absolute; top:0; transform:translateX(-50%); min-width:20px; height:18px; border-radius:9px; color:#fff; font-size:10px; font-weight:600; display:flex; align-items:center; justify-content:center; padding:0 4px; }
-  .rank.none { height:0; margin:0; }
-  .cat-title { display:flex; align-items:center; justify-content:space-between; }
-  .cat-title .grp { background:none; border:none; color:var(--muted); cursor:pointer; padding:2px 4px; border-radius:6px; line-height:0; }
-  .cat-title .grp:hover { color:var(--text); background:#232838; }
-  .reset { background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:3px 9px; font-size:12px; cursor:pointer; }
+  .reset { background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:3px 9px; font-size:11.5px; cursor:pointer; }
   .reset:hover { color:var(--text); }
-  .guide-head { margin-bottom:12px; font-size:15px; }
-  .guide-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:18px; }
-  .gt { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:6px; }
-  .gl { font-size:13px; line-height:1.45; margin-bottom:4px; }
-  .ck { display:inline-block; width:16px; text-align:center; font-weight:700; }
+  .guide-head { margin-bottom:11px; font-size:14.5px; }
+  .guide-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:16px; }
+  .gt { font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); margin-bottom:6px; }
+  .gl { font-size:12.5px; line-height:1.45; margin-bottom:4px; }
+  .ck { display:inline-block; width:15px; text-align:center; font-weight:700; }
   .ck.ok { color:#69db7c; } .ck.no { color:#ff8787; } .ck.na { color:#8b8f99; }
-  .score-warn { font-size:11px; color:#F59F00; margin-top:4px; max-width:190px; }
-  .dot2 { display:inline-block; width:9px; height:9px; border-radius:50%; }
+  .score-warn { font-size:10.5px; color:#F59F00; margin-top:4px; max-width:180px; }
+  .collapse-all { font-size:11.5px; color:var(--muted); background:none; border:none; cursor:pointer; text-decoration:underline; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔎 Análisis Fundamental</h1>
+  <h1 id="hTitle">🔎 Análisis Fundamental</h1>
   <nav>
-    <a href="/">Dashboard</a>
-    <a href="/rotation.html">RRG</a>
-    <a href="/rotation-stocks.html">RRG Acciones</a>
-    <a href="/fundamentals.html" class="active">Fundamental</a>
-    <a href="/watchlist.html">Watchlist</a>
+    <a href="/" id="navDash">Dashboard</a>
+    <a href="/rotation.html" id="navRrg">RRG</a>
+    <a href="/rotation-stocks.html" id="navRrgStocks">RRG Acciones</a>
+    <a href="/fundamentals.html" class="active" id="navFund">Fundamental</a>
+    <a href="/watchlist.html" id="navWatch">Watchlist</a>
+    <span class="langsw"><button data-lang="es" id="langEs">ES</button><button data-lang="en" id="langEn">EN</button></span>
   </nav>
 </header>
 
@@ -115,78 +122,217 @@
     <button class="primary" id="searchBtn">Buscar</button>
     <div class="recent" id="recentList"></div>
   </div>
-  <div id="content"><div class="loading">Buscá un ticker (ej: AAPL, MSFT, KO, NVDA) para ver su análisis fundamental.</div></div>
+  <div id="content"><div class="loading" id="emptyMsg">Buscá un ticker (ej: AAPL, MSFT, KO, NVDA) para ver su análisis fundamental.</div></div>
 </div>
 
 <script>
+// ---------- i18n ----------
+const LANG_KEY = 'fund_lang';
+let LANG = (function(){ try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'es'; } catch(e){ return 'es'; } })();
+function tt(es, en) { return LANG === 'en' ? en : es; }
+
+const NAV_T = { navDash:['Dashboard','Dashboard'], navRrg:['RRG','RRG'], navRrgStocks:['RRG Acciones','RRG Stocks'], navFund:['Fundamental','Fundamentals'], navWatch:['Watchlist','Watchlist'] };
+const UI = {
+  pageTitle: ['Análisis Fundamental', 'Fundamental Analysis'],
+  hTitle: ['🔎 Análisis Fundamental', '🔎 Fundamental Analysis'],
+  searchBtn: ['Buscar', 'Search'],
+  emptyMsg: ['Buscá un ticker (ej: AAPL, MSFT, KO, NVDA) para ver su análisis fundamental.', 'Search a ticker (e.g. AAPL, MSFT, KO, NVDA) to see its fundamental analysis.'],
+  loading: ['Cargando…', 'Loading…'],
+  auto: ['Auto', 'Auto'],
+  lynchTitle: ['Clasificación Lynch (cambia el perfil de pesos y las reglas)', 'Lynch classification (changes the weighting profile and rules)'],
+  scoreLabel: ['Score', 'Score'],
+  scoreOf: ['de', 'of'],
+  metricsWord: ['métricas', 'metrics'],
+  lowDataWarn: ['⚠ pocos datos: score poco confiable', '⚠ little data: score not reliable'],
+  lowDataTip: ['La SEC devuelve pocos datos históricos de esta empresa, así que el score se apoya en muy pocas métricas', 'The SEC returns little historical data for this company, so the score relies on very few metrics'],
+  resetEyes: ['↺ Restablecer ojitos', '↺ Reset hidden metrics'],
+  resetEyesTip: ['Vuelve a las métricas tapadas por defecto para este tipo de acción', 'Goes back to the metrics hidden by default for this stock type'],
+  cardsTitleA: ['La bolita muestra dónde está la métrica hoy vs. sus últimos 3 años (1 = mínimo, 100 = máximo):', 'The dot shows where the metric stands today vs. its last 3 years (1 = lowest, 100 = highest):'],
+  favorable: ['favorable', 'favorable'],
+  unfavorable: ['desfavorable', 'unfavorable'],
+  cardsTitleB: ['(para métricas donde menos es mejor, como P/E o deuda, el mínimo es favorable). El', '(for metrics where lower is better, like P/E or debt, the minimum is favorable). The'],
+  borderWord: ['borde', 'border'],
+  cardsTitleC: ['de la tarjeta mezcla ese historial con las reglas de tus apuntes (ej.: PEG < 1, deuda/EBITDA < 2x). El', 'of the card blends that history with the rules from your notes (e.g. PEG < 1, debt/EBITDA < 2x). The'],
+  eyeWord: ['ojito', 'eye icon'],
+  cardsTitleD: ['tapa una métrica para que no cuente en el score (★ = clave para este tipo de acción). Click en la tarjeta para graficarla en el', 'hides a metric so it stops counting toward the score (★ = key metric for this stock type). Click a card to chart it in the'],
+  activeChart: ['gráfico activo', 'active chart'],
+  collapseAll: ['Colapsar todo', 'Collapse all'],
+  expandAll: ['Expandir todo', 'Expand all'],
+  eyeShow: ['Destapar: vuelve a contar en el score', 'Show: counts toward the score again'],
+  eyeHide: ['Tapar: no cuenta en el score', 'Hide: does not count toward the score'],
+  eyeGroupTip: ['Tapar / destapar toda la categoría', 'Hide / show the whole category'],
+  keyMetricTip: ['Métrica clave para', 'Key metric for'],
+  noData: ['sin dato', 'no data'],
+  lastQ: ['último trim.', 'latest qtr.'],
+  ttm: ['TTM', 'TTM'],
+  addMetric: ['+ Agregar métrica…', '+ Add metric…'],
+  addChart: ['+ Agregar gráfico', '+ Add chart'],
+  chartWord: ['Gráfico', 'Chart'],
+  annual: ['Anual', 'Annual'],
+  quarterly: ['Trimestral', 'Quarterly'],
+  all: ['Todo', 'All'],
+  last: ['Últ.', 'Last'],
+  movingAvg: ['Promedio móvil', 'Moving average'],
+  lineType: ['Línea', 'Line'],
+  barType: ['Barras', 'Bars'],
+  removeChart: ['Quitar gráfico', 'Remove chart'],
+  removeChip: ['Quitar', 'Remove'],
+  yourClick: ['Click: agregar/quitar del gráfico activo', 'Click: add/remove from the active chart'],
+  perc3y: ['Percentil vs. últimos 3 años:', 'Percentile vs. last 3 years:'],
+  minMax: ['(1 = mínimo, 100 = máximo)', '(1 = lowest, 100 = highest)'],
+  avg3y: ['promedio 3a:', '3y avg:'],
+  invertedCyc: ['invertido por ser cíclica', 'inverted for cyclical stocks'],
+  noRankHist: ['Sin historial suficiente para el ranking a 3 años', 'Not enough history for the 3-year ranking'],
+  errorPrefix: ['Error:', 'Error:'],
+  profile: ['Perfil', 'Profile'],
+  growthWord: ['Crecimiento', 'Growth'],
+  dividendsWord: ['Dividendos', 'Dividends'],
+  riskWord: ['Riesgo', 'Risk'],
+  idealMetrics: ['Métricas ideales', 'Ideal metrics'],
+  starNote: ['Las marcadas con ★ pesan más en el score.', 'Metrics marked ★ carry more weight in the score.'],
+  whenBuy: ['¿Cuándo comprarla?', 'When to buy it?'],
+  whenSell: ['¿Cuándo venderla?', 'When to sell it?'],
+  alarmSignals: ['Señales de alarma', 'Warning signs'],
+  noAlarms: ['Ninguna señal de alarma activada', 'No warning signs triggered'],
+  cleanChecks: ['chequeos sin problema', 'checks with no issue'],
+  eg: ['ej:', 'e.g.'],
+};
+
+// etiquetas de métricas y categorías en inglés (la API las manda en español; acá solo se traduce lo visible)
+const LABEL_EN = {
+  peRatio: 'P/E (LTM)', peForward: 'P/E (NTM)', peg: 'PEG', psRatio: 'P/S (LTM)', psForward: 'P/S (NTM)',
+  pbRatio: 'P/B', ptbvRatio: 'P/TBV', pfcfRatio: 'P/FCF (LTM)', pgpRatio: 'P/Gross Profit (LTM)',
+  evSales: 'EV/Sales (LTM)', evSalesFwd: 'EV/Sales (NTM)', evEbitda: 'EV/EBITDA (LTM)', evEbit: 'EV/EBIT (LTM)', evGp: 'EV/Gross Profit (LTM)',
+  fcfEvYield: 'FCF / EV Yield', fcfYield: 'FCF / Market Cap Yield', dividendYield: 'Dividend Yield', buybackYield: 'Buyback Yield',
+  debtPaybackYield: 'Debt Payback Yield', shareholderYield: 'Shareholder Yield', shareholderYieldExDebt: 'Shareholder Yield ex-Debt',
+  grossMargin: 'Gross Margin (LTM)', ebitdaMargin: 'EBITDA Margin (LTM)', opMargin: 'EBIT / Operating Margin (LTM)', netMargin: 'Net Margin (LTM)', fcfMargin: 'FCF Margin (LTM)',
+  roe: 'ROE (LTM)', roa: 'ROA (LTM)', roic: 'ROIC / ROC (approx.)',
+  revenueGrowth: 'Revenue Growth (YoY)', epsGrowth: 'EPS Growth (YoY)',
+  dividendsPerShare: 'Dividend per Share', payoutRatio: 'Payout Ratio',
+  debtToEquity: 'Total Debt / Equity', ltDebtToEquity: 'LT Debt / Equity', debtToCapital: 'Debt / Total Capital',
+  debtToEbitda: 'Total Debt / EBITDA', netDebtToEbitda: 'Net Debt / EBITDA', netDebtToEbitdaCapex: 'Net Debt / (EBITDA − Capex)',
+  currentRatio: 'Current Ratio', altmanZ: 'Altman Z-Score',
+  operatingCashFlow: 'Operating Cash Flow', fcf: 'Free Cash Flow', ebitda: 'EBITDA',
+  revenue: 'Revenue', grossProfit: 'Gross Profit', operatingIncome: 'Operating Income', netIncome: 'Net Income', eps: 'Diluted EPS',
+  totalDebt: 'Total Debt', inventory: 'Inventory',
+};
+const CAT_EN = {
+  'Valuación · Múltiplos': 'Valuation · Multiples', 'Valuación · Yields': 'Valuation · Yields', 'Márgenes': 'Margins',
+  'Rentabilidad': 'Profitability', 'Crecimiento': 'Growth', 'Dividendos': 'Dividends', 'Solvencia': 'Solvency',
+  'Caja': 'Cash Flow', 'Resultados': 'Income Statement', 'Balance': 'Balance Sheet',
+};
+const NOTE_EN = {
+  peForward: 'Current (card) = price ÷ NTM EPS, Yahoo consensus. The chart shows history: price ÷ realized EPS of the following 12 months.',
+  peg: "Current (card) = Yahoo's PEG (expected growth). The chart shows history: P/E ÷ EPS growth (3y CAGR annually, YoY TTM EPS quarterly; values > 10 hidden).",
+  psForward: 'Market cap ÷ NTM revenue (Yahoo consensus). Current value only.',
+  evSalesFwd: 'EV ÷ NTM revenue (Yahoo consensus). Current value only.',
+  pfcfRatio: 'Only computed when FCF is positive.',
+  roic: 'NOPAT (EBIT × (1 − 21%)) ÷ (equity + debt − cash). Approximation.',
+  altmanZ: 'Z > 2.99 safe zone; 1.8–2.99 grey zone; < 1.8 bankruptcy risk. Uses market cap.',
+  debtPaybackYield: '(Debt repayment − debt issuance) ÷ market cap. Negative = the company is taking on more debt.',
+  shareholderYield: 'Dividends + buybacks + net debt repayment, over market cap.',
+  buybackYield: 'Share buybacks (LTM) ÷ market cap.',
+};
+function mLabel(k) { const m = M(k); return LANG === 'en' ? (LABEL_EN[k] || m.label) : m.label; }
+function catLabel(cat) { return LANG === 'en' ? (CAT_EN[cat] || cat) : cat; }
+function mNote(k) { const m = M(k); if (LANG === 'en' && NOTE_EN[k]) return NOTE_EN[k]; return m.note; }
+
 const COLORS = ['#4C6EF5', '#F59F00', '#2F9E44', '#E64980', '#AE3EC9', '#20C997'];
 const CAT_ORDER = ['Valuación · Múltiplos', 'Valuación · Yields', 'Márgenes', 'Rentabilidad', 'Crecimiento', 'Dividendos', 'Solvencia', 'Caja', 'Resultados', 'Balance'];
-const UNIT_NAME = { usd: 'USD', usdps: 'USD/acción', pct: '%', x: '×' };
 const MAX_PER_PANEL = 4, MAX_PANELS = 4;
-// Agrupación para las barras del score
-const SCORE_GROUPS = [
-  ['Valuación', ['Valuación · Múltiplos', 'Valuación · Yields']],
-  ['Calidad', ['Márgenes', 'Rentabilidad']],
-  ['Crecimiento', ['Crecimiento']],
-  ['Solvencia', ['Solvencia']],
-  ['Dividendos', ['Dividendos']],
+const SCORE_GROUPS_T = [
+  [['Valuación', 'Valuation'], ['Valuación · Múltiplos', 'Valuación · Yields']],
+  [['Calidad', 'Quality'], ['Márgenes', 'Rentabilidad']],
+  [['Crecimiento', 'Growth'], ['Crecimiento']],
+  [['Solvencia', 'Solvency'], ['Solvencia']],
+  [['Dividendos', 'Dividends'], ['Dividendos']],
 ];
 
 // ---------- Perfiles por tipo de acción (apuntes ACCIONES_ANALISIS) ----------
 // w: peso de cada métrica en el score (1 por defecto) · off: métricas que arrancan tapadas (se pueden destapar con el ojito)
 const TYPES = {
   slowGrower: {
-    name: 'Slow Grower', ej: 'KO, PEP, PG, T', desc: 'Empresas aburridas pero estables',
-    crec: '2–4% anual', div: 'Altos y estables', riesgo: 'Muy bajo',
-    comprar: 'Cuando el dividend yield está en máximos históricos (precio bajo).',
-    vender: 'Cuando el dividendo se estanca o el payout supera 80%: no saben en qué invertir y devuelven la plata.',
-    ideales: 'Dividend yield 3–6% · Payout que no supere 60–70%',
+    es: { name: 'Slow Grower', ej: 'KO, PEP, PG, T', desc: 'Empresas aburridas pero estables',
+      crec: '2–4% anual', div: 'Altos y estables', riesgo: 'Muy bajo',
+      comprar: 'Cuando el dividend yield está en máximos históricos (precio bajo).',
+      vender: 'Cuando el dividendo se estanca o el payout supera 80%: no saben en qué invertir y devuelven la plata.',
+      ideales: 'Dividend yield 3–6% · Payout que no supere 60–70%' },
+    en: { name: 'Slow Grower', ej: 'KO, PEP, PG, T', desc: 'Boring but stable companies',
+      crec: '2–4% per year', div: 'High and stable', riesgo: 'Very low',
+      comprar: 'When the dividend yield is at historic highs (price is low).',
+      vender: "When the dividend stalls or the payout ratio exceeds 80%: they don't know where to invest and return the cash to shareholders.",
+      ideales: 'Dividend yield 3–6% · Payout not above 60–70%' },
     w: { dividendYield: 3, payoutRatio: 3, fcfYield: 2, shareholderYield: 2, fcfEvYield: 1.5, debtToEbitda: 1.5, netDebtToEbitda: 1.5, peRatio: 1.5 },
     off: ['peg', 'revenueGrowth', 'epsGrowth', 'psForward', 'evSalesFwd', 'psRatio', 'evSales', 'pgpRatio', 'evGp'],
   },
   stalwart: {
-    name: 'Stalwart', ej: 'JNJ, AAPL, V, WMT, MCD', desc: 'Soldados confiables',
-    crec: '8–12% anual', div: 'Moderados, crecientes', riesgo: 'Bajo–medio (beta 0,8–1,2)',
-    comprar: 'Cuando caen 10–20% por motivos ajenos al negocio (coyuntura, guerra).',
-    vender: 'Cuando el P/E se estira mucho vs su promedio histórico, o el crecimiento frena.',
-    ideales: 'P/E vs promedio histórico · Crecimiento de ganancias estable',
+    es: { name: 'Stalwart', ej: 'JNJ, AAPL, V, WMT, MCD', desc: 'Soldados confiables',
+      crec: '8–12% anual', div: 'Moderados, crecientes', riesgo: 'Bajo–medio (beta 0,8–1,2)',
+      comprar: 'Cuando caen 10–20% por motivos ajenos al negocio (coyuntura, guerra).',
+      vender: 'Cuando el P/E se estira mucho vs su promedio histórico, o el crecimiento frena.',
+      ideales: 'P/E vs promedio histórico · Crecimiento de ganancias estable' },
+    en: { name: 'Stalwart', ej: 'JNJ, AAPL, V, WMT, MCD', desc: 'Reliable soldiers',
+      crec: '8–12% per year', div: 'Moderate, growing', riesgo: 'Low–medium (beta 0.8–1.2)',
+      comprar: 'When they fall 10–20% for reasons unrelated to the business (macro, war).',
+      vender: 'When the P/E stretches well above its historical average, or growth slows down.',
+      ideales: 'P/E vs. historical average · Stable earnings growth' },
     w: { peRatio: 3, peForward: 1.5, epsGrowth: 2, peg: 1.5, roe: 1.5, opMargin: 1.5, fcfYield: 1 },
     off: [],
   },
   fastGrower: {
-    name: 'Fast Grower', ej: 'MELI, NU, NVDA, META, TSLA', desc: 'Las que hacen la diferencia',
-    crec: '20–50% anual', div: 'Bajos o nulos', riesgo: 'Alto',
-    comprar: 'Cuando el PEG está por debajo de 1 (barata). En 1 el precio es justo.',
-    vender: 'Cuando el crecimiento se desacelera, el PEG supera 2 o se rompe la tesis de inversión.',
-    ideales: 'PEG < 1 · Crecimiento de ingresos > 20% sostenido',
+    es: { name: 'Fast Grower', ej: 'MELI, NU, NVDA, META, TSLA', desc: 'Las que hacen la diferencia',
+      crec: '20–50% anual', div: 'Bajos o nulos', riesgo: 'Alto',
+      comprar: 'Cuando el PEG está por debajo de 1 (barata). En 1 el precio es justo.',
+      vender: 'Cuando el crecimiento se desacelera, el PEG supera 2 o se rompe la tesis de inversión.',
+      ideales: 'PEG < 1 · Crecimiento de ingresos > 20% sostenido' },
+    en: { name: 'Fast Grower', ej: 'MELI, NU, NVDA, META, TSLA', desc: 'The ones that make the difference',
+      crec: '20–50% per year', div: 'Low or none', riesgo: 'High',
+      comprar: 'When the PEG is below 1 (cheap). At 1 the price is fair.',
+      vender: 'When growth decelerates, the PEG exceeds 2, or the investment thesis breaks.',
+      ideales: 'PEG < 1 · Revenue growth > 20% sustained' },
     w: { peg: 3, revenueGrowth: 3, epsGrowth: 2, opMargin: 1.5, grossMargin: 1.5, roic: 1.5 },
     off: ['dividendYield', 'payoutRatio', 'dividendsPerShare', 'shareholderYield', 'shareholderYieldExDebt', 'buybackYield', 'debtPaybackYield', 'fcfYield', 'fcfEvYield', 'pbRatio', 'ptbvRatio'],
   },
   cyclical: {
-    name: 'Cíclica', ej: 'YPF, XOM, BAC, aerolíneas, autos, acero', desc: 'Suben y bajan con la economía. El timing es todo',
-    crec: 'Variable, −20% a +40%', div: 'Variables', riesgo: 'Alto',
-    comprar: 'Al final de una recesión, cuando nadie las quiere: ahí el P/E es ALTO (ganancias en el piso).',
-    vender: 'Cuando la economía está en su pico y todo el mundo es optimista: ahí el P/E es BAJO (peligro).',
-    ideales: 'P/E invertido: P/E bajo = peligro (pico del ciclo), P/E alto = oportunidad (piso del ciclo)',
+    es: { name: 'Cíclica', ej: 'YPF, XOM, BAC, aerolíneas, autos, acero', desc: 'Suben y bajan con la economía. El timing es todo',
+      crec: 'Variable, −20% a +40%', div: 'Variables', riesgo: 'Alto',
+      comprar: 'Al final de una recesión, cuando nadie las quiere: ahí el P/E es ALTO (ganancias en el piso).',
+      vender: 'Cuando la economía está en su pico y todo el mundo es optimista: ahí el P/E es BAJO (peligro).',
+      ideales: 'P/E invertido: P/E bajo = peligro (pico del ciclo), P/E alto = oportunidad (piso del ciclo)' },
+    en: { name: 'Cyclical', ej: 'YPF, XOM, BAC, airlines, autos, steel', desc: 'Rise and fall with the economy. Timing is everything',
+      crec: 'Variable, −20% to +40%', div: 'Variable', riesgo: 'High',
+      comprar: "At the end of a recession, when nobody wants them: that's when the P/E is HIGH (earnings at the bottom).",
+      vender: "When the economy is at its peak and everyone is optimistic: that's when the P/E is LOW (danger).",
+      ideales: 'Inverted P/E: low P/E = danger (peak of the cycle), high P/E = opportunity (bottom of the cycle)' },
     invert: ['peRatio', 'evEbit', 'evEbitda'],
     w: { peRatio: 3, debtToEbitda: 2, netDebtToEbitda: 2, altmanZ: 1.5, currentRatio: 1.5 },
     off: ['peg', 'epsGrowth', 'psForward', 'evSalesFwd'],
   },
   turnaround: {
-    name: 'Turnaround', ej: 'NKE, INTC, PYPL, ADBE, DUOL', desc: 'Empresas en problemas que pueden resurgir. Alto riesgo, alta recompensa',
-    crec: 'De negativo a positivo', div: 'Nulos', riesgo: 'Muy alto',
-    comprar: 'Cuando tiene caja para sobrevivir y un plan de reestructuración creíble.',
-    vender: 'Cuando el turnaround se completó y el precio ya refleja la recuperación.',
-    ideales: 'Caja y deuda: que pueda sobrevivir 18 meses · Plan de reestructuración concreto',
+    es: { name: 'Turnaround', ej: 'NKE, INTC, PYPL, ADBE, DUOL', desc: 'Empresas en problemas que pueden resurgir. Alto riesgo, alta recompensa',
+      crec: 'De negativo a positivo', div: 'Nulos', riesgo: 'Muy alto',
+      comprar: 'Cuando tiene caja para sobrevivir y un plan de reestructuración creíble.',
+      vender: 'Cuando el turnaround se completó y el precio ya refleja la recuperación.',
+      ideales: 'Caja y deuda: que pueda sobrevivir 18 meses · Plan de reestructuración concreto' },
+    en: { name: 'Turnaround', ej: 'NKE, INTC, PYPL, ADBE, DUOL', desc: 'Companies in trouble that can bounce back. High risk, high reward',
+      crec: 'Negative to positive', div: 'None', riesgo: 'Very high',
+      comprar: 'When it has enough cash to survive and a credible restructuring plan.',
+      vender: 'When the turnaround is complete and the price already reflects the recovery.',
+      ideales: 'Cash and debt: able to survive 18 months · Concrete restructuring plan' },
     w: { currentRatio: 2.5, altmanZ: 2.5, debtToEbitda: 2, netDebtToEbitda: 2, ltDebtToEquity: 1.5, debtToCapital: 1.5, fcfYield: 1.5 },
     off: ['dividendYield', 'payoutRatio', 'dividendsPerShare', 'shareholderYield', 'shareholderYieldExDebt', 'peg'],
   },
   assetPlay: {
-    name: 'Asset Play', ej: 'IRSA, CRESUD, BRK.B', desc: 'Valen más de lo que el mercado cree por sus activos',
-    crec: 'Variable', div: 'Variables', riesgo: 'Medio–alto',
-    comprar: 'Cuando el valor de los activos (tierra, marcas, propiedades) supera la valuación.',
-    vender: 'Cuando los activos se venden o el mercado reconoce el valor oculto.',
-    ideales: 'Price/Book vs precio de mercado · ¿Cuánto valen los activos si se liquidan?',
+    es: { name: 'Asset Play', ej: 'IRSA, CRESUD, BRK.B', desc: 'Valen más de lo que el mercado cree por sus activos',
+      crec: 'Variable', div: 'Variables', riesgo: 'Medio–alto',
+      comprar: 'Cuando el valor de los activos (tierra, marcas, propiedades) supera la valuación.',
+      vender: 'Cuando los activos se venden o el mercado reconoce el valor oculto.',
+      ideales: 'Price/Book vs precio de mercado · ¿Cuánto valen los activos si se liquidan?' },
+    en: { name: 'Asset Play', ej: 'IRSA, CRESUD, BRK.B', desc: 'Worth more than the market believes, because of their assets',
+      crec: 'Variable', div: 'Variable', riesgo: 'Medium–high',
+      comprar: 'When the value of the assets (land, brands, property) exceeds the valuation.',
+      vender: 'When the assets are sold or the market recognizes the hidden value.',
+      ideales: 'Price/Book vs. market price · What are the assets worth if liquidated?' },
     w: { pbRatio: 3, ptbvRatio: 3, debtToEquity: 1.5, altmanZ: 1.5 },
     off: ['peg', 'revenueGrowth', 'epsGrowth', 'psForward', 'evSalesFwd', 'peForward'],
   },
@@ -196,7 +342,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
-const newPanel = (sel) => ({ sel, mode: 'annual', lookback: { annual: 5, quarterly: 8 }, avg: true });
+const newPanel = (sel) => ({ sel, mode: 'annual', lookback: { annual: 5, quarterly: 8 }, avg: true, chartType: 'line' });
 function loadPanels() {
   const p = store.get('fund_panels', null);
   if (!Array.isArray(p) || !p.length) return [newPanel(['revenue', 'netMargin'])];
@@ -205,6 +351,7 @@ function loadPanels() {
     mode: x.mode === 'quarterly' ? 'quarterly' : 'annual',
     lookback: { annual: Number(x.lookback?.annual ?? 5), quarterly: Number(x.lookback?.quarterly ?? 8) },
     avg: x.avg !== false,
+    chartType: x.chartType === 'bar' ? 'bar' : 'line',
   }));
 }
 
@@ -213,6 +360,7 @@ let panels = loadPanels();
 let active = 0;
 let data = null, charts = [];
 let excl = store.get('fund_excl', {}); // { TICKER: [claves tapadas] } — solo si el usuario tocó algún ojito
+let collapsed = store.get('fund_collapsed', {}); // { category: true } — colapsadas por el usuario
 const savePanels = () => store.set('fund_panels', panels);
 
 // ---------- formato ----------
@@ -229,7 +377,7 @@ function fmt(v, unit) {
   if (v == null || !isFinite(v)) return '—';
   if (unit === 'usd') return fmtBig(v);
   if (unit === 'usdps') return '$' + v.toFixed(2);
-  if (unit === 'pct') return v.toFixed(unit === 'pct' && Math.abs(v) < 10 ? 2 : 1) + '%';
+  if (unit === 'pct') return v.toFixed(Math.abs(v) < 10 ? 2 : 1) + '%';
   if (unit === 'x') return v.toFixed(2) + '×';
   return String(v);
 }
@@ -259,7 +407,7 @@ function byCategory(filterFn) {
   return Object.keys(groups).sort((a, b) => catRank(a) - catRank(b)).map((c) => [c, groups[c]]);
 }
 const typeKey = () => data.lynch?.type || 'stalwart';
-const T = () => TYPES[typeKey()] || TYPES.stalwart;
+const T = () => { const raw = TYPES[typeKey()] || TYPES.stalwart; return { ...raw[LANG], w: raw.w, off: raw.off, invert: raw.invert }; };
 // ¿La métrica participa en el score? (ratios con dirección; las cifras absolutas no)
 const scorable = (k) => { const m = M(k); return m && (m.unit === 'pct' || m.unit === 'x') && m.dir !== 0; };
 // dirección efectiva (las cíclicas invierten el P/E y los múltiplos de ganancias)
@@ -281,16 +429,19 @@ function toggleGroup(cat) {
   keys.forEach((k) => (allOff ? s.delete(k) : s.add(k)));
   saveExcluded(s); render();
 }
+function toggleCollapse(cat) { collapsed[cat] = !collapsed[cat]; store.set('fund_collapsed', collapsed); render(); }
+function setAllCollapsed(val) {
+  byCategory(() => true).forEach(([cat]) => { collapsed[cat] = val; });
+  store.set('fund_collapsed', collapsed); render();
+}
 
 // ---------- scoring: percentil vs 3 años + reglas de los apuntes ----------
-// favorabilidad 0-100 según el percentil (1 = más bajo, 100 = más alto) y la dirección de la métrica
 function favRank(k) {
   const m = M(k); if (m.rank3y == null) return null;
   const d = dirEff(k);
   return d > 0 ? m.rank3y : d < 0 ? 100 - m.rank3y : null;
 }
 function slope(k, n) { const a = ann(k); if (a.length < n + 1) return null; return a[a.length - 1].v - a[a.length - 1 - n].v; }
-// reglas de los apuntes (0-100) — null si no hay regla para esa métrica/tipo
 function ruleScore(k) {
   const v = cur(k), t = typeKey();
   if (v == null) return null;
@@ -328,7 +479,7 @@ function metricScore(k) {
 function computeScore() {
   const ex = excludedSet(), w = T().w || {};
   let num = 0, den = 0, included = 0, total = 0;
-  const groups = SCORE_GROUPS.map(([name, cats]) => ({ name, cats, num: 0, den: 0 }));
+  const groups = SCORE_GROUPS_T.map(([names, cats]) => ({ names, cats, num: 0, den: 0 }));
   Object.keys(data.metrics).forEach((k) => {
     if (!scorable(k) || data.metrics[k].current == null) return;
     total++;
@@ -339,11 +490,10 @@ function computeScore() {
     const g = groups.find((x) => x.cats.includes(data.metrics[k].category));
     if (g) { g.num += s * wt; g.den += wt; }
   });
-  return { total: den ? Math.round(num / den) : null, included, of: total, groups: groups.map((g) => ({ name: g.name, v: g.den ? Math.round(g.num / g.den) : null })) };
+  return { total: den ? Math.round(num / den) : null, included, of: total, groups: groups.map((g) => ({ name: tt(g.names[0], g.names[1]), v: g.den ? Math.round(g.num / g.den) : null })) };
 }
 
 // ---------- checklist de compra/venta y señales de alarma (apuntes) ----------
-// crecimiento del ejercicio P vs. el anterior (mismo período para todas las métricas, así no se comparan años distintos)
 function annVal(k, p) { const x = series(k, 'annual').find((y) => y.p === String(p)); return x && x.v != null ? x.v : null; }
 function annGrowth(k, p) { const a = annVal(k, p), b = annVal(k, Number(p) - 1); return a != null && b ? (a / b - 1) * 100 : null; }
 function decliningYears(k, n) { const a = ann(k); if (a.length < n + 1) return false; for (let i = a.length - n; i < a.length; i++) if (!(a[i].v < a[i - 1].v)) return false; return true; }
@@ -353,70 +503,70 @@ function drawdown12m() {
   const hi = Math.max(...p); return (p[p.length - 1] / hi - 1) * 100;
 }
 function buyChecks() {
-  const t = typeKey(), out = [];
+  const tp = typeKey(), out = [];
   const ok = (c, text) => out.push({ ok: c, text });
-  if (t === 'slowGrower') {
+  if (tp === 'slowGrower') {
     const r = M('dividendYield')?.rank3y;
-    ok(r == null ? null : r >= 80, `Dividend yield en zona alta de su historia (percentil ${r ?? '—'}; actual ${fmt(cur('dividendYield'), 'pct')})`);
-    const dy = cur('dividendYield'); ok(dy == null ? null : dy >= 3 && dy <= 6, `Dividend yield entre 3% y 6% (${fmt(dy, 'pct')})`);
-    const po = cur('payoutRatio'); ok(po == null ? null : po <= 70, `Payout ratio ≤ 70% (${fmt(po, 'pct')})`);
-  } else if (t === 'stalwart') {
+    ok(r == null ? null : r >= 80, tt(`Dividend yield en zona alta de su historia (percentil ${r ?? '—'}; actual ${fmt(cur('dividendYield'), 'pct')})`, `Dividend yield in the high zone of its history (percentile ${r ?? '—'}; current ${fmt(cur('dividendYield'), 'pct')})`));
+    const dy = cur('dividendYield'); ok(dy == null ? null : dy >= 3 && dy <= 6, tt(`Dividend yield entre 3% y 6% (${fmt(dy, 'pct')})`, `Dividend yield between 3% and 6% (${fmt(dy, 'pct')})`));
+    const po = cur('payoutRatio'); ok(po == null ? null : po <= 70, tt(`Payout ratio ≤ 70% (${fmt(po, 'pct')})`, `Payout ratio ≤ 70% (${fmt(po, 'pct')})`));
+  } else if (tp === 'stalwart') {
     const dd = drawdown12m();
-    ok(dd == null ? null : dd <= -10, `Caída de 10–20% vs. máximo de 12 meses por motivos ajenos al negocio (hoy ${dd == null ? '—' : dd.toFixed(1) + '%'})`);
-    const r = M('peRatio')?.rank3y; ok(r == null ? null : r <= 40, `P/E en zona baja vs. su promedio histórico (percentil ${r ?? '—'})`);
-    const g = ann('epsGrowth'); ok(g.length ? g[g.length - 1].v > 0 : null, 'Crecimiento de ganancias positivo y estable');
-  } else if (t === 'fastGrower') {
-    const peg = cur('peg'); ok(peg == null ? null : peg < 1, `PEG < 1 (${fmt(peg, 'x')})`);
-    const a = ann('revenueGrowth'); const g = a.length ? a[a.length - 1].v : null; ok(g == null ? null : g > 20, `Crecimiento de ingresos > 20% sostenido (último año ${g == null ? '—' : g.toFixed(1) + '%'})`);
-  } else if (t === 'cyclical') {
-    const r = M('peRatio')?.rank3y; ok(r == null ? null : r >= 75, `P/E ALTO vs. su historia = ganancias en el piso del ciclo (percentil ${r ?? '—'})`);
-    const nd = cur('netDebtToEbitda'); ok(nd == null ? null : nd < 3, `Deuda neta/EBITDA razonable para aguantar la recesión (${fmt(nd, 'x')})`);
-  } else if (t === 'turnaround') {
-    const cr = cur('currentRatio'); ok(cr == null ? null : cr >= 1.5, `Caja para sobrevivir: ratio corriente ≥ 1,5 (${fmt(cr, 'x')})`);
-    const nd = cur('netDebtToEbitda'); ok(nd == null ? null : nd < 3, `Deuda neta/EBITDA < 3 (${fmt(nd, 'x')})`);
-    const oc = cur('operatingCashFlow'); ok(oc == null ? null : oc > 0, 'Flujo operativo positivo');
-    out.push({ ok: null, text: 'Plan de reestructuración concreto (revisar manualmente en el 10-K / conference calls)' });
+    ok(dd == null ? null : dd <= -10, tt(`Caída de 10–20% vs. máximo de 12 meses por motivos ajenos al negocio (hoy ${dd == null ? '—' : dd.toFixed(1) + '%'})`, `Down 10–20% vs. its 12-month high for reasons unrelated to the business (today ${dd == null ? '—' : dd.toFixed(1) + '%'})`));
+    const r = M('peRatio')?.rank3y; ok(r == null ? null : r <= 40, tt(`P/E en zona baja vs. su promedio histórico (percentil ${r ?? '—'})`, `P/E in the low zone vs. its historical average (percentile ${r ?? '—'})`));
+    const g = ann('epsGrowth'); ok(g.length ? g[g.length - 1].v > 0 : null, tt('Crecimiento de ganancias positivo y estable', 'Positive and stable earnings growth'));
+  } else if (tp === 'fastGrower') {
+    const peg = cur('peg'); ok(peg == null ? null : peg < 1, tt(`PEG < 1 (${fmt(peg, 'x')})`, `PEG < 1 (${fmt(peg, 'x')})`));
+    const a = ann('revenueGrowth'); const g = a.length ? a[a.length - 1].v : null; ok(g == null ? null : g > 20, tt(`Crecimiento de ingresos > 20% sostenido (último año ${g == null ? '—' : g.toFixed(1) + '%'})`, `Revenue growth > 20% sustained (last year ${g == null ? '—' : g.toFixed(1) + '%'})`));
+  } else if (tp === 'cyclical') {
+    const r = M('peRatio')?.rank3y; ok(r == null ? null : r >= 75, tt(`P/E ALTO vs. su historia = ganancias en el piso del ciclo (percentil ${r ?? '—'})`, `HIGH P/E vs. its history = earnings at the bottom of the cycle (percentile ${r ?? '—'})`));
+    const nd = cur('netDebtToEbitda'); ok(nd == null ? null : nd < 3, tt(`Deuda neta/EBITDA razonable para aguantar la recesión (${fmt(nd, 'x')})`, `Reasonable net debt/EBITDA to withstand the recession (${fmt(nd, 'x')})`));
+  } else if (tp === 'turnaround') {
+    const cr = cur('currentRatio'); ok(cr == null ? null : cr >= 1.5, tt(`Caja para sobrevivir: ratio corriente ≥ 1,5 (${fmt(cr, 'x')})`, `Cash to survive: current ratio ≥ 1.5 (${fmt(cr, 'x')})`));
+    const nd = cur('netDebtToEbitda'); ok(nd == null ? null : nd < 3, tt(`Deuda neta/EBITDA < 3 (${fmt(nd, 'x')})`, `Net debt/EBITDA < 3 (${fmt(nd, 'x')})`));
+    const oc = cur('operatingCashFlow'); ok(oc == null ? null : oc > 0, tt('Flujo operativo positivo', 'Positive operating cash flow'));
+    out.push({ ok: null, text: tt('Plan de reestructuración concreto (revisar manualmente en el 10-K / conference calls)', 'Concrete restructuring plan (check manually in the 10-K / earnings calls)') });
   } else {
     const pb = cur('pbRatio'), tb = cur('ptbvRatio');
-    ok(pb == null ? null : pb < 1, `Price/Book < 1 (${fmt(pb, 'x')})`);
-    ok(tb == null ? null : tb < 1.5, `Price/Tangible Book < 1,5 (${fmt(tb, 'x')})`);
-    out.push({ ok: null, text: '¿Cuánto valen los activos si se liquidan? (revisar manualmente)' });
+    ok(pb == null ? null : pb < 1, tt(`Price/Book < 1 (${fmt(pb, 'x')})`, `Price/Book < 1 (${fmt(pb, 'x')})`));
+    ok(tb == null ? null : tb < 1.5, tt(`Price/Tangible Book < 1,5 (${fmt(tb, 'x')})`, `Price/Tangible Book < 1.5 (${fmt(tb, 'x')})`));
+    out.push({ ok: null, text: tt('¿Cuánto valen los activos si se liquidan? (revisar manualmente)', 'How much are the assets worth if liquidated? (check manually)') });
   }
   return out;
 }
-// señales de alarma generales de los apuntes; devuelve solo las que se activaron y cuáles no se pudieron evaluar
 function alarms() {
-  const t = typeKey(), hit = [], clean = [];
-  const ex = excludedSet(); // las métricas tapadas con el ojito tampoco disparan alarmas
+  const tp = typeKey(), hit = [], clean = [];
+  const ex = excludedSet();
   const on = (k) => !ex.has(k);
   const chk = (cond, text) => { if (cond === true) hit.push(text); else if (cond === false) clean.push(text); };
   const P0 = ann('revenue').at(-1)?.p;
   const rg = annGrowth('revenue', P0), fg = annGrowth('fcf', P0), dg = annGrowth('totalDebt', P0), ig = annGrowth('inventory', P0);
-  chk(rg == null || fg == null ? null : rg > 0 && fg < 0, 'Ingresos crecen pero el FCF baja');
-  chk(rg == null || dg == null ? null : dg > 0 && dg > rg + 1, `Deuda crece más rápido que los ingresos (deuda ${dg == null ? '—' : dg.toFixed(0) + '%'} vs ingresos ${rg == null ? '—' : rg.toFixed(0) + '%'})`);
-  chk(ann('opMargin').length >= 4 ? decliningYears('opMargin', 3) : null, 'Margen operativo se achica año a año (3 años seguidos)');
-  chk(rg == null || ig == null ? null : ig > rg && ig > 0, 'Inventario crece más que las ventas');
+  chk(rg == null || fg == null ? null : rg > 0 && fg < 0, tt('Ingresos crecen pero el FCF baja', 'Revenue is growing but FCF is falling'));
+  chk(rg == null || dg == null ? null : dg > 0 && dg > rg + 1, tt(`Deuda crece más rápido que los ingresos (deuda ${dg == null ? '—' : dg.toFixed(0) + '%'} vs ingresos ${rg == null ? '—' : rg.toFixed(0) + '%'})`, `Debt grows faster than revenue (debt ${dg == null ? '—' : dg.toFixed(0) + '%'} vs revenue ${rg == null ? '—' : rg.toFixed(0) + '%'})`));
+  chk(ann('opMargin').length >= 4 ? decliningYears('opMargin', 3) : null, tt('Margen operativo se achica año a año (3 años seguidos)', 'Operating margin is shrinking year over year (3 years in a row)'));
+  chk(rg == null || ig == null ? null : ig > rg && ig > 0, tt('Inventario crece más que las ventas', 'Inventory is growing faster than sales'));
   const ni = annVal('netIncome', P0), oc = annVal('operatingCashFlow', P0);
-  chk(ni == null || oc == null ? null : ni > 0 && oc / ni < 0.7, 'Ganancia neta alta pero flujo operativo bajo (< 70% de la ganancia)');
+  chk(ni == null || oc == null ? null : ni > 0 && oc / ni < 0.7, tt('Ganancia neta alta pero flujo operativo bajo (< 70% de la ganancia)', 'High net income but low operating cash flow (< 70% of net income)'));
   const pe = cur('peRatio'), rgl = ann('revenueGrowth').at(-1)?.v;
-  if (t !== 'cyclical' && on('peRatio')) chk(pe == null || rgl == null ? null : pe > 30 && rgl < 15, 'P/E > 30 sin crecimiento fuerte que lo justifique');
-  const peg = cur('peg'); if (on('peg')) chk(peg == null ? null : peg > 2, `PEG > 2: estás pagando de más por el crecimiento (${fmt(peg, 'x')})`);
+  if (tp !== 'cyclical' && on('peRatio')) chk(pe == null || rgl == null ? null : pe > 30 && rgl < 15, tt('P/E > 30 sin crecimiento fuerte que lo justifique', 'P/E > 30 with no strong growth to justify it'));
+  const peg = cur('peg'); if (on('peg')) chk(peg == null ? null : peg > 2, tt(`PEG > 2: estás pagando de más por el crecimiento (${fmt(peg, 'x')})`, `PEG > 2: you're overpaying for growth (${fmt(peg, 'x')})`));
   const roe = cur('roe'), de = cur('debtToEquity');
-  if (on('roe')) chk(roe == null ? null : roe < 10, `ROE < 10%: el negocio no es eficiente con su capital (${fmt(roe, 'pct')})`);
-  if (on('roe')) chk(roe == null || de == null ? null : roe > 25 && de > 1.5, 'ROE alto + deuda/patrimonio alta = ROE inflado por deuda (trampa)');
-  if (on('roe')) chk(ann('roe').length >= 4 ? decliningYears('roe', 3) : null, 'ROE bajando año a año: posible MOAT debilitado');
-  const dE = cur('debtToEbitda'); if (on('debtToEbitda')) chk(dE == null ? null : dE > 3, `Deuda/EBITDA > 3x (${fmt(dE, 'x')}) — ${dE > 5 ? 'PELIGRO (> 5x)' : 'cuidado'}`);
-  const fy = cur('fcfYield'); if (t !== 'fastGrower' && on('fcfYield')) chk(fy == null ? null : fy < 2, fy != null && fy < 0 ? 'FCF yield negativo: la empresa quema caja' : `FCF yield < 2%: pagás mucho por poco cash (${fmt(fy, 'pct')})`);
-  const po = cur('payoutRatio'); if (on('payoutRatio')) chk(po == null ? null : po > 80, `Payout ratio > 80% (${fmt(po, 'pct')})`);
-  if (t === 'slowGrower') { const dg2 = annGrowth('dividendsPerShare', P0); chk(dg2 == null ? null : dg2 <= 0, 'Dividendo estancado o en baja (señal de venta para slow grower)'); }
-  if (t === 'stalwart' && on('peRatio')) { const r = M('peRatio')?.rank3y; chk(r == null ? null : r >= 90, `P/E muy estirado vs. su promedio histórico (percentil ${r ?? '—'})`); }
-  if (t === 'fastGrower') { const rgl2 = ann('revenueGrowth'); if (rgl2.length >= 2) chk(rgl2[rgl2.length - 1].v < rgl2[rgl2.length - 2].v - 5, 'El crecimiento se está desacelerando'); }
+  if (on('roe')) chk(roe == null ? null : roe < 10, tt(`ROE < 10%: el negocio no es eficiente con su capital (${fmt(roe, 'pct')})`, `ROE < 10%: the business isn't efficient with its capital (${fmt(roe, 'pct')})`));
+  if (on('roe')) chk(roe == null || de == null ? null : roe > 25 && de > 1.5, tt('ROE alto + deuda/patrimonio alta = ROE inflado por deuda (trampa)', 'High ROE + high debt/equity = ROE inflated by debt (a trap)'));
+  if (on('roe')) chk(ann('roe').length >= 4 ? decliningYears('roe', 3) : null, tt('ROE bajando año a año: posible MOAT debilitado', 'ROE declining year over year: possible weakening moat'));
+  const dE = cur('debtToEbitda'); if (on('debtToEbitda')) chk(dE == null ? null : dE > 3, tt(`Deuda/EBITDA > 3x (${fmt(dE, 'x')}) — ${dE > 5 ? 'PELIGRO (> 5x)' : 'cuidado'}`, `Debt/EBITDA > 3x (${fmt(dE, 'x')}) — ${dE > 5 ? 'DANGER (> 5x)' : 'caution'}`));
+  const fy = cur('fcfYield'); if (tp !== 'fastGrower' && on('fcfYield')) chk(fy == null ? null : fy < 2, fy != null && fy < 0 ? tt('FCF yield negativo: la empresa quema caja', 'Negative FCF yield: the company is burning cash') : tt(`FCF yield < 2%: pagás mucho por poco cash (${fmt(fy, 'pct')})`, `FCF yield < 2%: paying a lot for little cash (${fmt(fy, 'pct')})`));
+  const po = cur('payoutRatio'); if (on('payoutRatio')) chk(po == null ? null : po > 80, tt(`Payout ratio > 80% (${fmt(po, 'pct')})`, `Payout ratio > 80% (${fmt(po, 'pct')})`));
+  if (tp === 'slowGrower') { const dg2 = annGrowth('dividendsPerShare', P0); chk(dg2 == null ? null : dg2 <= 0, tt('Dividendo estancado o en baja (señal de venta para slow grower)', 'Dividend stalled or falling (sell signal for a slow grower)')); }
+  if (tp === 'stalwart' && on('peRatio')) { const r = M('peRatio')?.rank3y; chk(r == null ? null : r >= 90, tt(`P/E muy estirado vs. su promedio histórico (percentil ${r ?? '—'})`, `P/E very stretched vs. its historical average (percentile ${r ?? '—'})`)); }
+  if (tp === 'fastGrower') { const rgl2 = ann('revenueGrowth'); if (rgl2.length >= 2) chk(rgl2[rgl2.length - 1].v < rgl2[rgl2.length - 2].v - 5, tt('El crecimiento se está desacelerando', 'Growth is decelerating')); }
   return { hit, clean };
 }
 
 // ---------- tarjetas ----------
-const EYE = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
-const EYE_OFF = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+const EYE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
 
 function favColor(f) { return f == null ? '#6b7280' : f >= 70 ? '#2F9E44' : f <= 30 ? '#E03131' : '#9aa0aa'; }
 function cardsHtml() {
@@ -424,29 +574,35 @@ function cardsHtml() {
   const ex = excludedSet();
   return byCategory(() => true).map(([cat, keys]) => {
     const withData = keys.filter((k) => data.metrics[k].current != null);
+    const isCollapsed = !!collapsed[cat];
     const cards = keys.map((k) => {
       const m = data.metrics[k];
       const hasVal = m.current != null;
       const off = ex.has(k) || !hasVal;
-      const f = favRank(k);
-      const col = favColor(f);
       const isScore = scorable(k);
       const inv = T().invert && T().invert.includes(k);
-      const rankTip = m.rank3y != null ? `Percentil vs. últimos 3 años: ${m.rank3y} (1 = mínimo, 100 = máximo) · promedio 3a: ${fmt(m.avg3y, m.unit)}${inv ? ' · invertido por ser cíclica' : ''}` : 'Sin historial suficiente para el ranking a 3 años';
+      const rankTip = m.rank3y != null ? `${tt(UI.perc3y[0], UI.perc3y[1])} ${m.rank3y} ${tt(UI.minMax[0], UI.minMax[1])} · ${tt(UI.avg3y[0], UI.avg3y[1])} ${fmt(m.avg3y, m.unit)}${inv ? ' · ' + tt(UI.invertedCyc[0], UI.invertedCyc[1]) : ''}` : tt(UI.noRankHist[0], UI.noRankHist[1]);
       const slider = m.rank3y != null
-        ? `<div class="rank" title="${esc(rankTip)}"><div class="track"></div><div class="dot" style="left:${Math.min(96, Math.max(4, m.rank3y))}%;background:${col}">${m.rank3y}</div></div>`
+        ? `<div class="rank" title="${esc(rankTip)}"><div class="track"></div><div class="dot" style="left:${Math.min(96, Math.max(4, m.rank3y))}%;background:${favColor(metricScore(k))}">${m.rank3y}</div></div>`
         : `<div class="rank none" title="${esc(rankTip)}"></div>`;
       const w = (T().w || {})[k];
-      return `<div class="metric${off ? ' off' : ''}${act.includes(k) ? ' sel' : ''}${!hasVal ? ' nodata' : ''}" data-key="${k}" style="border-left-color:${isScore && !off ? favColor(metricScore(k)) : '#3a3f4b'}" title="${esc(m.note || 'Click: agregar/quitar del gráfico activo')}">
-        ${hasVal && isScore ? `<button class="eye" data-act="eye" data-k="${k}" title="${off ? 'Destapar: vuelve a contar en el score' : 'Tapar: no cuenta en el score'}">${off ? EYE_OFF : EYE}</button>` : ''}
-        <div class="k">${esc(m.label)}${w > 1 && isScore ? ` <span class="wt" title="Métrica clave para ${esc(T().name)}">★</span>` : ''}</div>
+      const cardTitle = mNote(k) || tt(UI.yourClick[0], UI.yourClick[1]);
+      return `<div class="metric${off ? ' off' : ''}${act.includes(k) ? ' sel' : ''}${!hasVal ? ' nodata' : ''}" data-key="${k}" style="border-left-color:${isScore && !off ? favColor(metricScore(k)) : '#3a3f4b'}" title="${esc(cardTitle)}">
+        ${hasVal && isScore ? `<button class="eye" data-act="eye" data-k="${k}" title="${esc(off ? tt(UI.eyeShow[0], UI.eyeShow[1]) : tt(UI.eyeHide[0], UI.eyeHide[1]))}">${off ? EYE_OFF : EYE}</button>` : ''}
+        <div class="k">${esc(mLabel(k))}${w > 1 && isScore ? ` <span class="wt" title="${esc(tt(UI.keyMetricTip[0], UI.keyMetricTip[1]))} ${esc(T().name)}">★</span>` : ''}</div>
         <div class="v">${hasVal ? fmt(m.current, m.unit) : '—'}</div>
-        ${isScore ? slider : `<div class="d">${!hasVal ? 'sin dato' : m.unit === 'usd' || m.unit === 'usdps' ? (k === 'dividendsPerShare' ? 'TTM' : 'último trim.') : ''}</div>`}
+        ${isScore ? slider : `<div class="d">${!hasVal ? tt(UI.noData[0], UI.noData[1]) : m.unit === 'usd' || m.unit === 'usdps' ? (k === 'dividendsPerShare' ? tt(UI.ttm[0], UI.ttm[1]) : tt(UI.lastQ[0], UI.lastQ[1])) : ''}</div>`}
       </div>`;
     }).join('');
     const scorableKeys = withData.filter(scorable);
     const allOff = scorableKeys.length && scorableKeys.every((k) => ex.has(k));
-    return `<div class="cat"><div class="cat-title"><span>${esc(cat)}</span>${scorableKeys.length ? `<button class="grp" data-act="grp" data-cat="${esc(cat)}" title="Tapar / destapar toda la categoría">${allOff ? EYE_OFF : EYE}</button>` : ''}</div><div class="metrics-grid">${cards}</div></div>`;
+    return `<div class="cat${isCollapsed ? ' collapsed' : ''}">
+      <div class="cat-title" data-act="collapse" data-cat="${esc(cat)}">
+        <span class="left"><span class="chev">${CHEV}</span><span>${esc(catLabel(cat))}</span><span class="count">${keys.length}</span></span>
+        ${scorableKeys.length ? `<button class="grp" data-act="grp" data-cat="${esc(cat)}" title="${esc(tt(UI.eyeGroupTip[0], UI.eyeGroupTip[1]))}">${allOff ? EYE_OFF : EYE}</button>` : ''}
+      </div>
+      <div class="cat-body"><div class="metrics-grid">${cards}</div></div>
+    </div>`;
   }).join('');
 }
 
@@ -455,22 +611,22 @@ function guideHtml() {
   const buy = buyChecks(), al = alarms();
   const mark = (ok) => (ok === true ? '<span class="ck ok">✓</span>' : ok === false ? '<span class="ck no">✗</span>' : '<span class="ck na">–</span>');
   return `<div class="panel guide">
-    <div class="guide-head"><b>${esc(t.name)}</b> <span class="muted">${esc(t.desc)} · ej: ${esc(t.ej)}</span></div>
+    <div class="guide-head"><b>${esc(t.name)}</b> <span class="muted">${esc(t.desc)} · ${tt(UI.eg[0], UI.eg[1])} ${esc(t.ej)}</span></div>
     <div class="guide-grid">
-      <div><div class="gt">Perfil</div><div class="gl">Crecimiento: <b>${esc(t.crec)}</b></div><div class="gl">Dividendos: <b>${esc(t.div)}</b></div><div class="gl">Riesgo: <b>${esc(t.riesgo)}</b></div>
-        <div class="gt" style="margin-top:10px">Métricas ideales</div><div class="gl">${esc(t.ideales)}</div><div class="gl muted">Las marcadas con ★ pesan más en el score.</div></div>
-      <div><div class="gt">¿Cuándo comprarla?</div><div class="gl muted">${esc(t.comprar)}</div>${buy.map((b) => `<div class="gl">${mark(b.ok)} ${esc(b.text)}</div>`).join('')}</div>
-      <div><div class="gt">¿Cuándo venderla?</div><div class="gl muted">${esc(t.vender)}</div>
-        <div class="gt" style="margin-top:10px">Señales de alarma</div>
-        ${al.hit.length ? al.hit.map((x) => `<div class="gl"><span class="ck no">!</span> ${esc(x)}</div>`).join('') : '<div class="gl"><span class="ck ok">✓</span> Ninguna señal de alarma activada</div>'}
-        ${al.clean.length ? `<div class="gl muted" style="margin-top:4px">${al.clean.length} chequeos sin problema</div>` : ''}</div>
+      <div><div class="gt">${tt(UI.profile[0], UI.profile[1])}</div><div class="gl">${tt(UI.growthWord[0], UI.growthWord[1])}: <b>${esc(t.crec)}</b></div><div class="gl">${tt(UI.dividendsWord[0], UI.dividendsWord[1])}: <b>${esc(t.div)}</b></div><div class="gl">${tt(UI.riskWord[0], UI.riskWord[1])}: <b>${esc(t.riesgo)}</b></div>
+        <div class="gt" style="margin-top:10px">${tt(UI.idealMetrics[0], UI.idealMetrics[1])}</div><div class="gl">${esc(t.ideales)}</div><div class="gl muted">${tt(UI.starNote[0], UI.starNote[1])}</div></div>
+      <div><div class="gt">${tt(UI.whenBuy[0], UI.whenBuy[1])}</div><div class="gl muted">${esc(t.comprar)}</div>${buy.map((b) => `<div class="gl">${mark(b.ok)} ${esc(b.text)}</div>`).join('')}</div>
+      <div><div class="gt">${tt(UI.whenSell[0], UI.whenSell[1])}</div><div class="gl muted">${esc(t.vender)}</div>
+        <div class="gt" style="margin-top:10px">${tt(UI.alarmSignals[0], UI.alarmSignals[1])}</div>
+        ${al.hit.length ? al.hit.map((x) => `<div class="gl"><span class="ck no">!</span> ${esc(x)}</div>`).join('') : `<div class="gl"><span class="ck ok">✓</span> ${tt(UI.noAlarms[0], UI.noAlarms[1])}</div>`}
+        ${al.clean.length ? `<div class="gl muted" style="margin-top:4px">${al.clean.length} ${tt(UI.cleanChecks[0], UI.cleanChecks[1])}</div>` : ''}</div>
     </div></div>`;
 }
 
 function optionsHtml(exclude) {
-  let h = '<option value="">+ Agregar métrica…</option>';
+  let h = `<option value="">${tt(UI.addMetric[0], UI.addMetric[1])}</option>`;
   byCategory((k) => hasSeries(k) && !exclude.includes(k)).forEach(([cat, keys]) => {
-    h += `<optgroup label="${esc(cat)}">` + keys.map((k) => `<option value="${k}">${esc(data.metrics[k].label)}</option>`).join('') + '</optgroup>';
+    h += `<optgroup label="${esc(catLabel(cat))}">` + keys.map((k) => `<option value="${k}">${esc(mLabel(k))}</option>`).join('') + '</optgroup>';
   });
   return h;
 }
@@ -481,7 +637,7 @@ function buildChart(i) {
   const P = panels[i];
   const keys = P.sel.filter((k) => data.metrics[k] && hasSeries(k));
   const box = document.getElementById('box_' + i);
-  if (!keys.length) { box.innerHTML = '<div class="loading">Agregá al menos una métrica.</div>'; return; }
+  if (!keys.length) { box.innerHTML = `<div class="loading">${tt('Agregá al menos una métrica.', 'Add at least one metric.')}</div>`; return; }
   box.innerHTML = `<canvas id="chart_${i}"></canvas>`;
 
   const set = new Set();
@@ -502,26 +658,24 @@ function buildChart(i) {
     ax.keys.push(k); axisOf[k] = ax.id;
   });
 
+  const isBarMode = P.chartType === 'bar';
   const datasets = [];
-  const scales = { x: { ticks: { color: '#8b8f99', maxRotation: 0, autoSkip: true }, grid: { color: '#262a33' } } };
+  const scales = { x: { ticks: { color: '#8b8f99', maxRotation: 0, autoSkip: true }, grid: { color: '#262a33' }, stacked: false } };
   keys.forEach((k, idx) => {
     const m = data.metrics[k];
     const color = COLORS[P.sel.indexOf(k) % COLORS.length];
     const axis = axisOf[k];
     const vals = valsOf(k);
-    const isBar = idx === 0 && m.unit === 'usd';
-    datasets.push({ label: m.label, _k: k, data: vals, yAxisID: axis, borderColor: color, backgroundColor: isBar ? color + 'cc' : color,
-      type: isBar ? 'bar' : 'line', borderWidth: 2, pointRadius: 3, tension: 0.2, spanGaps: true, order: isBar ? 3 : 1 });
-    if ((k === 'peForward' || k === 'peg') && m.current != null) {
-      datasets.push({ label: m.label + ' actual', _k: k, data: labels.map(() => m.current), yAxisID: axis, type: 'line', borderColor: color, borderDash: [3, 4], borderWidth: 1.5, pointRadius: 0, order: 0 });
-    }
+    datasets.push({ label: mLabel(k), _k: k, data: vals, yAxisID: axis, borderColor: color, backgroundColor: isBarMode ? color + 'cc' : color,
+      type: isBarMode ? 'bar' : 'line', borderWidth: 2, pointRadius: isBarMode ? 0 : 3, tension: 0.2, spanGaps: true, order: isBarMode ? 3 : 1,
+      stack: 'stack' + idx, categoryPercentage: 0.7, barPercentage: 0.85 });
     if (P.avg) {
       const w = P.mode === 'annual' ? 3 : 4;
       const ma = vals.map((_, j) => {
         const win = vals.slice(Math.max(0, j - w + 1), j + 1).filter((v) => v != null);
         return win.length >= 2 ? win.reduce((a, b) => a + b, 0) / win.length : null;
       });
-      datasets.push({ label: m.label + ' (prom. móvil ' + w + ')', _k: k, _ma: true, data: ma, yAxisID: axis, type: 'line', borderColor: color, borderDash: [7, 5], borderWidth: 1.2, pointRadius: 0, tension: 0.3, spanGaps: true, order: 2 });
+      datasets.push({ label: mLabel(k) + ' (' + tt('prom. móvil', 'moving avg') + ' ' + w + ')', _k: k, _ma: true, data: ma, yAxisID: axis, type: 'line', borderColor: color, borderDash: [7, 5], borderWidth: 1.2, pointRadius: 0, tension: 0.3, spanGaps: true, order: 0 });
     }
   });
   axes.forEach((a, j) => {
@@ -531,7 +685,7 @@ function buildChart(i) {
       type: 'linear', position: j === 0 ? 'left' : 'right',
       ticks: { color: c, callback: (v) => fmt(v, a.unit) },
       grid: { color: '#262a33', drawOnChartArea: j === 0 },
-      title: { display: axes.length > 1, text: single ? data.metrics[a.keys[0]].label : a.keys.map((k) => data.metrics[k].label).join(' / '), color: c },
+      title: { display: axes.length > 1, text: single ? mLabel(a.keys[0]) : a.keys.map((k) => mLabel(k)).join(' / '), color: c },
     };
   });
 
@@ -540,7 +694,7 @@ function buildChart(i) {
     options: {
       responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: { labels: { color: '#8b8f99', boxWidth: 10, font: { size: 11 }, filter: (it) => !it.text.includes('prom. móvil') } },
+        legend: { labels: { color: '#8b8f99', boxWidth: 10, font: { size: 11 } } },
         tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + fmt(c.parsed.y, data.metrics[c.dataset._k]?.unit) } },
       },
       scales,
@@ -550,19 +704,20 @@ function buildChart(i) {
 
 function panelHtml(P, i) {
   const chips = P.sel.filter((k) => data.metrics[k]).map((k) => `<span class="chip" style="border-color:${COLORS[P.sel.indexOf(k) % COLORS.length]}">
-      <span class="dot2" style="background:${COLORS[P.sel.indexOf(k) % COLORS.length]}"></span>${esc(data.metrics[k].label)}
-      <button class="x" data-act="rmchip" data-i="${i}" data-k="${k}" title="Quitar">×</button></span>`).join('');
-  const notes = P.sel.filter((k) => data.metrics[k]?.note).map((k) => `<div><b>${esc(data.metrics[k].label)}:</b> ${esc(data.metrics[k].note)}</div>`).join('');
+      <span class="dot2" style="background:${COLORS[P.sel.indexOf(k) % COLORS.length]}"></span>${esc(mLabel(k))}
+      <button class="x" data-act="rmchip" data-i="${i}" data-k="${k}" title="${esc(tt(UI.removeChip[0], UI.removeChip[1]))}">×</button></span>`).join('');
+  const notes = P.sel.filter((k) => data.metrics[k] && mNote(k)).map((k) => `<div><b>${esc(mLabel(k))}:</b> ${esc(mNote(k))}</div>`).join('');
   const full = P.sel.length >= MAX_PER_PANEL;
   return `<div class="panel chart-panel${i === active ? ' active' : ''}" data-i="${i}">
     <div class="controls">
-      <span class="ptitle">Gráfico ${i + 1}</span>
+      <span class="ptitle">${tt(UI.chartWord[0], UI.chartWord[1])} ${i + 1}</span>
       ${chips}
-      <select data-act="add" data-i="${i}" title="${full ? 'Máximo ' + MAX_PER_PANEL + ' métricas: al agregar otra se quita la primera' : ''}">${optionsHtml(P.sel)}</select>
-      <div class="seg"><button data-act="mode" data-i="${i}" data-v="annual" class="${P.mode === 'annual' ? 'on' : ''}">Anual</button><button data-act="mode" data-i="${i}" data-v="quarterly" class="${P.mode === 'quarterly' ? 'on' : ''}">Trimestral</button></div>
-      <div class="seg">${lookbackOptions(P.mode).map((n) => `<button data-act="lb" data-i="${i}" data-v="${n}" class="${P.lookback[P.mode] === n ? 'on' : ''}">${n ? 'Últ. ' + n : 'Todo'}</button>`).join('')}</div>
-      <label class="toggle"><input type="checkbox" data-act="avg" data-i="${i}" ${P.avg ? 'checked' : ''}/> Promedio móvil</label>
-      ${panels.length > 1 ? `<button class="rm" data-act="rmpanel" data-i="${i}" title="Quitar gráfico">✕</button>` : ''}
+      <select data-act="add" data-i="${i}" title="${full ? tt('Máximo ' + MAX_PER_PANEL + ' métricas: al agregar otra se quita la primera', 'Max ' + MAX_PER_PANEL + ' metrics: adding another removes the first one') : ''}">${optionsHtml(P.sel)}</select>
+      <div class="seg"><button data-act="mode" data-i="${i}" data-v="annual" class="${P.mode === 'annual' ? 'on' : ''}">${tt(UI.annual[0], UI.annual[1])}</button><button data-act="mode" data-i="${i}" data-v="quarterly" class="${P.mode === 'quarterly' ? 'on' : ''}">${tt(UI.quarterly[0], UI.quarterly[1])}</button></div>
+      <div class="seg">${lookbackOptions(P.mode).map((n) => `<button data-act="lb" data-i="${i}" data-v="${n}" class="${P.lookback[P.mode] === n ? 'on' : ''}">${n ? tt(UI.last[0], UI.last[1]) + ' ' + n : tt(UI.all[0], UI.all[1])}</button>`).join('')}</div>
+      <div class="seg"><button data-act="ctype" data-i="${i}" data-v="line" class="${P.chartType !== 'bar' ? 'on' : ''}">${tt(UI.lineType[0], UI.lineType[1])}</button><button data-act="ctype" data-i="${i}" data-v="bar" class="${P.chartType === 'bar' ? 'on' : ''}">${tt(UI.barType[0], UI.barType[1])}</button></div>
+      <label class="toggle"><input type="checkbox" data-act="avg" data-i="${i}" ${P.avg ? 'checked' : ''}/> ${tt(UI.movingAvg[0], UI.movingAvg[1])}</label>
+      ${panels.length > 1 ? `<button class="rm" data-act="rmpanel" data-i="${i}" title="${esc(tt(UI.removeChart[0], UI.removeChart[1]))}">✕</button>` : ''}
     </div>
     <div class="chart-wrap" id="box_${i}"></div>
     ${notes ? `<div class="footnote">${notes}</div>` : ''}
@@ -572,6 +727,7 @@ function panelHtml(P, i) {
 function render() {
   const c = document.getElementById('content');
   charts.forEach((ch) => ch && ch.destroy()); charts = [];
+  if (!data) return;
   if (data.error) { c.innerHTML = `<div class="loading">${esc(data.error)}</div>`; return; }
 
   if (data.history?.source === 'yahoo_price_only') {
@@ -584,7 +740,7 @@ function render() {
     const h = data.history.price || [];
     charts[0] = new Chart(document.getElementById('priceChart').getContext('2d'), {
       type: 'line',
-      data: { labels: h.map((x) => new Date(x.t).toLocaleDateString('es-AR', { month: '2-digit', year: '2-digit' })), datasets: [{ label: 'Precio', data: h.map((x) => x.c), borderColor: '#4C6EF5', borderWidth: 1.5, pointRadius: 0 }] },
+      data: { labels: h.map((x) => new Date(x.t).toLocaleDateString(LANG === 'en' ? 'en-US' : 'es-AR', { month: '2-digit', year: '2-digit' })), datasets: [{ label: tt('Precio', 'Price'), data: h.map((x) => x.c), borderColor: '#4C6EF5', borderWidth: 1.5, pointRadius: 0 }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#8b8f99', maxTicksLimit: 10 }, grid: { color: '#262a33' } }, y: { ticks: { color: '#8b8f99' }, grid: { color: '#262a33' } } } },
     });
     return;
@@ -592,35 +748,37 @@ function render() {
 
   const sc = computeScore();
   const scoreColor = sc.total >= 60 ? '#69db7c' : sc.total <= 40 ? '#ff8787' : '#e6e8eb';
-  const lynchOpts = Object.entries(data.lynchOptions || {}).map(([k, l]) => `<option value="${k}" ${data.lynch?.forced && k === data.lynch?.type ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  const lynchOpts = Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${data.lynch?.forced && k === data.lynch?.type ? 'selected' : ''}>${esc(v[LANG].name)}</option>`).join('');
   if (active >= panels.length) active = 0;
   const touched = !!excl[data.symbol];
+  const anyCollapsed = byCategory(() => true).some(([cat]) => collapsed[cat]);
 
   c.innerHTML = `
   <div class="panel">
     <div class="header-row">
       <div>
         <div class="company-name">${esc(data.name)} <span class="muted">${esc(data.symbol)}</span></div>
-        <div class="company-sub">${esc(data.exchange || '')} · Market cap: ${fmtBig(data.marketCap)} ${esc(data.currency || '')} · Historial ${data.history.annualYears}a / ${data.history.quarterlyPeriods}t</div>
-        <div class="lynch-row"><span class="lynch-badge">${esc(data.lynch?.label || '—')}</span>
-          <select id="lynchSel" title="Clasificación Lynch (cambia el perfil de pesos y las reglas)"><option value="" ${data.lynch?.forced ? '' : 'selected'}>Auto</option>${lynchOpts}</select></div>
+        <div class="company-sub">${esc(data.exchange || '')} · ${tt('Market cap', 'Market cap')}: ${fmtBig(data.marketCap)} ${esc(data.currency || '')} · ${tt('Historial', 'History')} ${data.history.annualYears}${tt('a', 'y')} / ${data.history.quarterlyPeriods}${tt('t', 'q')}</div>
+        <div class="lynch-row"><span class="lynch-badge">${esc(TYPES[data.lynch?.type]?.[LANG]?.name || data.lynch?.label || '—')}</span>
+          <select id="lynchSel" title="${esc(tt(UI.lynchTitle[0], UI.lynchTitle[1]))}"><option value="" ${data.lynch?.forced ? '' : 'selected'}>${tt(UI.auto[0], UI.auto[1])}</option>${lynchOpts}</select></div>
       </div>
-      <div class="score-ring"><div class="score-num" style="color:${scoreColor}">${sc.total ?? '—'}</div><div class="score-label">Score · ${sc.included} de ${sc.of} métricas</div>${sc.included < 8 ? '<div class="score-warn" title="La SEC devuelve pocos datos históricos de esta empresa, así que el score se apoya en muy pocas métricas">⚠ pocos datos: score poco confiable</div>' : ''}</div>
+      <div class="score-ring"><div class="score-num" style="color:${scoreColor}">${sc.total ?? '—'}</div><div class="score-label">${tt(UI.scoreLabel[0], UI.scoreLabel[1])} · ${sc.included} ${tt(UI.scoreOf[0], UI.scoreOf[1])} ${sc.of} ${tt(UI.metricsWord[0], UI.metricsWord[1])}</div>${sc.included < 8 ? `<div class="score-warn" title="${esc(tt(UI.lowDataTip[0], UI.lowDataTip[1]))}">${tt(UI.lowDataWarn[0], UI.lowDataWarn[1])}</div>` : ''}</div>
       <div><div class="price-big">${data.price != null ? data.price.toFixed(2) : '—'}</div><div class="muted" style="text-align:right">${esc(data.currency || '')}</div></div>
     </div>
     <div class="score-detail">${sc.groups.map((g) => `<span>${g.name}: <b style="color:${g.v == null ? '#8b8f99' : favColor(g.v)}">${g.v ?? '—'}</b></span>`).join('')}
-      ${touched ? '<button class="reset" data-act="reset" title="Vuelve a las métricas tapadas por defecto para este tipo de acción">↺ Restablecer ojitos</button>' : ''}</div>
+      ${touched ? `<button class="reset" data-act="reset" title="${esc(tt(UI.resetEyesTip[0], UI.resetEyesTip[1]))}">${tt(UI.resetEyes[0], UI.resetEyes[1])}</button>` : ''}</div>
   </div>
 
   ${guideHtml()}
 
   <div class="panel">
-    <p class="cards-title">La bolita muestra dónde está la métrica hoy vs. sus últimos 3 años (1 = mínimo, 100 = máximo): <span style="color:#2F9E44">verde</span> = favorable, <span style="color:#E03131">rojo</span> = desfavorable (para métricas donde menos es mejor, como P/E o deuda, el mínimo es favorable). El <b>borde</b> de la tarjeta mezcla ese historial con las reglas de tus apuntes (ej.: PEG &lt; 1, deuda/EBITDA &lt; 2x). El <b>ojito</b> tapa una métrica para que no cuente en el score (★ = clave para este tipo de acción). Click en la tarjeta para graficarla en el <b>gráfico activo</b>.</p>
+    <p class="cards-title">${tt(UI.cardsTitleA[0], UI.cardsTitleA[1])} <span style="color:#2F9E44">${tt(UI.favorable[0], UI.favorable[1])}</span> = ${tt(UI.favorable[0], UI.favorable[1])}, <span style="color:#E03131">${tt(UI.unfavorable[0], UI.unfavorable[1])}</span> = ${tt(UI.unfavorable[0], UI.unfavorable[1])} ${tt(UI.cardsTitleB[0], UI.cardsTitleB[1])} <b>${tt(UI.borderWord[0], UI.borderWord[1])}</b> ${tt(UI.cardsTitleC[0], UI.cardsTitleC[1])} <b>${tt(UI.eyeWord[0], UI.eyeWord[1])}</b> ${tt(UI.cardsTitleD[0], UI.cardsTitleD[1])} <b>${tt(UI.activeChart[0], UI.activeChart[1])}</b>.
+      <button class="collapse-all" data-act="collapseall" style="margin-left:8px;">${anyCollapsed ? tt(UI.expandAll[0], UI.expandAll[1]) : tt(UI.collapseAll[0], UI.collapseAll[1])}</button></p>
     <div id="cards">${cardsHtml()}</div>
   </div>
 
   <div id="panels">${panels.map(panelHtml).join('')}</div>
-  ${panels.length < MAX_PANELS ? '<button class="addpanel" data-act="addpanel">+ Agregar gráfico</button>' : ''}`;
+  ${panels.length < MAX_PANELS ? `<button class="addpanel" data-act="addpanel">${tt(UI.addChart[0], UI.addChart[1])}</button>` : ''}`;
 
   panels.forEach((_, i) => buildChart(i));
 }
@@ -632,11 +790,14 @@ document.getElementById('content').addEventListener('click', (e) => {
   const btn = t.closest('[data-act]');
   const act = btn?.dataset.act;
   if (act === 'eye') { e.stopPropagation(); toggleMetric(btn.dataset.k); return; }
-  if (act === 'grp') { toggleGroup(btn.dataset.cat); return; }
+  if (act === 'grp') { e.stopPropagation(); toggleGroup(btn.dataset.cat); return; }
+  if (act === 'collapse') { toggleCollapse(btn.dataset.cat); return; }
+  if (act === 'collapseall') { const any = byCategory(() => true).some(([cat]) => collapsed[cat]); setAllCollapsed(!any); return; }
   if (act === 'reset') { delete excl[data.symbol]; store.set('fund_excl', excl); render(); return; }
   const i = Number(btn?.dataset.i);
   if (act === 'mode') { panels[i].mode = btn.dataset.v; active = i; savePanels(); render(); return; }
   if (act === 'lb') { panels[i].lookback[panels[i].mode] = Number(btn.dataset.v); active = i; savePanels(); render(); return; }
+  if (act === 'ctype') { panels[i].chartType = btn.dataset.v; active = i; savePanels(); render(); return; }
   if (act === 'rmchip') { panels[i].sel = panels[i].sel.filter((k) => k !== btn.dataset.k); active = i; savePanels(); render(); return; }
   if (act === 'rmpanel') { panels.splice(i, 1); active = Math.min(active, panels.length - 1); savePanels(); render(); return; }
   if (act === 'addpanel') { panels.push(newPanel(['peRatio'].filter((k) => hasSeries(k)))); active = panels.length - 1; savePanels(); render(); return; }
@@ -669,7 +830,7 @@ async function search(symOverride, lynch) {
   const sym = (symOverride || document.getElementById('tickerInput').value || '').trim().toUpperCase();
   if (!sym) return;
   document.getElementById('tickerInput').value = sym;
-  document.getElementById('content').innerHTML = '<div class="loading">Cargando…</div>';
+  document.getElementById('content').innerHTML = `<div class="loading">${tt(UI.loading[0], UI.loading[1])}</div>`;
   try {
     const r = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}` + (lynch ? `&lynch=${encodeURIComponent(lynch)}` : ''));
     data = await r.json();
@@ -680,12 +841,36 @@ async function search(symOverride, lynch) {
       renderRecent();
     }
   } catch (e) {
-    document.getElementById('content').innerHTML = `<div class="loading">Error: ${esc(e.message)}</div>`;
+    document.getElementById('content').innerHTML = `<div class="loading">${tt(UI.errorPrefix[0], UI.errorPrefix[1])} ${esc(e.message)}</div>`;
   }
 }
 
+// ---------- idioma ----------
+function applyStaticText() {
+  document.documentElement.lang = LANG;
+  document.title = tt(UI.pageTitle[0], UI.pageTitle[1]);
+  document.getElementById('hTitle').textContent = tt(UI.hTitle[0], UI.hTitle[1]);
+  Object.entries(NAV_T).forEach(([id, [es, en]]) => { const el = document.getElementById(id); if (el) el.textContent = tt(es, en); });
+  document.getElementById('searchBtn').textContent = tt(UI.searchBtn[0], UI.searchBtn[1]);
+  document.getElementById('tickerInput').placeholder = 'AAPL';
+  const empty = document.getElementById('emptyMsg');
+  if (empty) empty.textContent = tt(UI.emptyMsg[0], UI.emptyMsg[1]);
+  document.getElementById('langEs').classList.toggle('on', LANG === 'es');
+  document.getElementById('langEn').classList.toggle('on', LANG === 'en');
+}
+function setLang(l) {
+  if (l === LANG) return;
+  LANG = l;
+  try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+  applyStaticText();
+  if (data) render();
+}
+document.getElementById('langEs').onclick = () => setLang('es');
+document.getElementById('langEn').onclick = () => setLang('en');
+
 document.getElementById('searchBtn').onclick = () => search();
 document.getElementById('tickerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+applyStaticText();
 renderRecent();
 const qs = new URLSearchParams(location.search).get('symbol');
 if (qs) search(qs);

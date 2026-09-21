@@ -12,6 +12,9 @@
   header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
   header h1 { font-size:18px; margin:0; }
   nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
+  .langsw { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; margin-left:16px; vertical-align:middle; }
+  .langsw button { background:#12151b; color:var(--muted); border:none; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; }
+  .langsw button.on { background:var(--accent); color:#fff; }
   nav a:hover, nav a.active { color:var(--text); }
   .container { padding:20px; max-width:1200px; margin:0 auto; }
   .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
@@ -38,17 +41,29 @@
   .chip .rm:hover { opacity:1; }
   .reset-link { color:var(--muted); font-size:12px; cursor:pointer; text-decoration:underline; margin-top:8px; display:inline-block; }
   .empty { padding:60px; text-align:center; color:var(--muted); }
+  .follow-toggle { font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:14px; }
+  .wl-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
+  .wl-table th { text-align:left; color:var(--muted); font-weight:500; padding:6px 10px; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
+  .wl-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .wl-table tr:last-child td { border-bottom:none; }
+  .wl-table tr { cursor:pointer; }
+  .wl-table tr:hover td { background:#1b1f28; }
+  .wl-table tr.sel td { background:#1b2033; }
+  .wl-sym { font-weight:600; }
+  .wl-quad { display:inline-flex; align-items:center; gap:6px; padding:3px 9px; border-radius:12px; font-size:12px; font-weight:600; }
+  .wl-num { color:var(--muted); font-variant-numeric:tabular-nums; }
 </style>
 </head>
 <body>
 <header>
-  <h1>🔄 RRG — Acciones puntuales</h1>
+  <h1 id="pageH1">🔄 RRG — Acciones puntuales</h1>
   <nav>
-    <a href="/">Dashboard</a>
-    <a href="/rotation.html">RRG</a>
-    <a href="/rotation-stocks.html" class="active">RRG Acciones</a>
-    <a href="/fundamentals.html">Fundamental</a>
-    <a href="/watchlist.html">Watchlist</a>
+    <a id="navDash" href="/">Dashboard</a>
+    <a id="navRrg" href="/rotation.html">RRG</a>
+    <a id="navRrgStocks" href="/rotation-stocks.html" class="active">RRG Acciones</a>
+    <a id="navFund" href="/fundamentals.html">Fundamental</a>
+    <a id="navWatch" href="/watchlist.html">Watchlist</a>
+    <span class="langsw"><button id="langEs">ES</button><button id="langEn">EN</button></span>
   </nav>
 </header>
 <div class="container">
@@ -67,6 +82,7 @@
 
     <div class="legend-chips" id="legendChips"></div>
     <span class="reset-link" id="resetHighlight">Quitar selección</span>
+    <label class="follow-toggle" id="followToggleWrap" style="display:none;"><input type="checkbox" id="followOnly"/> Ver solo esta acción</label>
 
     <div class="playback">
       <button class="play-btn" id="playBtn" title="Reproducir movimiento histórico">▶</button>
@@ -82,12 +98,19 @@
     </div>
     <p class="muted">Eje X: RS-Ratio vs S&P 500 · Eje Y: RS-Momentum. Click en una acción para resaltarla, ▶ para ver la película del movimiento.</p>
   </div>
+
+  <div class="panel">
+    <div class="controls-row" style="margin-bottom:10px;">
+      <b style="font-size:14px;">Watchlist — cuadrante actual</b>
+    </div>
+    <div id="watchlistWrap"><p class="muted">Agregá tickers arriba para ver en qué cuadrante está cada uno.</p></div>
+  </div>
 </div>
 <script>
-const RANGES = [{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'},{k:'3y',label:'3A'}];
+const RANGES = [{k:'1m',label:'1M'},{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'}];
 const TAIL = 8;
 const STORAGE_KEY = 'rrg_stocks_list';
-let currentRange = '1y';
+let currentRange = '3m';
 let chart = null;
 let fullData = null;
 let metaData = null;
@@ -133,15 +156,17 @@ function buildLegendChips() {
     chip.style.borderColor = selectedSymbol === sym ? color : '';
     chip.style.background = selectedSymbol === sym ? color : '';
     chip.innerHTML = `<span>${sym}</span><span class="rm" data-sym="${sym}">✕</span>`;
-    chip.querySelector('span:first-child').onclick = () => { selectedSymbol = selectedSymbol === sym ? null : sym; buildLegendChips(); renderStatic(); };
+    chip.querySelector('span:first-child').onclick = () => { selectedSymbol = selectedSymbol === sym ? null : sym; buildLegendChips(); renderStatic(); updateFollowToggle(); buildWatchlist(); };
     chip.querySelector('.rm').onclick = (e) => { e.stopPropagation(); removeTicker(sym); };
     wrap.appendChild(chip);
   });
 }
 
 function datasetsForFrame(idx) {
+  const followOnly = document.getElementById('followOnly')?.checked;
   const datasets = [];
   for (const sym of Object.keys(fullData)) {
+    if (followOnly && selectedSymbol && sym !== selectedSymbol) continue;
     const series = fullData[sym];
     if (!series.length) continue;
     const endIdx = idx == null ? series.length - 1 : Math.min(idx, series.length - 1);
@@ -149,7 +174,7 @@ function datasetsForFrame(idx) {
     const points = series.slice(startIdx, endIdx + 1);
     const last = points[points.length - 1];
     const quadCol = quadColor(last.x, last.y);
-    const isDimmed = !playing && selectedSymbol !== sym;
+    const isDimmed = !followOnly && selectedSymbol && selectedSymbol !== sym;
     const color = isDimmed ? '#3a3f4b' : quadCol;
     datasets.push({
       label: sym,
@@ -185,6 +210,8 @@ function renderChart(datasets) {
         selectedSymbol = selectedSymbol === sym ? null : sym;
         buildLegendChips();
         renderStatic();
+        updateFollowToggle();
+        buildWatchlist();
       },
       scales: {
         x: { min: 94, max: 106, title: { display: true, text: 'RS-Ratio', color: '#8b8f99' }, ticks: { color: '#8b8f99' }, grid: { color: (c) => c.tick.value === 100 ? '#4C6EF5' : '#262a33' } },
@@ -231,7 +258,51 @@ function togglePlay() {
     idx++;
     if (idx > total) { stopPlayback(); renderStatic(); return; }
     renderFrame(idx);
-  }, 140);
+  }, 320);
+}
+
+
+function quadInfo(x, y) {
+  if (x >= 100 && y >= 100) return { key: 'leading', label: 'Leading', color: '#2F9E44' };
+  if (x >= 100 && y < 100) return { key: 'weakening', label: 'Weakening', color: '#F59F00' };
+  if (x < 100 && y < 100) return { key: 'lagging', label: 'Lagging', color: '#E03131' };
+  return { key: 'improving', label: 'Improving', color: '#4C6EF5' };
+}
+
+function buildWatchlist() {
+  const wrap = document.getElementById('watchlistWrap');
+  const syms = fullData ? Object.keys(fullData).filter(s => fullData[s] && fullData[s].length) : [];
+  if (!syms.length) { wrap.innerHTML = '<p class="muted">Agregá tickers arriba para ver en qué cuadrante está cada uno.</p>'; return; }
+  const rows = syms.map(sym => {
+    const series = fullData[sym];
+    const last = series[series.length - 1];
+    const q = quadInfo(last.x, last.y);
+    const prev = series.length > 1 ? series[series.length - 2] : null;
+    const dx = prev ? last.x - prev.x : null;
+    const dy = prev ? last.y - prev.y : null;
+    return { sym, last, q, dx, dy };
+  }).sort((a, b) => b.last.x - a.last.x);
+
+  let html = '<table class="wl-table"><thead><tr><th>Ticker</th><th>Cuadrante</th><th>RS-Ratio</th><th>RS-Momentum</th><th>Δ período</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const arrow = r.dx == null ? '—' : (r.dx >= 0 ? '↗' : '↘') + ' ' + (r.dx >= 0 ? '+' : '') + r.dx.toFixed(2);
+    html += `<tr class="${selectedSymbol === r.sym ? 'sel' : ''}" data-sym="${r.sym}">
+      <td class="wl-sym">${r.sym}</td>
+      <td><span class="wl-quad" style="background:${r.q.color}22;color:${r.q.color}">${r.q.label}</span></td>
+      <td class="wl-num">${r.last.x.toFixed(2)}</td>
+      <td class="wl-num">${r.last.y.toFixed(2)}</td>
+      <td class="wl-num">${arrow}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('tr[data-sym]').forEach(tr => {
+    tr.onclick = () => {
+      const sym = tr.dataset.sym;
+      selectedSymbol = selectedSymbol === sym ? null : sym;
+      buildLegendChips(); renderStatic(); updateFollowToggle(); buildWatchlist();
+    };
+  });
 }
 
 function removeTicker(sym) {
@@ -249,6 +320,7 @@ async function load() {
     chartWrap.style.display = 'none';
     fullData = {};
     buildLegendChips();
+    buildWatchlist();
     return;
   }
   emptyEl.style.display = 'none';
@@ -265,6 +337,8 @@ async function load() {
     document.getElementById('frameSlider').value = total;
     buildLegendChips();
     renderStatic();
+    updateFollowToggle();
+    buildWatchlist();
   } catch (e) {
     chartWrap.innerHTML = `<p class="muted">Error cargando RRG: ${e.message}</p>`;
   }
@@ -275,7 +349,13 @@ document.getElementById('frameSlider').addEventListener('input', (e) => {
   if (playing) stopPlayback();
   renderFrame(Number(e.target.value));
 });
-document.getElementById('resetHighlight').onclick = () => { selectedSymbol = null; buildLegendChips(); renderStatic(); };
+function updateFollowToggle() {
+  const wrap = document.getElementById('followToggleWrap');
+  wrap.style.display = selectedSymbol ? 'flex' : 'none';
+  if (!selectedSymbol) document.getElementById('followOnly').checked = false;
+}
+document.getElementById('followOnly').addEventListener('change', () => { if (playing) stopPlayback(); renderStatic(); });
+document.getElementById('resetHighlight').onclick = () => { selectedSymbol = null; buildLegendChips(); renderStatic(); updateFollowToggle(); buildWatchlist(); };
 document.getElementById('addBtn').onclick = () => {
   const input = document.getElementById('tickerInput');
   const sym = input.value.trim().toUpperCase();
@@ -290,6 +370,30 @@ document.getElementById('tickerInput').addEventListener('keydown', (e) => { if (
 buildRangeButtons();
 load();
 setInterval(() => { if (!playing) load(); }, 90000);
+</script>
+<script>
+(function () {
+  var NAV_T = { es:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Acciones',fund:'Fundamental',watch:'Watchlist'}, en:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Stocks',fund:'Fundamentals',watch:'Watchlist'} };
+  var PAGE_T = { es: '🔄 RRG — Acciones puntuales', en: '🔄 RRG — Individual Stocks' };
+  var LANG_KEY = 'fund_lang';
+  function getLang() { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'es'; } catch (e) { return 'es'; } }
+  function apply(lang) {
+    var t = NAV_T[lang];
+    var ids = { navDash:t.dash, navRrg:t.rrg, navRrgStocks:t.rrgs, navFund:t.fund, navWatch:t.watch };
+    Object.keys(ids).forEach(function (id) { var el = document.getElementById(id); if (el) el.textContent = ids[id]; });
+    var h1 = document.getElementById('pageH1'); if (h1) h1.textContent = PAGE_T[lang];
+    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
+    if (es) es.classList.toggle('on', lang === 'es');
+    if (en) en.classList.toggle('on', lang === 'en');
+  }
+  window.__setSiteLang = function (l) { try { localStorage.setItem(LANG_KEY, l); } catch (e) {} apply(l); };
+  document.addEventListener('DOMContentLoaded', function () {
+    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
+    if (es) es.onclick = function () { window.__setSiteLang('es'); };
+    if (en) en.onclick = function () { window.__setSiteLang('en'); };
+    apply(getLang());
+  });
+})();
 </script>
 </body>
 </html>
