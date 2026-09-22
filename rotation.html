@@ -36,6 +36,13 @@
   .chip.selected { color:#fff; font-weight:600; border-color:transparent; }
   .reset-link { color:var(--muted); font-size:12px; cursor:pointer; text-decoration:underline; margin-top:8px; display:inline-block; }
   .follow-toggle { font-size:12px; color:var(--muted); display:inline-flex; align-items:center; gap:6px; cursor:pointer; margin-left:14px; }
+  .add-row { display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+  input[type=text] { background:#12151b; border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; font-size:13px; width:150px; text-transform:uppercase; }
+  button.primary { background:var(--accent); color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; }
+  .extra-chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .extra-chip { background:#11141a; border:1px solid var(--border); color:var(--muted); padding:4px 6px 4px 12px; border-radius:14px; font-size:12px; display:flex; align-items:center; gap:6px; }
+  .extra-chip .rm { cursor:pointer; opacity:.7; }
+  .extra-chip .rm:hover { opacity:1; color:#ff8787; }
   .wl-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:6px; }
   .wl-table th { text-align:left; color:var(--muted); font-weight:500; padding:6px 10px; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:.03em; }
   .wl-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
@@ -62,6 +69,12 @@
 </header>
 <div class="container">
   <div class="panel">
+    <div class="add-row">
+      <input type="text" id="extraInput" placeholder="EWZ, FXI, EEM…" maxlength="8" />
+      <button class="primary" id="addExtraBtn">Agregar índice</button>
+      <span class="muted">Sectores fijos + los índices que agregues (ETFs de países, oro, bonos, etc.)</span>
+    </div>
+    <div class="extra-chips" id="extraChips"></div>
     <div class="controls-row">
       <div id="rangeControls"></div>
     </div>
@@ -101,6 +114,17 @@ let chart = null;
 let fullData = null; // { symbol: [{x,y,t}, ...] }
 let selectedSymbol = null; // símbolo resaltado por click
 let metaData = null; // { symbol: {name,color,is_benchmark} }
+const EXTRA_KEY = 'rrg_sectors_extra';
+function getExtra() { try { return JSON.parse(localStorage.getItem(EXTRA_KEY) || '[]'); } catch (e) { return []; } }
+function saveExtra(list) { localStorage.setItem(EXTRA_KEY, JSON.stringify(list)); }
+function buildExtraChips() {
+  const wrap = document.getElementById('extraChips');
+  const list = getExtra();
+  wrap.innerHTML = list.map(sym => `<span class="extra-chip">${sym}<span class="rm" data-sym="${sym}">✕</span></span>`).join('');
+  wrap.querySelectorAll('.rm').forEach(el => {
+    el.onclick = () => { saveExtra(getExtra().filter(s => s !== el.dataset.sym)); buildExtraChips(); stopPlayback(); load(); };
+  });
+}
 let frameIndex = null; // índice de frame actual (null = mostrar cola final estática)
 let playing = false;
 let playTimer = null;
@@ -302,7 +326,8 @@ function buildWatchlist() {
 async function load() {
   const panelWrap = document.querySelector('.chart-wrap');
   try {
-    const r = await fetch(`/api/sectors?range=${currentRange}`);
+    const extraQ = getExtra();
+    const r = await fetch(`/api/sectors?range=${currentRange}` + (extraQ.length ? `&extra=${encodeURIComponent(extraQ.join(','))}` : ''));
     const data = await r.json();
     if (data.error) throw new Error(data.error);
     fullData = data.rrg;
@@ -320,6 +345,20 @@ async function load() {
   }
 }
 
+document.getElementById('addExtraBtn').onclick = () => {
+  const input = document.getElementById('extraInput');
+  const sym = input.value.trim().toUpperCase();
+  if (!sym) return;
+  const list = getExtra();
+  if (!list.includes(sym)) { list.push(sym); saveExtra(list); }
+  input.value = '';
+  buildExtraChips();
+  stopPlayback();
+  load();
+};
+document.getElementById('extraInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('addExtraBtn').click(); });
+
+buildExtraChips();
 buildRangeButtons();
 load();
 setInterval(() => { if (!playing) load(); }, 90000);

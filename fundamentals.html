@@ -67,22 +67,25 @@
   .chart-wrap { position:relative; height:360px; }
   .loading { color:var(--muted); padding:40px; text-align:center; }
   @media (max-width:640px) { .chart-wrap { height:280px; } .price-big { text-align:left; } }
-  .cat { margin-bottom:6px; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
-  .cat:last-child { margin-bottom:0; }
-  .cat-title { font-size:11.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:#b8bcc4; padding:9px 12px; background:#12151b; display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
-  .cat-title:hover { background:#161a22; }
-  .cat-title .left { display:flex; align-items:center; gap:8px; }
-  .cat-title .chev { transition:transform .15s; color:var(--muted); display:flex; }
-  .cat.collapsed .chev { transform:rotate(-90deg); }
-  .cat-title .count { color:var(--muted); font-weight:400; font-size:10.5px; text-transform:none; letter-spacing:0; }
-  .cat-title .grp { background:none; border:none; color:var(--muted); cursor:pointer; padding:3px 4px; border-radius:6px; line-height:0; }
-  .cat-title .grp:hover { color:var(--text); background:#232838; }
-  .cat-body { padding:10px; }
-  .cat.collapsed .cat-body { display:none; }
+  .cat-tabs { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px; }
+  .cat-tab { font-family:inherit; font-size:11.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:#b8bcc4; padding:8px 10px; background:#12151b; border:1px solid var(--border); border-radius:8px; display:inline-flex; align-items:center; gap:7px; cursor:pointer; user-select:none; white-space:nowrap; }
+  .cat-tab:hover { background:#161a22; color:var(--text); }
+  .cat-tab.expanded { border-color:var(--accent); color:var(--text); }
+  .cat-tab .chev { transition:transform .15s; color:var(--muted); display:flex; }
+  .cat-tab.expanded .chev { transform:rotate(180deg); }
+  .cat-tab .count { color:var(--muted); font-weight:400; font-size:10.5px; text-transform:none; letter-spacing:0; }
+  .cat-tab .grp { background:none; border:none; color:var(--muted); cursor:pointer; padding:2px; border-radius:6px; line-height:0; margin-left:2px; }
+  .cat-tab .grp:hover { color:var(--text); background:#232838; }
+  .cat-body-panel { border:1px solid var(--border); border-radius:9px; overflow:hidden; margin-bottom:8px; }
+  .cat-body-panel:last-child { margin-bottom:0; }
+  .cat-body-head { font-size:11.5px; font-weight:600; letter-spacing:.03em; text-transform:uppercase; color:#b8bcc4; padding:8px 12px; background:#12151b; border-bottom:1px solid var(--border); }
+  .cat-body-panel .metrics-grid { padding:10px; }
   .chart-panel.active { border-color:var(--accent); }
   .ptitle { font-size:11.5px; font-weight:600; color:var(--muted); }
   .chip { display:inline-flex; align-items:center; gap:6px; background:#12151b; border:1px solid var(--border); border-radius:999px; padding:3px 6px 3px 10px; font-size:11.5px; }
   .chip .x { background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; line-height:1; padding:0 4px; }
+  .chip .typebtn { background:none; border:none; color:var(--muted); cursor:pointer; padding:2px; line-height:0; border-radius:4px; }
+  .chip .typebtn:hover { color:var(--text); background:#232838; }
   .chip .x:hover { color:#ff8787; }
   .dot2 { display:inline-block; width:9px; height:9px; border-radius:50%; }
   .rm { background:none; border:1px solid var(--border); color:var(--muted); border-radius:8px; padding:5px 9px; cursor:pointer; margin-left:auto; }
@@ -344,7 +347,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
-const newPanel = (sel) => ({ sel, mode: 'annual', lookback: { annual: 5, quarterly: 8 }, avg: true, chartType: 'line' });
+const newPanel = (sel) => ({ sel, mode: 'annual', lookback: { annual: 5, quarterly: 8 }, avg: true, types: {} });
 function loadPanels() {
   const p = store.get('fund_panels', null);
   if (!Array.isArray(p) || !p.length) return [newPanel(['revenue', 'netMargin'])];
@@ -353,7 +356,7 @@ function loadPanels() {
     mode: x.mode === 'quarterly' ? 'quarterly' : 'annual',
     lookback: { annual: Number(x.lookback?.annual ?? 5), quarterly: Number(x.lookback?.quarterly ?? 8) },
     avg: x.avg !== false,
-    chartType: x.chartType === 'bar' ? 'bar' : 'line',
+    types: x.types && typeof x.types === 'object' ? x.types : {}, // { metricKey: 'line'|'bar' }, default 'line'
   }));
 }
 
@@ -610,6 +613,8 @@ function alarms() {
 const EYE = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
 const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+const ICON_LINE = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 10 13 14 21 5"/></svg>';
+const ICON_BAR = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="20" x2="5" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="19" y1="20" x2="19" y2="14"/></svg>';
 
 function favColor(f) { return f == null ? '#6b7280' : f >= 70 ? '#2F9E44' : f <= 30 ? '#E03131' : '#9aa0aa'; }
 function techLine(k) {
@@ -651,14 +656,22 @@ function cardsHtml() {
     }).join('');
     const scorableKeys = withData.filter(scorable);
     const allOff = scorableKeys.length && scorableKeys.every((k) => ex.has(k));
-    return `<div class="cat${isCollapsed ? ' collapsed' : ''}">
-      <div class="cat-title" data-act="collapse" data-cat="${esc(cat)}">
-        <span class="left"><span class="chev">${CHEV}</span><span>${esc(catLabel(cat))}</span><span class="count">${keys.length}</span></span>
-        ${scorableKeys.length ? `<button class="grp" data-act="grp" data-cat="${esc(cat)}" title="${esc(tt(UI.eyeGroupTip[0], UI.eyeGroupTip[1]))}">${allOff ? EYE_OFF : EYE}</button>` : ''}
-      </div>
-      <div class="cat-body"><div class="metrics-grid">${cards}</div></div>
-    </div>`;
-  }).join('');
+    const eyeBtn = scorableKeys.length ? `<button class="grp" data-act="grp" data-cat="${esc(cat)}" title="${esc(tt(UI.eyeGroupTip[0], UI.eyeGroupTip[1]))}">${allOff ? EYE_OFF : EYE}</button>` : '';
+    const tab = `<div class="cat-tab${isCollapsed ? '' : ' expanded'}" data-act="collapse" data-cat="${esc(cat)}">
+        <span class="chev">${CHEV}</span><span>${esc(catLabel(cat))}</span><span class="count">${keys.length}</span>${eyeBtn}
+      </div>`;
+    const body = isCollapsed ? '' : `<div class="cat-body-panel" data-cat="${esc(cat)}">
+        <div class="cat-body-head">${esc(catLabel(cat))}</div>
+        <div class="metrics-grid">${cards}</div>
+      </div>`;
+    return { tab, body };
+  });
+}
+function cardsAndTabsHtml() {
+  const parts = cardsHtml();
+  const tabs = `<div class="cat-tabs">${parts.map((p) => p.tab).join('')}</div>`;
+  const bodies = parts.map((p) => p.body).filter(Boolean).join('');
+  return tabs + bodies;
 }
 
 function guideHtml() {
@@ -713,7 +726,6 @@ function buildChart(i) {
     ax.keys.push(k); axisOf[k] = ax.id;
   });
 
-  const isBarMode = P.chartType === 'bar';
   const datasets = [];
   const scales = { x: { ticks: { color: '#8b8f99', maxRotation: 0, autoSkip: true }, grid: { color: '#262a33' }, stacked: false } };
   keys.forEach((k, idx) => {
@@ -721,8 +733,9 @@ function buildChart(i) {
     const color = COLORS[P.sel.indexOf(k) % COLORS.length];
     const axis = axisOf[k];
     const vals = valsOf(k);
-    datasets.push({ label: mLabel(k), _k: k, data: vals, yAxisID: axis, borderColor: color, backgroundColor: isBarMode ? color + 'cc' : color,
-      type: isBarMode ? 'bar' : 'line', borderWidth: 2, pointRadius: isBarMode ? 0 : 3, tension: 0.2, spanGaps: true, order: isBarMode ? 3 : 1,
+    const isBar = (P.types || {})[k] === 'bar';
+    datasets.push({ label: mLabel(k), _k: k, data: vals, yAxisID: axis, borderColor: color, backgroundColor: isBar ? color + 'cc' : color,
+      type: isBar ? 'bar' : 'line', borderWidth: 2, pointRadius: isBar ? 0 : 3, tension: 0.2, spanGaps: true, order: isBar ? 3 : 1,
       stack: 'stack' + idx, categoryPercentage: 0.7, barPercentage: 0.85 });
     if (P.avg) {
       const w = P.mode === 'annual' ? 3 : 4;
@@ -758,9 +771,13 @@ function buildChart(i) {
 }
 
 function panelHtml(P, i) {
-  const chips = P.sel.filter((k) => data.metrics[k]).map((k) => `<span class="chip" style="border-color:${COLORS[P.sel.indexOf(k) % COLORS.length]}">
+  const chips = P.sel.filter((k) => data.metrics[k]).map((k) => {
+    const isBar = (P.types || {})[k] === 'bar';
+    return `<span class="chip" style="border-color:${COLORS[P.sel.indexOf(k) % COLORS.length]}">
       <span class="dot2" style="background:${COLORS[P.sel.indexOf(k) % COLORS.length]}"></span>${esc(mLabel(k))}
-      <button class="x" data-act="rmchip" data-i="${i}" data-k="${k}" title="${esc(tt(UI.removeChip[0], UI.removeChip[1]))}">×</button></span>`).join('');
+      <button class="typebtn" data-act="typechip" data-i="${i}" data-k="${k}" title="${esc(isBar ? tt('Ver como línea', 'Show as line') : tt('Ver como barra', 'Show as bar'))}">${isBar ? ICON_BAR : ICON_LINE}</button>
+      <button class="x" data-act="rmchip" data-i="${i}" data-k="${k}" title="${esc(tt(UI.removeChip[0], UI.removeChip[1]))}">×</button></span>`;
+  }).join('');
   const notes = P.sel.filter((k) => data.metrics[k] && mNote(k)).map((k) => `<div><b>${esc(mLabel(k))}:</b> ${esc(mNote(k))}</div>`).join('');
   const full = P.sel.length >= MAX_PER_PANEL;
   return `<div class="panel chart-panel${i === active ? ' active' : ''}" data-i="${i}">
@@ -770,7 +787,6 @@ function panelHtml(P, i) {
       <select data-act="add" data-i="${i}" title="${full ? tt('Máximo ' + MAX_PER_PANEL + ' métricas: al agregar otra se quita la primera', 'Max ' + MAX_PER_PANEL + ' metrics: adding another removes the first one') : ''}">${optionsHtml(P.sel)}</select>
       <div class="seg"><button data-act="mode" data-i="${i}" data-v="annual" class="${P.mode === 'annual' ? 'on' : ''}">${tt(UI.annual[0], UI.annual[1])}</button><button data-act="mode" data-i="${i}" data-v="quarterly" class="${P.mode === 'quarterly' ? 'on' : ''}">${tt(UI.quarterly[0], UI.quarterly[1])}</button></div>
       <div class="seg">${lookbackOptions(P.mode).map((n) => `<button data-act="lb" data-i="${i}" data-v="${n}" class="${P.lookback[P.mode] === n ? 'on' : ''}">${n ? tt(UI.last[0], UI.last[1]) + ' ' + n : tt(UI.all[0], UI.all[1])}</button>`).join('')}</div>
-      <div class="seg"><button data-act="ctype" data-i="${i}" data-v="line" class="${P.chartType !== 'bar' ? 'on' : ''}">${tt(UI.lineType[0], UI.lineType[1])}</button><button data-act="ctype" data-i="${i}" data-v="bar" class="${P.chartType === 'bar' ? 'on' : ''}">${tt(UI.barType[0], UI.barType[1])}</button></div>
       <label class="toggle"><input type="checkbox" data-act="avg" data-i="${i}" ${P.avg ? 'checked' : ''}/> ${tt(UI.movingAvg[0], UI.movingAvg[1])}</label>
       ${panels.length > 1 ? `<button class="rm" data-act="rmpanel" data-i="${i}" title="${esc(tt(UI.removeChart[0], UI.removeChart[1]))}">✕</button>` : ''}
     </div>
@@ -829,7 +845,7 @@ function render() {
   <div class="panel">
     <p class="cards-title">${tt(UI.cardsTitleA[0], UI.cardsTitleA[1])} <span style="color:#2F9E44">${tt(UI.favorable[0], UI.favorable[1])}</span> = ${tt(UI.favorable[0], UI.favorable[1])}, <span style="color:#E03131">${tt(UI.unfavorable[0], UI.unfavorable[1])}</span> = ${tt(UI.unfavorable[0], UI.unfavorable[1])} ${tt(UI.cardsTitleB[0], UI.cardsTitleB[1])} <b>${tt(UI.borderWord[0], UI.borderWord[1])}</b> ${tt(UI.cardsTitleC[0], UI.cardsTitleC[1])} <b>${tt(UI.eyeWord[0], UI.eyeWord[1])}</b> ${tt(UI.cardsTitleD[0], UI.cardsTitleD[1])} <b>${tt(UI.activeChart[0], UI.activeChart[1])}</b>.
       <button class="collapse-all" data-act="collapseall" style="margin-left:8px;">${anyCollapsed ? tt(UI.expandAll[0], UI.expandAll[1]) : tt(UI.collapseAll[0], UI.collapseAll[1])}</button></p>
-    <div id="cards">${cardsHtml()}</div>
+    <div id="cards">${cardsAndTabsHtml()}</div>
   </div>
 
   <div id="panels">${panels.map(panelHtml).join('')}</div>
@@ -852,7 +868,7 @@ document.getElementById('content').addEventListener('click', (e) => {
   const i = Number(btn?.dataset.i);
   if (act === 'mode') { panels[i].mode = btn.dataset.v; active = i; savePanels(); render(); return; }
   if (act === 'lb') { panels[i].lookback[panels[i].mode] = Number(btn.dataset.v); active = i; savePanels(); render(); return; }
-  if (act === 'ctype') { panels[i].chartType = btn.dataset.v; active = i; savePanels(); render(); return; }
+  if (act === 'typechip') { e.stopPropagation(); const P = panels[i]; P.types = P.types || {}; P.types[btn.dataset.k] = P.types[btn.dataset.k] === 'bar' ? 'line' : 'bar'; active = i; savePanels(); render(); return; }
   if (act === 'rmchip') { panels[i].sel = panels[i].sel.filter((k) => k !== btn.dataset.k); active = i; savePanels(); render(); return; }
   if (act === 'rmpanel') { panels.splice(i, 1); active = Math.min(active, panels.length - 1); savePanels(); render(); return; }
   if (act === 'addpanel') { panels.push(newPanel(['peRatio'].filter((k) => hasSeries(k)))); active = panels.length - 1; savePanels(); render(); return; }

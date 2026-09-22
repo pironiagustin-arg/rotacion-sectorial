@@ -35,6 +35,19 @@
   .rm-btn:hover { color:var(--red); }
   .empty { padding:40px; text-align:center; color:var(--muted); }
   .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:6px 16px 16px; }
+  .toolbar-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+  .cols-btn { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:7px 14px; border-radius:8px; cursor:pointer; font-size:13px; position:relative; }
+  .cols-btn:hover { color:var(--text); }
+  .cols-panel { position:absolute; top:calc(100% + 6px); right:0; background:#12151b; border:1px solid var(--border); border-radius:10px; padding:10px; z-index:20; width:230px; box-shadow:0 8px 24px rgba(0,0,0,.4); display:none; }
+  .cols-panel.open { display:block; }
+  .cols-panel label { display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 4px; cursor:pointer; border-radius:6px; }
+  .cols-panel label:hover { background:#1b1f28; }
+  .cols-panel .hint { font-size:11px; color:var(--muted); padding:4px 4px 8px; border-bottom:1px solid var(--border); margin-bottom:6px; }
+  th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
+  th.sortable:hover { color:var(--text); }
+  th .arrow { font-size:10px; margin-left:3px; opacity:.7; }
+  th.sort-active { color:var(--text); }
+
 </style>
 </head>
 <body>
@@ -57,8 +70,15 @@
     <button class="primary" id="addBtn">Agregar a esta lista</button>
   </div>
   <div class="panel">
+    <div class="toolbar-row">
+      <span class="muted" id="rowCount"></span>
+      <div style="position:relative;">
+        <button class="cols-btn" id="colsBtn">⚙ Métricas</button>
+        <div class="cols-panel" id="colsPanel"></div>
+      </div>
+    </div>
     <table>
-      <thead><tr><th>Ticker</th><th>Precio</th><th>Var. %</th><th>P/E</th><th>PEG</th><th>Ingresos YoY</th><th>EV/EBITDA</th><th></th></tr></thead>
+      <thead><tr id="headRow"></tr></thead>
       <tbody id="rows"></tbody>
     </table>
     <div id="emptyMsg" class="empty" style="display:none;">Lista vacía — agregá un ticker arriba.</div>
@@ -68,6 +88,47 @@
 <script>
 const STORAGE_KEY = 'watchlists_v2';
 const OLD_KEY = 'watchlist'; // formato viejo de lista única, para migrar
+const COLS_KEY = 'watchlist_cols';
+
+// Métricas disponibles para agregar como columna (vienen de /api/fundamentals → d.metrics.<key>.current)
+const METRIC_OPTIONS = [
+  { key: 'peRatio', label: 'P/E (LTM)', unit: 'x' },
+  { key: 'peForward', label: 'P/E (NTM)', unit: 'x' },
+  { key: 'peg', label: 'PEG', unit: 'x' },
+  { key: 'psRatio', label: 'P/S (LTM)', unit: 'x' },
+  { key: 'pbRatio', label: 'P/B', unit: 'x' },
+  { key: 'evEbitda', label: 'EV/EBITDA', unit: 'x' },
+  { key: 'evSales', label: 'EV/Ventas', unit: 'x' },
+  { key: 'grossMargin', label: 'Margen bruto', unit: 'pct' },
+  { key: 'opMargin', label: 'Margen operativo', unit: 'pct' },
+  { key: 'netMargin', label: 'Margen neto', unit: 'pct' },
+  { key: 'fcfMargin', label: 'Margen FCF', unit: 'pct' },
+  { key: 'roe', label: 'ROE', unit: 'pct' },
+  { key: 'roa', label: 'ROA', unit: 'pct' },
+  { key: 'roic', label: 'ROIC', unit: 'pct' },
+  { key: 'revenueGrowth', label: 'Ingresos YoY', unit: 'pct' },
+  { key: 'epsGrowth', label: 'EPS YoY', unit: 'pct' },
+  { key: 'dividendYield', label: 'Dividend yield', unit: 'pct' },
+  { key: 'payoutRatio', label: 'Payout ratio', unit: 'pct' },
+  { key: 'fcfYield', label: 'FCF yield', unit: 'pct' },
+  { key: 'debtToEquity', label: 'Deuda/Patrimonio', unit: 'x' },
+  { key: 'debtToEbitda', label: 'Deuda/EBITDA', unit: 'x' },
+  { key: 'netDebtToEbitda', label: 'Deuda neta/EBITDA', unit: 'x' },
+  { key: 'currentRatio', label: 'Current ratio', unit: 'x' },
+  { key: 'altmanZ', label: 'Altman Z-Score', unit: 'x' },
+];
+const METRIC_BY_KEY = Object.fromEntries(METRIC_OPTIONS.map(m => [m.key, m]));
+const DEFAULT_COLS = ['peRatio', 'peg', 'revenueGrowth', 'evEbitda'];
+
+function getCols() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLS_KEY) || 'null');
+    if (Array.isArray(raw) && raw.length) return raw.filter(k => METRIC_BY_KEY[k]);
+  } catch (e) {}
+  return DEFAULT_COLS.slice();
+}
+function saveCols(cols) { localStorage.setItem(COLS_KEY, JSON.stringify(cols)); }
+let selectedCols = getCols();
 
 function load() {
   let raw = localStorage.getItem(STORAGE_KEY);
@@ -81,6 +142,8 @@ function load() {
 function save(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
 let state = load();
+let rowsData = {}; // sym -> { price, changePct, metrics:{key:value}, error }
+let sortState = { key: null, dir: 1 };
 
 function renderTabs() {
   const wrap = document.getElementById('listsRow');
@@ -89,14 +152,14 @@ function renderTabs() {
     const tab = document.createElement('div');
     tab.className = 'list-tab' + (name === state.active ? ' active' : '');
     tab.innerHTML = `<span>${name}</span>` + (Object.keys(state.lists).length > 1 ? `<span class="del" data-name="${name}">✕</span>` : '');
-    tab.querySelector('span:first-child').onclick = () => { state.active = name; save(state); renderTabs(); renderRows(); };
+    tab.querySelector('span:first-child').onclick = () => { state.active = name; save(state); renderTabs(); fetchAndRender(); };
     const del = tab.querySelector('.del');
     if (del) del.onclick = (e) => {
       e.stopPropagation();
       if (!confirm(`¿Borrar la lista "${name}"?`)) return;
       delete state.lists[name];
       if (state.active === name) state.active = Object.keys(state.lists)[0];
-      save(state); renderTabs(); renderRows();
+      save(state); renderTabs(); fetchAndRender();
     };
     wrap.appendChild(tab);
   });
@@ -108,17 +171,9 @@ function renderTabs() {
     if (!name || state.lists[name]) return;
     state.lists[name] = [];
     state.active = name;
-    save(state); renderTabs(); renderRows();
+    save(state); renderTabs(); fetchAndRender();
   };
   wrap.appendChild(addBtn);
-}
-
-async function fetchQuote(sym) {
-  try {
-    const r = await fetch(`/api/sectors?range=1m`);
-    // api/sectors solo trae sectores; para tickers arbitrarios usamos el precio de fundamentals (más liviano: solo el chart de Yahoo vía ese endpoint)
-  } catch (e) {}
-  return null;
 }
 
 async function fetchPrice(sym) {
@@ -133,67 +188,128 @@ async function fetchPrice(sym) {
       changePct = ((last / prev) - 1) * 100;
     }
     const m = d.metrics || {};
-    return {
-      price: d.price, changePct, error: d.error,
-      pe: m.peRatio?.current ?? null,
-      peg: m.peg?.current ?? null,
-      revYoY: m.revenueGrowth?.current ?? null,
-      evEbitda: m.evEbitda?.current ?? null,
-    };
+    const metrics = {};
+    METRIC_OPTIONS.forEach(opt => { metrics[opt.key] = m[opt.key]?.current ?? null; });
+    return { price: d.price, changePct, error: d.error, metrics };
   } catch (e) {
-    return { error: e.message };
+    return { error: e.message, metrics: {} };
   }
 }
 function fmtX(v) { return v == null || !isFinite(v) ? '—' : v.toFixed(2) + '×'; }
 function fmtPctCell(v) { return v == null || !isFinite(v) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
+function fmtMetric(v, unit) { return unit === 'pct' ? fmtPctCell(v) : fmtX(v); }
 
-async function renderRows() {
+// ---------- selector de columnas ----------
+function renderColsPanel() {
+  const panel = document.getElementById('colsPanel');
+  panel.innerHTML = '<div class="hint">Elegí qué métricas mostrar como columna</div>' +
+    METRIC_OPTIONS.map(opt => `<label><input type="checkbox" data-key="${opt.key}" ${selectedCols.includes(opt.key) ? 'checked' : ''}/> ${opt.label}</label>`).join('');
+  panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.onchange = () => {
+      const k = cb.dataset.key;
+      if (cb.checked) { if (!selectedCols.includes(k)) selectedCols.push(k); }
+      else { selectedCols = selectedCols.filter(x => x !== k); }
+      saveCols(selectedCols);
+      renderTable();
+    };
+  });
+}
+document.getElementById('colsBtn').onclick = (e) => {
+  e.stopPropagation();
+  document.getElementById('colsPanel').classList.toggle('open');
+};
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('colsPanel');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'colsBtn') panel.classList.remove('open');
+});
+
+// ---------- orden ----------
+function sortArrow(key) { if (sortState.key !== key) return ''; return sortState.dir === 1 ? ' <span class="arrow">▲</span>' : ' <span class="arrow">▼</span>'; }
+function setSort(key) {
+  if (sortState.key === key) sortState.dir *= -1;
+  else { sortState.key = key; sortState.dir = 1; }
+  renderTable();
+}
+function sortedSymbols() {
+  const list = (state.lists[state.active] || []).slice();
+  if (!sortState.key) return list;
+  const val = (sym) => {
+    const r = rowsData[sym];
+    if (!r) return null;
+    if (sortState.key === 'sym') return sym;
+    if (sortState.key === 'price') return r.price;
+    if (sortState.key === 'changePct') return r.changePct;
+    return r.metrics ? r.metrics[sortState.key] : null;
+  };
+  return list.sort((a, b) => {
+    const va = val(a), vb = val(b);
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1; // los que no tienen dato quedan al final
+    if (vb == null) return -1;
+    if (typeof va === 'string') return sortState.dir * va.localeCompare(vb);
+    return sortState.dir * (va - vb);
+  });
+}
+
+// ---------- tabla ----------
+function renderHead() {
+  const head = document.getElementById('headRow');
+  let html = `<th class="sortable${sortState.key === 'sym' ? ' sort-active' : ''}" data-sort="sym">Ticker${sortArrow('sym')}</th>`;
+  html += `<th class="sortable${sortState.key === 'price' ? ' sort-active' : ''}" data-sort="price">Precio${sortArrow('price')}</th>`;
+  html += `<th class="sortable${sortState.key === 'changePct' ? ' sort-active' : ''}" data-sort="changePct">Var. %${sortArrow('changePct')}</th>`;
+  selectedCols.forEach(k => {
+    const opt = METRIC_BY_KEY[k];
+    html += `<th class="sortable${sortState.key === k ? ' sort-active' : ''}" data-sort="${k}">${opt.label}${sortArrow(k)}</th>`;
+  });
+  html += '<th></th>';
+  head.innerHTML = html;
+  head.querySelectorAll('th.sortable').forEach(th => { th.onclick = () => setSort(th.dataset.sort); });
+}
+
+function renderTable() {
+  renderHead();
   const tbody = document.getElementById('rows');
-  const list = state.lists[state.active] || [];
+  const list = sortedSymbols();
   document.getElementById('emptyMsg').style.display = list.length ? 'none' : 'block';
-  tbody.innerHTML = list.map(sym => `<tr data-sym="${sym}">
-    <td><a class="sym-link" href="/fundamentals.html?symbol=${sym}" onclick="localStorage.setItem('fund_recent', JSON.stringify([...new Set(['${sym}', ...(JSON.parse(localStorage.getItem('fund_recent')||'[]'))])]))">${sym}</a></td>
-    <td class="p">…</td><td class="c">…</td>
-    <td class="m-pe">…</td><td class="m-peg">…</td><td class="m-rev">…</td><td class="m-ev">…</td>
-    <td><button class="rm-btn" data-sym="${sym}">✕</button></td>
-  </tr>`).join('');
+  document.getElementById('rowCount').textContent = list.length ? `${list.length} ticker${list.length === 1 ? '' : 's'}` : '';
+  tbody.innerHTML = list.map(sym => {
+    const r = rowsData[sym];
+    const loading = !r;
+    const priceTxt = loading ? '…' : r.error ? '—' : (r.price != null ? r.price.toFixed(2) : '—');
+    const chg = loading ? null : r.error ? null : r.changePct;
+    const chgTxt = loading ? '…' : r.error ? 'error' : chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '—';
+    const chgCls = chg == null ? '' : chg >= 0 ? 'up' : 'down';
+    const metricCells = selectedCols.map(k => {
+      const opt = METRIC_BY_KEY[k];
+      const v = loading || r.error ? null : r.metrics[k];
+      const cls = opt.unit === 'pct' && v != null ? (v >= 0 ? 'up' : 'down') : '';
+      return `<td class="${cls}">${loading ? '…' : fmtMetric(v, opt.unit)}</td>`;
+    }).join('');
+    return `<tr data-sym="${sym}">
+      <td><a class="sym-link" href="/fundamentals.html?symbol=${sym}" onclick="localStorage.setItem('fund_recent', JSON.stringify([...new Set(['${sym}', ...(JSON.parse(localStorage.getItem('fund_recent')||'[]'))])]))">${sym}</a></td>
+      <td>${priceTxt}</td><td class="${chgCls}">${chgTxt}</td>
+      ${metricCells}
+      <td><button class="rm-btn" data-sym="${sym}">✕</button></td>
+    </tr>`;
+  }).join('');
 
   tbody.querySelectorAll('.rm-btn').forEach(btn => {
     btn.onclick = () => {
       const sym = btn.dataset.sym;
       state.lists[state.active] = state.lists[state.active].filter(s => s !== sym);
-      save(state); renderRows();
+      save(state); renderTable();
     };
   });
+}
 
-  for (const sym of list) {
-    const q = await fetchPrice(sym);
-    const row = tbody.querySelector(`tr[data-sym="${sym}"]`);
-    if (!row) continue;
-    if (q.error) {
-      row.querySelector('.p').textContent = '—';
-      row.querySelector('.c').textContent = 'error';
-      row.querySelector('.m-pe').textContent = '—';
-      row.querySelector('.m-peg').textContent = '—';
-      row.querySelector('.m-rev').textContent = '—';
-      row.querySelector('.m-ev').textContent = '—';
-      continue;
-    }
-    row.querySelector('.p').textContent = q.price != null ? q.price.toFixed(2) : '—';
-    const c = row.querySelector('.c');
-    if (q.changePct != null) {
-      c.textContent = (q.changePct >= 0 ? '+' : '') + q.changePct.toFixed(2) + '%';
-      c.className = 'c ' + (q.changePct >= 0 ? 'up' : 'down');
-    } else {
-      c.textContent = '—';
-    }
-    row.querySelector('.m-pe').textContent = fmtX(q.pe);
-    row.querySelector('.m-peg').textContent = fmtX(q.peg);
-    const revCell = row.querySelector('.m-rev');
-    revCell.textContent = fmtPctCell(q.revYoY);
-    revCell.className = 'm-rev ' + (q.revYoY == null ? '' : q.revYoY >= 0 ? 'up' : 'down');
-    row.querySelector('.m-ev').textContent = fmtX(q.evEbitda);
-  }
+async function fetchAndRender() {
+  const list = state.lists[state.active] || [];
+  rowsData = {};
+  renderTable(); // muestra "…" mientras carga
+  await Promise.all(list.map(async sym => {
+    rowsData[sym] = await fetchPrice(sym);
+    renderTable(); // repinta a medida que llegan datos (mantiene el orden ya elegido)
+  }));
 }
 
 document.getElementById('addBtn').onclick = () => {
@@ -204,12 +320,13 @@ document.getElementById('addBtn').onclick = () => {
   if (!state.lists[state.active].includes(sym)) state.lists[state.active].push(sym);
   save(state);
   input.value = '';
-  renderRows();
+  fetchAndRender();
 };
 document.getElementById('tickerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('addBtn').click(); });
 
+renderColsPanel();
 renderTabs();
-renderRows();
+fetchAndRender();
 </script>
 <script>
 (function () {
