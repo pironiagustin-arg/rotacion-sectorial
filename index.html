@@ -95,6 +95,7 @@
 
   <div class="panel">
     <div style="margin-bottom:10px;"><strong>Curva de rendimientos del Tesoro (UST)</strong></div>
+    <div class="chart-wrap" style="height:220px;margin-bottom:14px;"><canvas id="curveChart"></canvas></div>
     <div class="treasury-row" id="treasuryRow"><div class="loading">Cargando…</div></div>
     <p class="curve-note" id="curveNote"></p>
   </div>
@@ -274,6 +275,43 @@ function renderMarketWidgets(m) {
   `;
 }
 
+let curveChart = null;
+function renderCurveChart(m) {
+  const list = m.treasuries || [];
+  const pts = list.filter(t => t.yield != null);
+  const canvas = document.getElementById('curveChart');
+  if (curveChart) { curveChart.destroy(); curveChart = null; }
+  if (!pts.length) return;
+  curveChart = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: pts.map(t => t.label),
+      datasets: [{
+        label: 'Rendimiento',
+        data: pts.map(t => t.yield),
+        borderColor: '#4C6EF5', backgroundColor: 'rgba(76,110,245,.12)', fill: true,
+        borderWidth: 2, pointRadius: 4, pointBackgroundColor: pts.map(t => t.changeBps == null ? '#4C6EF5' : t.changeBps >= 0 ? '#2F9E44' : '#E03131'),
+        tension: 0.3,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (c) => {
+          const t = pts[c.dataIndex];
+          const chg = t.changeBps != null ? ' (' + (t.changeBps >= 0 ? '+' : '') + t.changeBps.toFixed(1) + ' pb)' : '';
+          return t.yield.toFixed(2) + '%' + chg;
+        } } },
+      },
+      scales: {
+        x: { ticks: { color: '#8b8f99' }, grid: { color: '#262a33' }, title: { display: true, text: 'Plazo', color: '#8b8f99' } },
+        y: { ticks: { color: '#8b8f99', callback: (v) => v.toFixed(1) + '%' }, grid: { color: '#262a33' } },
+      },
+    },
+  });
+}
+
 function renderTreasuries(m) {
   const wrap = document.getElementById('treasuryRow');
   const list = m.treasuries || [];
@@ -304,6 +342,7 @@ async function loadMarket() {
     const r = await fetch('/api/market');
     const m = await r.json();
     renderMarketWidgets(m);
+    renderCurveChart(m);
     renderTreasuries(m);
   } catch (e) {
     document.getElementById('mktRow').innerHTML = `<div class="loading">Error: ${e.message}</div>`;

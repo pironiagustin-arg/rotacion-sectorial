@@ -36,6 +36,10 @@
   .score-num { font-size:32px; font-weight:700; line-height:1; }
   .score-label { font-size:10.5px; color:var(--muted); margin-top:4px; }
   .price-big { font-size:24px; font-weight:600; text-align:right; }
+  .w52 { margin-top:8px; width:150px; }
+  .w52-label { font-size:10.5px; color:var(--muted); text-align:right; margin-bottom:4px; }
+  .w52-track { position:relative; height:4px; background:linear-gradient(90deg,#E03131,#F59F00,#2F9E44); border-radius:2px; }
+  .w52-dot { position:absolute; top:50%; width:9px; height:9px; background:#fff; border:2px solid #12151b; border-radius:50%; transform:translate(-50%,-50%); box-shadow:0 0 0 1px rgba(255,255,255,.3); }
   .score-detail { display:flex; gap:8px; flex-wrap:wrap; margin-top:11px; align-items:center; }
   .score-detail span { font-size:11.5px; color:var(--muted); background:#12151b; border:1px solid var(--border); border-radius:6px; padding:3px 8px; }
   .cards-title { font-size:11.5px; color:var(--muted); margin:0 0 12px; line-height:1.5; }
@@ -204,20 +208,28 @@ const UI = {
 // etiquetas de métricas y categorías en inglés (la API las manda en español; acá solo se traduce lo visible)
 const LABEL_EN = {
   peRatio: 'P/E (LTM)', peForward: 'P/E (NTM)', peg: 'PEG', psRatio: 'P/S (LTM)', psForward: 'P/S (NTM)',
-  pbRatio: 'P/B', ptbvRatio: 'P/TBV', pfcfRatio: 'P/FCF (LTM)', pgpRatio: 'P/Gross Profit (LTM)',
+  pbRatio: 'P/B', ptbvRatio: 'P/TBV', pfcfRatio: 'P/FCF (LTM)', priceToCash: 'Price/Cash',
   evSales: 'EV/Sales (LTM)', evSalesFwd: 'EV/Sales (NTM)', evEbitda: 'EV/EBITDA (LTM)', evEbit: 'EV/EBIT (LTM)', evGp: 'EV/Gross Profit (LTM)',
+  priceTargetNTM: 'Price Target (NTM)',
   fcfEvYield: 'FCF / EV Yield', fcfYield: 'FCF / Market Cap Yield', dividendYield: 'Dividend Yield', buybackYield: 'Buyback Yield',
   debtPaybackYield: 'Debt Payback Yield', shareholderYield: 'Shareholder Yield', shareholderYieldExDebt: 'Shareholder Yield ex-Debt',
   grossMargin: 'Gross Margin (LTM)', ebitdaMargin: 'EBITDA Margin (LTM)', opMargin: 'EBIT / Operating Margin (LTM)', netMargin: 'Net Margin (LTM)', fcfMargin: 'FCF Margin (LTM)',
-  roe: 'ROE (LTM)', roa: 'ROA (LTM)', roic: 'ROIC / ROC (approx.)',
+  roe: 'ROE (LTM)', roa: 'ROA (LTM)', rota: 'ROTA (EBIT / Assets)', roce: 'ROCE', roic: 'ROIC / ROC (approx.)',
   revenueGrowth: 'Revenue Growth (YoY)', epsGrowth: 'EPS Growth (YoY)',
+  epsGrowthThisYear: 'EPS Growth This Year (est.)', epsGrowthNextYear: 'EPS Growth Next Year (est.)', epsLtGrowth: 'EPS LT Growth (5y est.)',
+  revenueCagr3y: 'Revenue CAGR 3Y', revenueCagr5y: 'Revenue CAGR 5Y', revenueCagr10y: 'Revenue CAGR 10Y',
+  epsCagr3y: 'Diluted EPS CAGR 3Y', epsCagr5y: 'Diluted EPS CAGR 5Y', epsCagr10y: 'Diluted EPS CAGR 10Y',
+  fcfCagr5y: 'FCF CAGR 5Y', sharesCagr5y: 'Shares Outstanding CAGR 5Y',
   dividendsPerShare: 'Dividend per Share', payoutRatio: 'Payout Ratio',
+  dpsCagr3y: 'DPS CAGR 3Y', dpsCagr5y: 'DPS CAGR 5Y', dpsCagr10y: 'DPS CAGR 10Y',
   debtToEquity: 'Total Debt / Equity', ltDebtToEquity: 'LT Debt / Equity', debtToCapital: 'Debt / Total Capital',
   debtToEbitda: 'Total Debt / EBITDA', netDebtToEbitda: 'Net Debt / EBITDA', netDebtToEbitdaCapex: 'Net Debt / (EBITDA − Capex)',
-  currentRatio: 'Current Ratio', altmanZ: 'Altman Z-Score',
-  operatingCashFlow: 'Operating Cash Flow', fcf: 'Free Cash Flow', ebitda: 'EBITDA',
-  revenue: 'Revenue', grossProfit: 'Gross Profit', operatingIncome: 'Operating Income', netIncome: 'Net Income', eps: 'Diluted EPS',
-  totalDebt: 'Total Debt', inventory: 'Inventory', rsi14: 'RSI (14)', macd: 'MACD',
+  currentRatio: 'Current Ratio', quickRatio: 'Quick Ratio', ebitInterest: 'EBIT / Interest', altmanZ: 'Altman Z-Score',
+  operatingCashFlow: 'Operating Cash Flow', capexAmount: 'Capex', fcf: 'Free Cash Flow', buybackAmount: 'Share Buybacks',
+  revenue: 'Revenue', grossProfit: 'Gross Profit', operatingIncome: 'Operating Income (EBIT)', ebitda: 'EBITDA', netIncome: 'Net Income', eps: 'Diluted EPS',
+  cashBalance: 'Cash & Equivalents', totalDebt: 'Total Debt', equityBalance: 'Total Equity', totalAssetsBalance: 'Total Assets',
+  totalLiabilitiesBalance: 'Total Liabilities', currentAssetsBalance: 'Current Assets', currentLiabilitiesBalance: 'Current Liabilities',
+  goodwillBalance: 'Goodwill', inventory: 'Inventory', rsi14: 'RSI (14)', macd: 'MACD',
 };
 const CAT_EN = {
   'Valuación · Múltiplos': 'Valuation · Multiples', 'Valuación · Yields': 'Valuation · Yields', 'Márgenes': 'Margins',
@@ -237,6 +249,26 @@ const NOTE_EN = {
   buybackYield: 'Share buybacks (LTM) ÷ market cap.',
   rsi14: '14-period RSI on daily closing price. ≤35 oversold, 35–70 neutral, >70 overbought.',
   macd: 'MACD (12, 26, 9) on daily closing price. MACD > signal: bullish. MACD < signal: bearish.',
+  priceTargetNTM: '12-month average analyst price target (Yahoo consensus).',
+  epsGrowthThisYear: 'Consensus estimate for the current fiscal year.',
+  epsGrowthNextYear: 'Consensus estimate for the next fiscal year.',
+  epsLtGrowth: '5-year consensus estimate (long-term growth).',
+  rota: 'EBIT ÷ average total assets. Different from ROA (which uses net income).',
+  roce: 'EBIT ÷ (total assets − current liabilities).',
+  ebitInterest: 'EBIT ÷ interest expense. How many times operating profit covers debt interest.',
+  quickRatio: '(Current assets − inventory) ÷ current liabilities. Stricter than the current ratio.',
+  priceToCash: 'Market cap ÷ cash & equivalents.',
+  revenueCagr3y: 'Compound annual revenue growth, last 3 fiscal years.',
+  revenueCagr5y: 'Compound annual revenue growth, last 5 fiscal years.',
+  revenueCagr10y: 'Compound annual revenue growth, last 10 fiscal years.',
+  epsCagr3y: 'Compound annual diluted EPS growth, last 3 fiscal years.',
+  epsCagr5y: 'Compound annual diluted EPS growth, last 5 fiscal years.',
+  epsCagr10y: 'Compound annual diluted EPS growth, last 10 fiscal years.',
+  fcfCagr5y: 'Compound annual free cash flow growth, last 5 fiscal years.',
+  sharesCagr5y: 'Compound annual growth of shares outstanding, last 5 years. Negative = buybacks exceed dilution. Note: distorted by stock splits within the window (e.g. NVDA 2024).',
+  dpsCagr3y: 'Compound annual dividend-per-share growth, last 3 fiscal years.',
+  dpsCagr5y: 'Compound annual dividend-per-share growth, last 5 fiscal years.',
+  dpsCagr10y: 'Compound annual dividend-per-share growth, last 10 fiscal years.',
 };
 function mLabel(k) { const m = M(k); return LANG === 'en' ? (LABEL_EN[k] || m.label) : m.label; }
 function catLabel(cat) { return LANG === 'en' ? (CAT_EN[cat] || cat) : cat; }
@@ -616,6 +648,15 @@ const CHEV = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke
 const ICON_LINE = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 10 13 14 21 5"/></svg>';
 const ICON_BAR = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="20" x2="5" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="19" y1="20" x2="19" y2="14"/></svg>';
 
+function w52Html() {
+  const hi = data.week52High, lo = data.week52Low, p = data.price;
+  if (hi == null || lo == null || p == null || hi <= lo) return '';
+  const pct = Math.min(100, Math.max(0, ((p - lo) / (hi - lo)) * 100));
+  return `<div class="w52">
+    <div class="w52-label">${tt('52 sem.', '52-wk')}: ${lo.toFixed(2)} – ${hi.toFixed(2)}</div>
+    <div class="w52-track"><div class="w52-dot" style="left:${pct}%"></div></div>
+  </div>`;
+}
 function favColor(f) { return f == null ? '#6b7280' : f >= 70 ? '#2F9E44' : f <= 30 ? '#E03131' : '#9aa0aa'; }
 function techLine(k) {
   if (k === 'rsi14') { const v = cur('rsi14'); if (v == null) return ''; return v <= 35 ? tt('Sobrevendido (oportunidad)', 'Oversold (opportunity)') : v <= 70 ? tt('Zona neutral', 'Neutral zone') : tt('Sobrecomprado', 'Overbought'); }
@@ -805,7 +846,7 @@ function render() {
     c.innerHTML = `<div class="panel">
       <div class="header-row"><div><div class="company-name">${esc(data.symbol)}</div>
       <div class="company-sub">${esc(data.name || '')} · ${esc(data.exchange || '')} · ${esc(data.currency || '')}</div></div>
-      <div class="price-big">${data.price != null ? data.price.toFixed(2) : '—'}</div></div>
+      <div><div class="price-big">${data.price != null ? data.price.toFixed(2) : '—'}</div>${w52Html()}</div></div>
       <p class="muted" style="margin-top:14px;">${esc(data.note || '')}</p>
       <div class="chart-wrap" style="margin-top:10px;"><canvas id="priceChart"></canvas></div></div>`;
     const h = data.history.price || [];
@@ -829,12 +870,12 @@ function render() {
     <div class="header-row">
       <div>
         <div class="company-name">${esc(data.name)} <span class="muted">${esc(data.symbol)}</span></div>
-        <div class="company-sub">${esc(data.exchange || '')} · ${tt('Market cap', 'Market cap')}: ${fmtBig(data.marketCap)} ${esc(data.currency || '')} · ${tt('Historial', 'History')} ${data.history.annualYears}${tt('a', 'y')} / ${data.history.quarterlyPeriods}${tt('t', 'q')}</div>
+        <div class="company-sub">${esc(data.exchange || '')}${data.sector ? ' · ' + esc(data.sector) + (data.industry ? ' — ' + esc(data.industry) : '') : ''} · ${tt('Market cap', 'Market cap')}: ${fmtBig(data.marketCap)} ${esc(data.currency || '')} · ${tt('Historial', 'History')} ${data.history.annualYears}${tt('a', 'y')} / ${data.history.quarterlyPeriods}${tt('t', 'q')}</div>
         <div class="lynch-row"><span class="lynch-badge">${esc(TYPES[data.lynch?.type]?.[LANG]?.name || data.lynch?.label || '—')}</span>
           <select id="lynchSel" title="${esc(tt(UI.lynchTitle[0], UI.lynchTitle[1]))}"><option value="" ${data.lynch?.forced ? '' : 'selected'}>${tt(UI.auto[0], UI.auto[1])}</option>${lynchOpts}</select></div>
       </div>
       <div class="score-ring"><div class="score-num" style="color:${scoreColor}">${sc.total ?? '—'}</div><div class="score-label">${tt(UI.scoreLabel[0], UI.scoreLabel[1])} · ${sc.included} ${tt(UI.scoreOf[0], UI.scoreOf[1])} ${sc.of} ${tt(UI.metricsWord[0], UI.metricsWord[1])}</div>${sc.included < 8 ? `<div class="score-warn" title="${esc(tt(UI.lowDataTip[0], UI.lowDataTip[1]))}">${tt(UI.lowDataWarn[0], UI.lowDataWarn[1])}</div>` : ''}</div>
-      <div><div class="price-big">${data.price != null ? data.price.toFixed(2) : '—'}</div><div class="muted" style="text-align:right">${esc(data.currency || '')}</div></div>
+      <div><div class="price-big">${data.price != null ? data.price.toFixed(2) : '—'}</div><div class="muted" style="text-align:right">${esc(data.currency || '')}</div>${w52Html()}</div>
     </div>
     <div class="score-detail">${sc.groups.map((g) => `<span>${g.name}: <b style="color:${g.v == null ? '#8b8f99' : favColor(g.v)}">${g.v ?? '—'}</b></span>`).join('')}
       ${touched ? `<button class="reset" data-act="reset" title="${esc(tt(UI.resetEyesTip[0], UI.resetEyesTip[1]))}">${tt(UI.resetEyes[0], UI.resetEyes[1])}</button>` : ''}</div>

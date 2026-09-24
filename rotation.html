@@ -107,9 +107,9 @@
   </div>
 </div>
 <script>
-const RANGES = [{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'},{k:'3y',label:'3A'}];
+const RANGES = [{k:'1m',label:'1M'},{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'}];
 const TAIL = 8; // puntos de cola visibles en modo estático
-let currentRange = '1y';
+let currentRange = '3m';
 let chart = null;
 let fullData = null; // { symbol: [{x,y,t}, ...] }
 let selectedSymbol = null; // símbolo resaltado por click

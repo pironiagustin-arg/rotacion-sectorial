@@ -198,17 +198,17 @@ async function yahooChart(symbol, range, interval) {
 async function yahooSummary(symbol) {
   try {
     const { cookie, crumb } = await yahooAuth();
-    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=summaryDetail,defaultKeyStatistics,financialData,price,earningsTrend&crumb=${encodeURIComponent(crumb)}`;
+    const url = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=summaryDetail,defaultKeyStatistics,financialData,price,earningsTrend,assetProfile&crumb=${encodeURIComponent(crumb)}`;
     const r = await fetch(url, { headers: { "User-Agent": YH_UA, Cookie: cookie } });
     if (!r.ok) { yhAuth = null; return null; }
     const j = await r.json();
     const res = j?.quoteSummary?.result?.[0];
     if (!res) return null;
     const raw = (o) => (o && typeof o === "object" ? o.raw ?? null : o ?? null);
-    const sd = res.summaryDetail || {}, ks = res.defaultKeyStatistics || {}, fd = res.financialData || {}, pr = res.price || {};
+    const sd = res.summaryDetail || {}, ks = res.defaultKeyStatistics || {}, fd = res.financialData || {}, pr = res.price || {}, ap = res.assetProfile || {};
     // Estimaciones de consenso: NTM = mezcla ponderada del año fiscal en curso (0y) y el siguiente (+1y)
     const tr = (res.earningsTrend?.trend || []);
-    const t0 = tr.find((t) => t.period === "0y"), t1 = tr.find((t) => t.period === "+1y");
+    const t0 = tr.find((t) => t.period === "0y"), t1 = tr.find((t) => t.period === "+1y"), t5 = tr.find((t) => t.period === "+5y");
     let ntmRev = null, ntmEps = null;
     if (t0 && t1 && t0.endDate) {
       const rem = Math.min(1, Math.max(0, (new Date(t0.endDate) - Date.now()) / (365 * 86400000)));
@@ -228,6 +228,12 @@ async function yahooSummary(symbol) {
       shares: raw(ks.sharesOutstanding),
       revenueGrowth: raw(fd.revenueGrowth),
       earningsGrowth: raw(fd.earningsGrowth),
+      priceTarget: raw(fd.targetMeanPrice),
+      epsGrowthThisYear: raw(t0?.growth) != null ? raw(t0.growth) * 100 : null,
+      epsGrowthNextYear: raw(t1?.growth) != null ? raw(t1.growth) * 100 : null,
+      epsLtGrowth: raw(t5?.growth) != null ? raw(t5.growth) * 100 : null,
+      sector: ap.sector || null,
+      industry: ap.industry || null,
     };
   } catch (e) {
     yhAuth = null;
@@ -247,12 +253,13 @@ const METRIC_DEFS = [
   ["pbRatio", "P/B", "Valuación · Múltiplos", "x", -1],
   ["ptbvRatio", "P/TBV", "Valuación · Múltiplos", "x", -1],
   ["pfcfRatio", "P/FCF (LTM)", "Valuación · Múltiplos", "x", -1],
-  ["pgpRatio", "P/Utilidad bruta (LTM)", "Valuación · Múltiplos", "x", -1],
+  ["priceToCash", "Price/Cash", "Valuación · Múltiplos", "x", -1],
   ["evSales", "EV/Ventas (LTM)", "Valuación · Múltiplos", "x", -1],
   ["evSalesFwd", "EV/Ventas (NTM)", "Valuación · Múltiplos", "x", -1],
   ["evEbitda", "EV/EBITDA (LTM)", "Valuación · Múltiplos", "x", -1],
   ["evEbit", "EV/EBIT (LTM)", "Valuación · Múltiplos", "x", -1],
   ["evGp", "EV/Utilidad bruta (LTM)", "Valuación · Múltiplos", "x", -1],
+  ["priceTargetNTM", "Precio objetivo (NTM)", "Valuación · Múltiplos", "usdps", 0],
   // Valuación · yields
   ["fcfEvYield", "FCF / EV yield", "Valuación · Yields", "pct", 1],
   ["fcfYield", "FCF / Market cap yield", "Valuación · Yields", "pct", 1],
@@ -270,13 +277,29 @@ const METRIC_DEFS = [
   // Rentabilidad
   ["roe", "ROE (LTM)", "Rentabilidad", "pct", 1],
   ["roa", "ROA (LTM)", "Rentabilidad", "pct", 1],
+  ["rota", "ROTA (EBIT / Activos)", "Rentabilidad", "pct", 1],
+  ["roce", "ROCE", "Rentabilidad", "pct", 1],
   ["roic", "ROIC / ROC (aprox.)", "Rentabilidad", "pct", 1],
   // Crecimiento
   ["revenueGrowth", "Crecimiento de ingresos (a/a)", "Crecimiento", "pct", 1],
   ["epsGrowth", "Crecimiento del EPS (a/a)", "Crecimiento", "pct", 1],
+  ["epsGrowthThisYear", "Crec. EPS este año (est.)", "Crecimiento", "pct", 1],
+  ["epsGrowthNextYear", "Crec. EPS año que viene (est.)", "Crecimiento", "pct", 1],
+  ["epsLtGrowth", "Crec. EPS LP (est. 5a)", "Crecimiento", "pct", 1],
+  ["revenueCagr3y", "Ingresos CAGR 3a", "Crecimiento", "pct", 1],
+  ["revenueCagr5y", "Ingresos CAGR 5a", "Crecimiento", "pct", 1],
+  ["revenueCagr10y", "Ingresos CAGR 10a", "Crecimiento", "pct", 1],
+  ["epsCagr3y", "EPS diluido CAGR 3a", "Crecimiento", "pct", 1],
+  ["epsCagr5y", "EPS diluido CAGR 5a", "Crecimiento", "pct", 1],
+  ["epsCagr10y", "EPS diluido CAGR 10a", "Crecimiento", "pct", 1],
+  ["fcfCagr5y", "FCF CAGR 5a", "Crecimiento", "pct", 1],
+  ["sharesCagr5y", "Acciones en circ. CAGR 5a", "Crecimiento", "pct", -1],
   // Dividendos
   ["dividendsPerShare", "Dividendo por acción", "Dividendos", "usdps", 1],
   ["payoutRatio", "Payout ratio", "Dividendos", "pct", -1],
+  ["dpsCagr3y", "DPS CAGR 3a", "Dividendos", "pct", 1],
+  ["dpsCagr5y", "DPS CAGR 5a", "Dividendos", "pct", 1],
+  ["dpsCagr10y", "DPS CAGR 10a", "Dividendos", "pct", 1],
   // Apalancamiento / solvencia
   ["debtToEquity", "Deuda total / Patrimonio", "Solvencia", "x", -1],
   ["ltDebtToEquity", "Deuda LP / Patrimonio", "Solvencia", "x", -1],
@@ -285,19 +308,30 @@ const METRIC_DEFS = [
   ["netDebtToEbitda", "Deuda neta / EBITDA", "Solvencia", "x", -1],
   ["netDebtToEbitdaCapex", "Deuda neta / (EBITDA − Capex)", "Solvencia", "x", -1],
   ["currentRatio", "Ratio corriente", "Solvencia", "x", 1],
+  ["quickRatio", "Quick ratio (prueba ácida)", "Solvencia", "x", 1],
+  ["ebitInterest", "EBIT / Intereses", "Solvencia", "x", 1],
   ["altmanZ", "Altman Z-Score", "Solvencia", "x", 1],
   // Caja
   ["operatingCashFlow", "Flujo operativo", "Caja", "usd", 1],
+  ["capexAmount", "Capex", "Caja", "usd", 1],
   ["fcf", "Free cash flow", "Caja", "usd", 1],
-  ["ebitda", "EBITDA", "Caja", "usd", 1],
+  ["buybackAmount", "Recompras de acciones", "Caja", "usd", 1],
   // Resultados
   ["revenue", "Ingresos", "Resultados", "usd", 1],
   ["grossProfit", "Utilidad bruta", "Resultados", "usd", 1],
-  ["operatingIncome", "Resultado operativo", "Resultados", "usd", 1],
+  ["operatingIncome", "Resultado operativo (EBIT)", "Resultados", "usd", 1],
+  ["ebitda", "EBITDA", "Resultados", "usd", 1],
   ["netIncome", "Resultado neto", "Resultados", "usd", 1],
   ["eps", "EPS diluido", "Resultados", "usdps", 1],
   // Balance
+  ["cashBalance", "Caja y equivalentes", "Balance", "usd", 1],
   ["totalDebt", "Deuda total", "Balance", "usd", -1],
+  ["equityBalance", "Patrimonio neto", "Balance", "usd", 1],
+  ["totalAssetsBalance", "Activos totales", "Balance", "usd", 1],
+  ["totalLiabilitiesBalance", "Pasivos totales", "Balance", "usd", 1],
+  ["currentAssetsBalance", "Activo corriente", "Balance", "usd", 1],
+  ["currentLiabilitiesBalance", "Pasivo corriente", "Balance", "usd", 1],
+  ["goodwillBalance", "Llave de negocio (goodwill)", "Balance", "usd", 1],
   ["inventory", "Inventario", "Balance", "usd", 0],
 ];
 
@@ -390,14 +424,15 @@ function buildSeries(facts, priceMonthly, sharesNow, live) {
       ? 1.2 * (wc / ta) + 1.4 * (re / ta) + 3.3 * (oi / ta) + 0.6 * (mcap / tl) + 1.0 * (rev / ta) : null;
 
     // valores del período puntual (para las series absolutas)
-    const oi1 = oiOf(one), da1 = one("da"), ocf1 = one("operatingCashFlow"), cap1 = one("capex");
+    const oi1 = oiOf(one), da1 = one("da"), ocf1 = one("operatingCashFlow"), cap1 = one("capex"), bb1 = one("buyback");
+    const intRoll = R("interest");
     return {
       peRatio: price != null && eps > 0 ? price / eps : null,
       psRatio: mcap != null && rev > 0 ? mcap / rev : null,
       pbRatio: mcap != null && eq > 0 ? mcap / eq : null,
       ptbvRatio: mcap != null && tbv > 0 ? mcap / tbv : null,
       pfcfRatio: mcap != null && fcf > 0 ? mcap / fcf : null,
-      pgpRatio: mcap != null && gp > 0 ? mcap / gp : null,
+      priceToCash: mcap != null && cashAll > 0 ? mcap / cashAll : null,
       evSales: ev != null && rev > 0 ? ev / rev : null,
       evEbitda: ev != null && ebitda > 0 ? ev / ebitda : null,
       evEbit: ev != null && oi > 0 ? ev / oi : null,
@@ -409,6 +444,7 @@ function buildSeries(facts, priceMonthly, sharesNow, live) {
       shareholderYieldExDebt: divY != null || bbY != null ? sum(divY, bbY) : null,
       grossMargin: pct(gp, rev), ebitdaMargin: pct(ebitda, rev), opMargin: pct(oi, rev), netMargin: pct(ni, rev), fcfMargin: pct(fcf, rev),
       roe: pct(ni, eqAvg), roa: pct(ni, taAvg), roic: invested > 0 ? pct(nopat, invested) : null,
+      rota: pct(oi, taAvg), roce: ta != null && cl != null && ta - cl > 0 ? pct(oi, ta - cl) : null,
       dividendsPerShare: divps,
       payoutRatio: divps != null && eps > 0 ? pct(divps, eps) : null,
       debtToEquity: eq > 0 && debt != null ? debt / eq : null,
@@ -417,11 +453,13 @@ function buildSeries(facts, priceMonthly, sharesNow, live) {
       debtToEbitda: ebitda > 0 && debt != null ? debt / ebitda : null,
       netDebtToEbitda: ebitda > 0 && netDebt != null ? netDebt / ebitda : null,
       netDebtToEbitdaCapex: ebitdaCapex > 0 && netDebt != null ? netDebt / ebitdaCapex : null,
-      currentRatio: div(ca, cl),
+      currentRatio: div(ca, cl), quickRatio: ca != null && inst("inventory") != null && cl ? (ca - inst("inventory")) / cl : null,
+      ebitInterest: intRoll ? oi / Math.abs(intRoll) : null,
       altmanZ: z,
-      operatingCashFlow: ocf1, fcf: ocf1 != null ? ocf1 - Math.abs(cap1 ?? 0) : null, ebitda: oi1 != null && da1 != null ? oi1 + da1 : null,
-      revenue: one("revenue"), grossProfit: one("grossProfit"), operatingIncome: oi1, netIncome: one("netIncome"), eps: one("epsDiluted"),
-      totalDebt: debt, inventory: inst("inventory"),
+      operatingCashFlow: ocf1, capexAmount: cap1 != null ? Math.abs(cap1) : null, fcf: ocf1 != null ? ocf1 - Math.abs(cap1 ?? 0) : null, buybackAmount: bb1 != null ? Math.abs(bb1) : null,
+      revenue: one("revenue"), grossProfit: one("grossProfit"), operatingIncome: oi1, ebitda: oi1 != null && da1 != null ? oi1 + da1 : null, netIncome: one("netIncome"), eps: one("epsDiluted"),
+      cashBalance: cashAll, totalDebt: debt, equityBalance: eq, totalAssetsBalance: ta, totalLiabilitiesBalance: tl,
+      currentAssetsBalance: ca, currentLiabilitiesBalance: cl, goodwillBalance: inst("goodwill"), inventory: inst("inventory"),
     };
   }
 
@@ -477,7 +515,24 @@ function buildSeries(facts, priceMonthly, sharesNow, live) {
   });
   // Valor "actual" con el precio vivo, sobre los últimos 12 meses reportados
   const currentVals = qEnds.length && live?.price ? compute(qEnds[qEnds.length - 1], "quarterly", Q, { price: live.price, shs: live.shares, mcap: live.mcap }) : {};
-  return { out, current: currentVals };
+
+  // CAGR de N años (ejercicio fiscal más reciente vs. el de hace N años). Estadísticas puntuales: se muestran
+  // solo en la tarjeta, no como serie histórica.
+  function cagr(arr, years) {
+    if (arr.length <= years) return null;
+    const end = arr[arr.length - 1]?.v, start = arr[arr.length - 1 - years]?.v;
+    if (end == null || start == null || start <= 0) return null;
+    return round((Math.pow(end / start, 1 / years) - 1) * 100, 3);
+  }
+  const sharesAnnual = A.dilutedShares.map((e) => ({ v: e.val }));
+  const cagrs = {
+    revenueCagr3y: cagr(out.revenue.annual, 3), revenueCagr5y: cagr(out.revenue.annual, 5), revenueCagr10y: cagr(out.revenue.annual, 10),
+    epsCagr3y: cagr(out.eps.annual, 3), epsCagr5y: cagr(out.eps.annual, 5), epsCagr10y: cagr(out.eps.annual, 10),
+    fcfCagr5y: cagr(out.fcf.annual, 5),
+    sharesCagr5y: cagr(sharesAnnual, 5),
+    dpsCagr3y: cagr(out.dividendsPerShare.annual, 3), dpsCagr5y: cagr(out.dividendsPerShare.annual, 5), dpsCagr10y: cagr(out.dividendsPerShare.annual, 10),
+  };
+  return { out, current: currentVals, cagrs };
 }
 
 function avgOf(arr) {
@@ -584,8 +639,12 @@ export default async function handler(req, res) {
 
     if (!cikInfo || !cf) {
       res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
+      const last52wFallback = priceHist.slice(-252).map((p) => p.c).filter((c) => c != null);
       res.status(200).json({
         ...base, marketCap: summary?.marketCap ?? null,
+        sector: summary?.sector || null, industry: summary?.industry || null,
+        week52High: last52wFallback.length ? round(Math.max(...last52wFallback), 2) : null,
+        week52Low: last52wFallback.length ? round(Math.min(...last52wFallback), 2) : null,
         note: "No hay estados contables en la SEC para este ticker (ETF, empresa extranjera o no listada en EE.UU.). Se muestra solo el precio.",
         history: { source: "yahoo_price_only", price: priceHist },
       });
@@ -600,10 +659,14 @@ export default async function handler(req, res) {
     const marketCap = summary?.marketCap || (price && shares ? price * shares : null);
 
     const monthlyPts = (monthly?.pts || []).map((p) => ({ t: p.t, c: p.c }));
-    const { out: m, current: cv } = buildSeries(facts, monthlyPts, shares, { price, shares, mcap: marketCap });
+    const { out: m, current: cv, cagrs } = buildSeries(facts, monthlyPts, shares, { price, shares, mcap: marketCap });
 
     // ---- valores actuales (precio vivo + últimos 12 meses reportados) ----
-    const current = { ...cv };
+    const current = { ...cv, ...cagrs };
+    current.priceTargetNTM = summary?.priceTarget ?? null;
+    current.epsGrowthThisYear = summary?.epsGrowthThisYear ?? null;
+    current.epsGrowthNextYear = summary?.epsGrowthNextYear ?? null;
+    current.epsLtGrowth = summary?.epsLtGrowth ?? null;
     if (current.peRatio == null && summary?.trailingPE != null) current.peRatio = summary.trailingPE;
     // Estimaciones de consenso (NTM): mezcla ponderada del año fiscal en curso y el siguiente
     current.peForward = price && summary?.ntmEps > 0 ? price / summary.ntmEps : summary?.forwardPE ?? null;
@@ -640,8 +703,32 @@ export default async function handler(req, res) {
       debtPaybackYield: "(Repago de deuda − emisión de deuda) ÷ market cap. Negativo = la empresa se está endeudando.",
       shareholderYield: "Dividendos + recompras + repago neto de deuda, sobre market cap.",
       buybackYield: "Recompras de acciones (LTM) ÷ market cap.",
+      priceTargetNTM: "Precio objetivo promedio de analistas a 12 meses (consenso Yahoo).",
+      epsGrowthThisYear: "Estimado de consenso para el año fiscal en curso.",
+      epsGrowthNextYear: "Estimado de consenso para el próximo año fiscal.",
+      epsLtGrowth: "Estimado de consenso a 5 años (crecimiento de largo plazo).",
+      rota: "EBIT ÷ activos totales promedio. Distinto de ROA (que usa resultado neto).",
+      roce: "EBIT ÷ (activos totales − pasivo corriente).",
+      ebitInterest: "EBIT ÷ gasto por intereses. Cuántas veces cubre la ganancia operativa a los intereses de la deuda.",
+      quickRatio: "(Activo corriente − inventario) ÷ pasivo corriente. Más estricto que el ratio corriente.",
+      priceToCash: "Market cap ÷ caja y equivalentes.",
+      revenueCagr3y: "Crecimiento anual compuesto de ingresos, últimos 3 ejercicios.",
+      revenueCagr5y: "Crecimiento anual compuesto de ingresos, últimos 5 ejercicios.",
+      revenueCagr10y: "Crecimiento anual compuesto de ingresos, últimos 10 ejercicios.",
+      epsCagr3y: "Crecimiento anual compuesto del EPS diluido, últimos 3 ejercicios.",
+      epsCagr5y: "Crecimiento anual compuesto del EPS diluido, últimos 5 ejercicios.",
+      epsCagr10y: "Crecimiento anual compuesto del EPS diluido, últimos 10 ejercicios.",
+      fcfCagr5y: "Crecimiento anual compuesto del free cash flow, últimos 5 ejercicios.",
+      sharesCagr5y: "Crecimiento anual compuesto de las acciones en circulación, últimos 5 ejercicios. Negativo = la empresa recompra más de lo que diluye. Ojo: se distorsiona con splits dentro de la ventana (ej. NVDA 2024).",
+      dpsCagr3y: "Crecimiento anual compuesto del dividendo por acción, últimos 3 ejercicios.",
+      dpsCagr5y: "Crecimiento anual compuesto del dividendo por acción, últimos 5 ejercicios.",
+      dpsCagr10y: "Crecimiento anual compuesto del dividendo por acción, últimos 10 ejercicios.",
     };
-    const CURRENT_ONLY = new Set(["peForward", "psForward", "evSalesFwd", "peg"]);
+    const CURRENT_ONLY = new Set([
+      "peForward", "psForward", "evSalesFwd", "peg", "priceTargetNTM", "epsGrowthThisYear", "epsGrowthNextYear", "epsLtGrowth",
+      "revenueCagr3y", "revenueCagr5y", "revenueCagr10y", "epsCagr3y", "epsCagr5y", "epsCagr10y", "fcfCagr5y", "sharesCagr5y",
+      "dpsCagr3y", "dpsCagr5y", "dpsCagr10y",
+    ]);
     const metrics = {};
     for (const [key, label, category, unit, dir] of METRIC_DEFS) {
       const onlyCurrent = CURRENT_ONLY.has(key);
@@ -667,8 +754,15 @@ export default async function handler(req, res) {
     const fy = ann("revenue").map((x) => Number(x.p));
     const arr = (k) => ann(k).map((x) => x.v);
     const rg5 = avgOf(m.revenueGrowth.annual.slice(-5));
+    // Máximo y mínimo de las últimas 52 semanas (últimas ~252 ruedas del historial diario)
+    const last52w = priceHist.slice(-252).map((p) => p.c).filter((c) => c != null);
+    const week52High = last52w.length ? round(Math.max(...last52w), 2) : null;
+    const week52Low = last52w.length ? round(Math.min(...last52w), 2) : null;
+
     const response = {
       ...base,
+      sector: summary?.sector || null, industry: summary?.industry || null,
+      week52High, week52Low,
       marketCap, sharesOutstanding: shares,
       valuation: { peRatio: metrics.peRatio.current, pbRatio: metrics.pbRatio.current, psRatio: metrics.psRatio.current, peForward: current.peForward, peg: current.peg, dividendYield: metrics.dividendYield.current, payoutRatio: metrics.payoutRatio.current },
       profitability: {
