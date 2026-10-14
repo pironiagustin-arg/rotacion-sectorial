@@ -63,6 +63,8 @@ function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add
 function derive(raw, ov) {
   const m = { ...(ov?.metrics || {}) };
   const r = { ...raw };
+  if (r.sec === "fin") { r.roic = null; r.de = null; }
+  if (ok(r.roic) && Math.abs(r.roic) > 150) r.roic = null;
   // crecimiento esperado: largo plazo > próximo año > EPS fwd vs LTM > último trimestre
   r.epsG = raw.epsLT ?? raw.epsNY ?? (raw.feps > 0 && raw.eps > 0 ? (raw.feps / raw.eps - 1) * 100 : null) ?? raw.epsQ;
   r.d52 = ok(raw.px) && raw.hi52 ? (raw.px / raw.hi52 - 1) * 100 : null;

@@ -93,7 +93,9 @@ export async function loadSymbols(symbols) {
     const rev = raw(fd.totalRevenue), om = raw(fd.operatingMargins);
     const equity = raw(ks.bookValue) != null && raw(ks.sharesOutstanding) != null ? raw(ks.bookValue) * raw(ks.sharesOutstanding) : null;
     const invested = equity != null ? (raw(fd.totalDebt) || 0) + equity - (raw(fd.totalCash) || 0) : null;
-    const roic = rev != null && om != null && invested > 0 ? (om * rev * 0.79) / invested * 100 : null;
+    let roic = rev != null && om != null && invested > 0 ? (om * rev * 0.79) / invested * 100 : null;
+    // En bancos/aseguradoras el ROIC no tiene sentido; y valores extremos suelen venir de ADRs con acciones mal mapeadas
+    if (m[2] === "fin" || (roic != null && Math.abs(roic) > 150)) roic = null;
     const px = num(qt.regularMarketPrice);
     const mcapUsd = toUsd(qt.marketCap ?? raw(sd.marketCap), qt.currency);
     const fcfUsd = toUsd(raw(fd.freeCashflow), fcur);
@@ -109,7 +111,7 @@ export async function loadSymbols(symbols) {
       revG: pct(raw(fd.revenueGrowth)), epsQ: pct(raw(fd.earningsGrowth)),
       epsCY: g("0y"), epsNY: g("+1y"), epsLT: g("+5y"),
       fcf: fcfUsd, fcfY: fcfUsd != null && mcapUsd ? (fcfUsd / mcapUsd) * 100 : null,
-      de: raw(fd.debtToEquity) != null ? raw(fd.debtToEquity) / 100 : null,
+      de: m[2] !== "fin" && raw(fd.debtToEquity) != null ? raw(fd.debtToEquity) / 100 : null,
       pegY: raw(ks.pegRatio), tgt, upside: tgt && px ? (tgt / px - 1) * 100 : null,
       rec: raw(fd.recommendationMean), nAn: raw(fd.numberOfAnalystOpinions), beta: raw(sd.beta),
       ok: !!qt.regularMarketPrice, deep: !!d.financialData,
