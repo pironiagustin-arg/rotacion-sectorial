@@ -611,7 +611,7 @@ function buildScore(m, typeKey) {
 export default async function handler(req, res) {
   try {
     const symbol = String(req.query?.symbol || "").trim().toUpperCase();
-    if (!/^[A-Z.\-]{1,10}$/.test(symbol)) { res.status(400).json({ error: "Ticker inválido" }); return; }
+    if (!/^[A-Z0-9.\-]{1,12}$/.test(symbol)) { res.status(400).json({ error: "Ticker inválido" }); return; }
 
     const [daily, monthly, summary, cikInfo] = await Promise.all([
       yahooChart(symbol, "5y", "1d").catch(() => null),

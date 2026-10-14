@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Screener global</title>
+<title>Screener</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -121,6 +121,8 @@
   .modal.show { display:block; }
   .wrow { display:grid; grid-template-columns:150px 1fr 30px; gap:10px; align-items:center; margin:6px 0; font-size:13px; }
   .wrow input { accent-color:var(--accent); }
+  .how { font-size:12.5px; line-height:1.55; padding:8px 0; border-bottom:1px solid var(--border); }
+  .how .na { font-size:11.5px; margin-top:3px; }
   .wgroup { color:var(--dim); font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; margin-top:14px; }
   .toast { position:fixed; bottom:20px; right:20px; background:var(--panel2); border:1px solid var(--border2); padding:10px 14px; border-radius:10px; display:none; z-index:60; }
   .toast.show { display:block; }
@@ -158,7 +160,7 @@
     <a href="/">Dashboard</a>
     <a href="/rotation.html">RRG</a>
     <a href="/rotation-stocks.html">RRG Acciones</a>
-    <a href="/fundamentals.html">Fundamental</a>
+    <a href="/empresa.html">Fundamental</a>
     <a href="/watchlist.html">Watchlist</a>
     <a href="/screener.html" class="active">Screener</a>
   </nav>
@@ -167,12 +169,12 @@
 <main>
   <div class="top">
     <div>
-      <h1>Screener global</h1>
+      <h1>Screener</h1>
       <div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando universo…</span></div>
     </div>
     <div class="actions">
       <button class="btn" id="btnRefresh" title="Bajar datos en vivo de Yahoo">↻ Actualizar</button>
-      <button class="btn" id="btnWeights">⚖ Pesos del score</button>
+      <button class="btn" id="btnWeights">ⓘ Cómo puntúa</button>
       <button class="btn" id="btnPdfView">⤓ PDF de la vista</button>
       <button class="btn" id="btnAuth">Iniciar sesión</button>
     </div>
@@ -183,7 +185,7 @@
 
   <div class="filters">
     <div class="frow">
-      <input type="search" id="q" placeholder="Buscar ticker o empresa">
+      <input type="search" id="q" placeholder="Buscar ticker, CEDEAR o empresa">
       <select id="fCountry"><option value="">Todos los países</option></select>
       <select id="fLynch">
         <option value="">Todos los tipos Lynch</option>
@@ -216,7 +218,6 @@
 
 <div class="cmpbar" id="cmpbar"><span id="cmpTxt"></span><button class="btn sm primary" id="cmpGo">Comparar</button><button class="btn sm" id="cmpClear">Limpiar</button></div>
 <div class="overlay" id="overlay"></div>
-<aside class="drawer" id="drawer"></aside>
 <div class="modal" id="modal"></div>
 <div class="toast" id="toast"></div>
 <div id="printRoot"></div>

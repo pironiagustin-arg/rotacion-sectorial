@@ -19,7 +19,7 @@ async function yahooAuth(force = false) {
   return auth;
 }
 
-async function yget(url) {
+export async function yget(url) {
   for (let attempt = 0; attempt < 2; attempt++) {
     const a = await yahooAuth(attempt > 0);
     const sep = url.includes("?") ? "&" : "?";
@@ -46,7 +46,7 @@ async function quotes(symbols) {
 
 async function summary(symbol) {
   try {
-    const j = await yget(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=financialData,defaultKeyStatistics,summaryDetail,earningsTrend`);
+    const j = await yget(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=financialData,defaultKeyStatistics,summaryDetail,earningsTrend,assetProfile`);
     return j?.quoteSummary?.result?.[0] || null;
   } catch { return null; }
 }
@@ -83,10 +83,10 @@ export async function loadSymbols(symbols) {
   };
 
   return symbols.map((s, i) => {
-    const m = META.get(s) || [s, s, null, null, ""];
+    const m = META.get(s) || [s, s, null, null, "", null];
     const qt = q.get(s) || {};
     const d = deep[i] || {};
-    const fd = d.financialData || {}, ks = d.defaultKeyStatistics || {}, sd = d.summaryDetail || {};
+    const fd = d.financialData || {}, ks = d.defaultKeyStatistics || {}, sd = d.summaryDetail || {}, ap = d.assetProfile || {};
     const tr = d.earningsTrend?.trend || [];
     const g = (p) => { const t = tr.find((x) => x.period === p); const v = raw(t?.growth); return v == null ? null : v * 100; };
     const fcur = fd.financialCurrency || qt.financialCurrency || qt.currency;
@@ -105,7 +105,7 @@ export async function loadSymbols(symbols) {
       s, n: qt.longName || qt.shortName || m[1], sec: m[2], c: m[3], mk: m[4],
       cur: qt.currency || null, px, chg: num(qt.regularMarketChangePercent),
       mcap: mcapUsd, pe: num(qt.trailingPE) ?? raw(sd.trailingPE), fpe: num(qt.forwardPE) ?? raw(ks.forwardPE),
-      pb: num(qt.priceToBook), eps: num(qt.epsTrailingTwelveMonths), feps: num(qt.epsForward) ?? raw(ks.forwardEps),
+      pb: num(qt.priceToBook) ?? raw(ks.priceToBook), eps: num(qt.epsTrailingTwelveMonths), feps: num(qt.epsForward) ?? raw(ks.forwardEps),
       hi52: num(qt.fiftyTwoWeekHigh), lo52: num(qt.fiftyTwoWeekLow),
       roe: pct(raw(fd.returnOnEquity)), roic, gm: pct(raw(fd.grossMargins)), om: pct(om), nm: pct(raw(fd.profitMargins)),
       revG: pct(raw(fd.revenueGrowth)), epsQ: pct(raw(fd.earningsGrowth)),
@@ -114,6 +114,13 @@ export async function loadSymbols(symbols) {
       de: m[2] !== "fin" && raw(fd.debtToEquity) != null ? raw(fd.debtToEquity) / 100 : null,
       pegY: raw(ks.pegRatio), tgt, upside: tgt && px ? (tgt / px - 1) * 100 : null,
       rec: raw(fd.recommendationMean), nAn: raw(fd.numberOfAnalystOpinions), beta: raw(sd.beta),
+      divY: raw(sd.dividendYield) != null ? raw(sd.dividendYield) * 100 : (raw(sd.trailingAnnualDividendYield) != null ? raw(sd.trailingAnnualDividendYield) * 100 : null),
+      payout: pct(raw(sd.payoutRatio)),
+      evEbitda: raw(ks.enterpriseToEbitda), evRev: raw(ks.enterpriseToRevenue),
+      cr: raw(fd.currentRatio),
+      ndEbitda: raw(fd.ebitda) > 0 && m[2] !== "fin" ? ((raw(fd.totalDebt) || 0) - (raw(fd.totalCash) || 0)) / raw(fd.ebitda) : null,
+      revUsd: toUsd(rev, fcur),
+      ind: ap.industry || null, ced: m[5] || null,
       ok: !!qt.regularMarketPrice, deep: !!d.financialData,
       t: Date.now(),
     };

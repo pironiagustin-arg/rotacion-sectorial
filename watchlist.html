@@ -57,7 +57,7 @@
     <a id="navDash" href="/">Dashboard</a>
     <a id="navRrg" href="/rotation.html">RRG</a>
     <a id="navRrgStocks" href="/rotation-stocks.html">RRG Acciones</a>
-    <a id="navFund" href="/fundamentals.html">Fundamental</a>
+    <a id="navFund" href="/empresa.html">Fundamental</a>
     <a id="navWatch" href="/watchlist.html" class="active">Watchlist</a>
     <a href="/screener.html" id="navScreener">Screener</a>
     <span class="langsw"><button id="langEs">ES</button><button id="langEn">EN</button></span>
@@ -287,7 +287,7 @@ function renderTable() {
       return `<td class="${cls}">${loading ? '…' : fmtMetric(v, opt.unit)}</td>`;
     }).join('');
     return `<tr data-sym="${sym}">
-      <td><a class="sym-link" href="/fundamentals.html?symbol=${sym}" onclick="localStorage.setItem('fund_recent', JSON.stringify([...new Set(['${sym}', ...(JSON.parse(localStorage.getItem('fund_recent')||'[]'))])]))">${sym}</a></td>
+      <td><a class="sym-link" href="/empresa.html?s=${sym}" onclick="localStorage.setItem('fund_recent', JSON.stringify([...new Set(['${sym}', ...(JSON.parse(localStorage.getItem('fund_recent')||'[]'))])]))">${sym}</a></td>
       <td>${priceTxt}</td><td class="${chgCls}">${chgTxt}</td>
       ${metricCells}
       <td><button class="rm-btn" data-sym="${sym}">✕</button></td>
