@@ -11,32 +11,18 @@ Si la carpeta `.github` no aparece al arrastrar (Mac oculta las carpetas que emp
 
 **Con este paso ya funciona.** Los datos se bajan en vivo de Yahoo y tus ediciones se guardan en el navegador.
 
-## 2. Supabase (base de datos y ediciones sincronizadas)
-1. En supabase.com creá un proyecto nuevo (por ejemplo `screener`).
-2. Andá a SQL Editor, pegá `supabase/schema.sql` y ejecutalo.
-3. En Authentication → URL Configuration, poné tu dominio de Vercel como Site URL (por ejemplo `https://rotacion-sectorial.vercel.app`).
-4. En Project Settings → API copiá:
-   - la Project URL y la clave `anon public`, que van en `config.js`;
-   - la clave `service_role`, que va a Vercel (paso 3) y **nunca** a `config.js`.
+## 2. Supabase y Vercel (ya configurado)
+- Proyecto Supabase: `screener` (sa-east-1), con las tablas `snapshots`, `snapshot_history` y `overrides`, todas con RLS.
+- `config.js` ya tiene la URL y la clave pública.
+- El sync escribe con la función `sync_snapshots`, que valida el secreto. No hace falta la service key.
+- Vercel solo necesita la variable `SYNC_SECRET`.
 
-## 3. Variables de entorno en Vercel
-En Project → Settings → Environment Variables cargá:
+## 3. Sync diario (GitHub Actions)
+En Settings → Secrets and variables → Actions cargá dos secrets:
+- `SITE_URL`: el dominio de Vercel, sin barra al final.
+- `SYNC_SECRET`: el mismo valor que tiene Vercel.
 
-| Nombre | Valor |
-|---|---|
-| `SUPABASE_URL` | La Project URL |
-| `SUPABASE_SERVICE_KEY` | La clave service_role |
-| `SYNC_SECRET` | Cualquier texto largo inventado por vos |
-
-Después hacé Redeploy.
-
-## 4. Sync diario (GitHub Actions)
-1. En el repo andá a Settings → Secrets and variables → Actions → New repository secret y cargá:
-   - `SITE_URL`: tu dominio de Vercel, sin barra al final;
-   - `SYNC_SECRET`: el mismo texto del paso 3.
-2. En Actions → Sync screener → Run workflow corré la primera carga.
-
-Después corre solo de lunes a viernes a las 19:30 (hora de Buenos Aires). Con eso el screener abre al instante desde Supabase y guarda una foto diaria de cada acción en `snapshot_history`.
+Después corré Actions → Sync screener → Run workflow. A partir de ahí se ejecuta solo de lunes a viernes a las 19:30 (hora de Buenos Aires).
 
 ## Cómo editar el universo
 `lib/universe-data.js` tiene una línea por acción con este formato: `[símbolo Yahoo, nombre, sector, país, mercados]`.
