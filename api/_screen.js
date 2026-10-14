@@ -96,6 +96,9 @@ export async function loadSymbols(symbols) {
     let roic = rev != null && om != null && invested > 0 ? (om * rev * 0.79) / invested * 100 : null;
     // En bancos/aseguradoras el ROIC no tiene sentido; y valores extremos suelen venir de ADRs con acciones mal mapeadas
     if (m[2] === "fin" || (roic != null && Math.abs(roic) > 150)) roic = null;
+    // ADRs y empresas que reportan en otra moneda: Yahoo mezcla monedas en P/B y EV/EBITDA, así que se recalculan en USD
+    const qcur = (qt.currency || "").toUpperCase(), mismatch = !!fcur && !!qcur && fcur.toUpperCase() !== qcur;
+    if (mismatch && roic != null && (roic < 0 || roic > 60)) roic = null;
     const px = num(qt.regularMarketPrice);
     const mcapUsd = toUsd(qt.marketCap ?? raw(sd.marketCap), qt.currency);
     const fcfUsd = toUsd(raw(fd.freeCashflow), fcur);
@@ -105,7 +108,7 @@ export async function loadSymbols(symbols) {
       s, n: qt.longName || qt.shortName || m[1], sec: m[2], c: m[3], mk: m[4],
       cur: qt.currency || null, px, chg: num(qt.regularMarketChangePercent),
       mcap: mcapUsd, pe: num(qt.trailingPE) ?? raw(sd.trailingPE), fpe: num(qt.forwardPE) ?? raw(ks.forwardPE),
-      pb: num(qt.priceToBook) ?? raw(ks.priceToBook), eps: num(qt.epsTrailingTwelveMonths), feps: num(qt.epsForward) ?? raw(ks.forwardEps),
+      pb: mismatch ? null : num(qt.priceToBook) ?? raw(ks.priceToBook), eps: num(qt.epsTrailingTwelveMonths), feps: num(qt.epsForward) ?? raw(ks.forwardEps),
       hi52: num(qt.fiftyTwoWeekHigh), lo52: num(qt.fiftyTwoWeekLow),
       roe: pct(raw(fd.returnOnEquity)), roic, gm: pct(raw(fd.grossMargins)), om: pct(om), nm: pct(raw(fd.profitMargins)),
       revG: pct(raw(fd.revenueGrowth)), epsQ: pct(raw(fd.earningsGrowth)),
@@ -116,7 +119,11 @@ export async function loadSymbols(symbols) {
       rec: raw(fd.recommendationMean), nAn: raw(fd.numberOfAnalystOpinions), beta: raw(sd.beta),
       divY: raw(sd.dividendYield) != null ? raw(sd.dividendYield) * 100 : (raw(sd.trailingAnnualDividendYield) != null ? raw(sd.trailingAnnualDividendYield) * 100 : null),
       payout: pct(raw(sd.payoutRatio)),
-      evEbitda: raw(ks.enterpriseToEbitda), evRev: raw(ks.enterpriseToRevenue),
+      evEbitda: !mismatch ? raw(ks.enterpriseToEbitda) : (() => {
+        const e = toUsd(raw(fd.ebitda), fcur), nd = toUsd((raw(fd.totalDebt) || 0) - (raw(fd.totalCash) || 0), fcur);
+        return e > 0 && mcapUsd ? (mcapUsd + (nd || 0)) / e : null;
+      })(),
+      evRev: !mismatch ? raw(ks.enterpriseToRevenue) : null,
       cr: raw(fd.currentRatio),
       ndEbitda: raw(fd.ebitda) > 0 && m[2] !== "fin" ? ((raw(fd.totalDebt) || 0) - (raw(fd.totalCash) || 0)) / raw(fd.ebitda) : null,
       revUsd: toUsd(rev, fcur),
