@@ -12,10 +12,13 @@ jobs:
           SITE: ${{ secrets.SITE_URL }}
           SECRET: ${{ secrets.SYNC_SECRET }}
         run: |
-          b=0
+          b=0; fails=0; total=0
           while [ "$b" != "null" ]; do
-            out=$(curl -s -m 70 -H "x-sync-secret: $SECRET" "$SITE/api/sync?batch=$b")
+            out=$(curl -s -m 70 -H "x-sync-secret: $SECRET" "$SITE/api/sync?batch=$b" || echo '{"error":"timeout"}')
             echo "lote $b -> $out"
-            b=$(echo "$out" | jq -r '.next // "null"')
+            if echo "$out" | jq -e '.error' >/dev/null 2>&1; then fails=$((fails+1)); else total=$((total + $(echo "$out" | jq -r '.saved // 0'))); fi
+            if echo "$out" | jq -e 'has("next")' >/dev/null 2>&1; then b=$(echo "$out" | jq -r '.next // "null"'); else echo "::error::Respuesta inesperada, corto acá"; exit 1; fi
             sleep 3
           done
+          echo "Guardadas: $total acciones · lotes con error: $fails"
+          [ "$total" -gt 0 ] || { echo "::error::No se guardó ninguna acción"; exit 1; }
