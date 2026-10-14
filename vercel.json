@@ -1,7 +1,19 @@
 {
   "functions": {
-    "api/sectors.js": { "maxDuration": 25 },
-    "api/fundamentals.js": { "maxDuration": 25 },
-    "api/rrg.js": { "maxDuration": 25 }
+    "api/sectors.js": {
+      "maxDuration": 25
+    },
+    "api/fundamentals.js": {
+      "maxDuration": 25
+    },
+    "api/rrg.js": {
+      "maxDuration": 25
+    },
+    "api/screener.js": {
+      "maxDuration": 60
+    },
+    "api/sync.js": {
+      "maxDuration": 60
+    }
   }
 }

@@ -1,0 +1,21 @@
+name: Sync screener
+on:
+  schedule:
+    - cron: "30 22 * * 1-5"   # 19:30 Buenos Aires, después del cierre de Wall Street
+  workflow_dispatch: {}
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sincronizar lotes
+        env:
+          SITE: ${{ secrets.SITE_URL }}
+          SECRET: ${{ secrets.SYNC_SECRET }}
+        run: |
+          b=0
+          while [ "$b" != "null" ]; do
+            out=$(curl -s -m 70 -H "x-sync-secret: $SECRET" "$SITE/api/sync?batch=$b")
+            echo "lote $b -> $out"
+            b=$(echo "$out" | jq -r '.next // "null"')
+            sleep 3
+          done
