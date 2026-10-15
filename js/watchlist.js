@@ -99,7 +99,7 @@ function pdf() {
 }
 
 function bind() {
-  $("tickers").innerHTML = UNIVERSE.map((u) => `<option value="${esc(u[5] || u[0])} · ${esc(u[1])}">`).join("");
+  $("tickers").innerHTML = [...UNIVERSE].sort((a, b) => (a[3] === "AR") - (b[3] === "AR")).map((u) => `<option value="${esc(u[5] || u[0])} · ${esc(u[1])}">`).join("");
   const add = async () => {
     const s = resolve($("add").value);
     if (!s) return toast("No es un CEDEAR ni una acción de BYMA");

@@ -18,7 +18,7 @@ function resolve(q) {
   return byN ? byN[0] : null;
 }
 function initSearch() {
-  $("tickers").innerHTML = UNIVERSE.map((u) => `<option value="${esc(u[5] || u[0])} · ${esc(u[1])}">`).join("");
+  $("tickers").innerHTML = [...UNIVERSE].sort((a, b) => (a[3] === "AR") - (b[3] === "AR")).map((u) => `<option value="${esc(u[5] || u[0])} · ${esc(u[1])}">`).join("");
   const goTo = () => { const s = resolve($("q").value); if (s) { history.pushState({}, "", "?s=" + encodeURIComponent(s)); load(s); } else toast("No está en el universo operable desde Argentina"); };
   $("go").addEventListener("click", goTo);
   $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") goTo(); });
@@ -85,8 +85,9 @@ function vdMetrics(r, g) {
 function peersOf(r) {
   const mine = state.ov.get(r.s)?.metrics?.peers;
   if (Array.isArray(mine)) return { list: mine.map((s) => P.rows.find((x) => x.s === s)).filter(Boolean), custom: true };
-  let pool = P.rows.filter((x) => x.profile === r.profile && x.s !== r.s && ok(x.mcap));
-  if (pool.length < 4) pool = P.rows.filter((x) => x.sec === r.sec && x.s !== r.s && ok(x.mcap));
+  const okAR = (x) => r.c === "AR" || x.c !== "AR";
+  let pool = P.rows.filter((x) => x.profile === r.profile && x.s !== r.s && ok(x.mcap) && okAR(x));
+  if (pool.length < 4) pool = P.rows.filter((x) => x.sec === r.sec && x.s !== r.s && ok(x.mcap) && okAR(x));
   return { list: pool.sort((a, b) => b.mcap - a.mcap).slice(0, 7), custom: false };
 }
 // Columnas de la comparativa: las métricas que más pesan en el perfil de la empresa

@@ -300,15 +300,20 @@ export function histOf(r, k) {
 
 export function scoreAll(rows, { peer = "sector", userMult = {} } = {}) {
   const groupKey = (r) => (peer === "sector-country" ? r.sec + "|" + r.c : r.sec);
-  const bySector = new Map(), byProfile = new Map();
+  // Las acciones argentinas no entran como pares de las del resto del mundo (inflación en pesos distorsiona crecimiento y márgenes)
+  const mk = () => ({ sec: new Map(), prof: new Map() });
+  const G = { all: mk(), ext: mk() };
   for (const r of rows) {
     const a = groupKey(r), b = r.profile + (peer === "sector-country" ? "|" + r.c : "");
-    if (!bySector.has(a)) bySector.set(a, []); bySector.get(a).push(r);
-    if (!byProfile.has(b)) byProfile.set(b, []); byProfile.get(b).push(r);
+    for (const g of r.c === "AR" ? [G.all] : [G.all, G.ext]) {
+      if (!g.sec.has(a)) g.sec.set(a, []); g.sec.get(a).push(r);
+      if (!g.prof.has(b)) g.prof.set(b, []); g.prof.get(b).push(r);
+    }
   }
   const histW = 0.25 * (userMult["Historia"] ?? 1);
   for (const r of rows) {
-    const prof = byProfile.get(r.profile + (peer === "sector-country" ? "|" + r.c : "")), sect = bySector.get(groupKey(r));
+    const g = r.c === "AR" ? G.all : G.ext;
+    const prof = g.prof.get(r.profile + (peer === "sector-country" ? "|" + r.c : "")), sect = g.sec.get(groupKey(r));
     r.peerN = prof.length >= 6 ? prof.length : sect.length;
     r.peerLabel = prof.length >= 6 ? PROFILES[r.profile].l : peer === "sector-country" ? `${SECTORS[r.sec]} · ${COUNTRIES[r.c] || r.c}` : SECTORS[r.sec];
     r.pct = {}; r.med = {}; r.hist = {};
@@ -376,7 +381,7 @@ export function scoreAll(rows, { peer = "sector", userMult = {} } = {}) {
     const pegMax = r.lynch === "fast" ? 1.5 : 1.2;
     const pegOk = !["fast", "stalwart"].includes(r.lynch) || r.profile === "neocloud" || (ok(r.peg) && r.peg <= pegMax);
     const base = ok(r.score) && r.score >= 70 && ok(val) && val >= 55 && pegOk;
-    r.cand = base || (ok(r.fairUp) && r.fairUp >= 15);
+    r.cand = (base && r.c !== "AR") || (ok(r.fairUp) && r.fairUp >= 15);
     r.candReason = base ? `Score ${r.score} con valuación mejor que el ${val}% de ${r.peerLabel}${["fast", "stalwart"].includes(r.lynch) && ok(r.peg) ? ` y PEG ${fmt(r.peg, "x", 2)}` : ""}` : r.cand ? `Tu precio justo deja ${fmt(r.fairUp, "%", 0)} de margen` : "";
     r.verdict = verdict(r);
   }

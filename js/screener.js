@@ -33,7 +33,13 @@ function filtered() {
 }
 function sorted(rows) {
   const { k, dir } = S.sort;
+  const Q = S.f.q.trim().toUpperCase();
+  // Búsqueda: primero el ticker exacto, después los que empiezan igual, después el resto
+  const rank = (r) => { if (!Q) return 0; const c = (r.ced || "").toUpperCase(); if (c === Q || r.s === Q) return 0; if (c.startsWith(Q) || r.s.startsWith(Q)) return 1; return 2; };
+  const arLast = S.f.country !== "AR";
   return rows.slice().sort((a, b) => {
+    if (arLast && (a.c === "AR") !== (b.c === "AR")) return a.c === "AR" ? 1 : -1;
+    const rk = rank(a) - rank(b); if (rk) return rk;
     const x = k === "ret" ? retOf(a) : a[k], y = k === "ret" ? retOf(b) : b[k];
     if (typeof x === "string" || typeof y === "string") return dir * String(x ?? "").localeCompare(String(y ?? ""));
     if (!ok(x) && !ok(y)) return 0; if (!ok(x)) return 1; if (!ok(y)) return -1;
@@ -50,7 +56,7 @@ function renderFilters() {
     Object.entries(MARKETS).filter(([k]) => mc[k]).map(([k, l]) => `<button class="chip ${S.f.markets.has(k) ? "on" : ""}" data-m="${k}">${l}<span class="c">${mc[k]}</span></button>`).join("");
   $("fSectors").innerHTML = `<button class="chip ${S.f.sectors.size ? "" : "on"}" data-s="">Todos</button>` +
     Object.entries(SECTORS).map(([k, l]) => `<button class="chip ${S.f.sectors.has(k) ? "on" : ""}" data-s="${k}">${l}</button>`).join("");
-  const cs = [...new Set(UNIVERSE.map((u) => u[3]))].sort((a, b) => (COUNTRIES[a] || a).localeCompare(COUNTRIES[b] || b));
+  const cs = [...new Set(UNIVERSE.map((u) => u[3]))].sort((a, b) => (a === "AR") - (b === "AR") || (COUNTRIES[a] || a).localeCompare(COUNTRIES[b] || b));
   const used = new Set(S.rows.map((r) => r.profile));
   $("fProf").innerHTML = `<option value="">Todas las industrias</option>` + Object.entries(PROFILES).filter(([k]) => used.has(k)).sort((a, b) => a[1].l.localeCompare(b[1].l)).map(([k, p]) => `<option value="${k}" ${S.f.prof === k ? "selected" : ""}>${esc(p.l)}</option>`).join("");
   $("fCountry").innerHTML = `<option value="">Todos los países</option>` + cs.map((c) => `<option value="${c}" ${S.f.country === c ? "selected" : ""}>${COUNTRIES[c] || c}</option>`).join("");
@@ -112,7 +118,7 @@ function renderGroups(rows, by) {
   const g = new Map();
   for (const r of rows) { const k = by === "sector" ? r.sec : r.c; if (!g.has(k)) g.set(k, []); g.get(k).push(r); }
   if (!g.size) return `<div class="empty">Sin datos para estos filtros.</div>`;
-  const items = [...g.entries()].map(([k, rs]) => ({ k, s: groupSummary(rs) })).sort((a, b) => b.s.mcap - a.s.mcap);
+  const items = [...g.entries()].map(([k, rs]) => ({ k, s: groupSummary(rs) })).sort((a, b) => (by === "country" && (a.k === "AR") !== (b.k === "AR") ? (a.k === "AR" ? 1 : -1) : b.s.mcap - a.s.mcap));
   return `<div class="grid-cards">${items.map(({ k, s }) => `
     <div class="card">
       <h3><span>${esc(by === "sector" ? SECTORS[k] : COUNTRIES[k] || k)}</span><button class="btn sm" data-pdf="${by}" data-key="${esc(k)}">⤓ PDF</button></h3>

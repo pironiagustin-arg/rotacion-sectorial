@@ -82,7 +82,7 @@
   window.addEventListener("popstate", () => go());
 
   const q = document.getElementById("q");
-  document.getElementById("tickers").innerHTML = UNIVERSE.map((u) => `<option value="${u[5] || u[0]} · ${u[1].replace(/"/g, "&quot;")}">`).join("");
+  document.getElementById("tickers").innerHTML = [...UNIVERSE].sort((a, b) => (a[3] === "AR") - (b[3] === "AR")).map((u) => `<option value="${u[5] || u[0]} · ${u[1].replace(/"/g, "&quot;")}">`).join("");
   const find = (v) => { v = v.trim().toUpperCase(); const m = v.match(/^([A-Z0-9.\-]+)\s+·/); if (m) v = m[1]; return (UNIVERSE.find((u) => u[0] === v || (u[5] || "").toUpperCase() === v) || UNIVERSE.find((u) => u[1].toUpperCase().includes(v)) || [])[0]; };
   const open = () => { const s = find(q.value); if (s) { location.hash = "#empresa?s=" + encodeURIComponent(s); q.value = ""; q.blur(); } };
   q.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
