@@ -135,7 +135,7 @@ async function loadCrypto() {
     fetch("/api/overview?s=BTC-USD,ETH-USD,SOL-USD").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch("/api/overview?view=chart&sym=BTC-USD&range=1y&interval=1d").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     fetch("https://api.alternative.me/fng/?limit=31").then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch("https://api.coingecko.com/api/v3/global").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    (async () => { try { const c = JSON.parse(localStorage.getItem("cg_global") || "null"); if (c && Date.now() - c.t < 15 * 60e3) return c.d; } catch {} const d = await fetch("https://api.coingecko.com/api/v3/global").then((r) => (r.ok ? r.json() : null)).catch(() => null); if (d) try { localStorage.setItem("cg_global", JSON.stringify({ t: Date.now(), d })); } catch {} return d; })(),
   ]);
   const Q = q?.q || {}, b = Q["BTC-USD"]; if (!b) throw new Error("cripto");
   const pts = (ch?.pts || []).map((p) => p[1]);
