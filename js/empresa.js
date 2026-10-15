@@ -1,6 +1,6 @@
 import { UNIVERSE, SECTORS, COUNTRIES, MARKETS, SYMBOLS, BATCH_SIZE } from "/lib/universe.js";
-import { METRICS, GROUPS, FAMILIES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt, fmtCap, fmtBig, nf, scoreCls } from "/js/score.js";
-import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, withMeta, META } from "/js/core.js";
+import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt, fmtCap, fmtBig, nf, scoreCls, profileOf, relevant } from "/js/score.js";
+import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, withMeta, META, loadFund } from "/js/core.js";
 
 const P = { sym: null, rows: [], r: null, hist: null, charts: [] };
 const today = () => new Date().toLocaleDateString("es-AR");
@@ -39,7 +39,7 @@ async function loadRows(sym) {
       for (const row of j?.rows || []) if (row.ok) { const x = withMeta(row); if (x) P.rawMap.set(row.s, x); }
     }
   }
-  P.rows = [...P.rawMap.values()].map((r) => derive(r, state.ov.get(r.s)));
+  P.rows = [...P.rawMap.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
   scoreAll(P.rows, { userMult: userMult() });
 }
 
@@ -81,12 +81,35 @@ function vdMetrics(r, g) {
 }
 
 // ---------- Render ----------
+// Pares: los que elegiste vos o, por defecto, los más grandes de la misma industria (si son pocos, del sector)
+function peersOf(r) {
+  const mine = state.ov.get(r.s)?.metrics?.peers;
+  if (Array.isArray(mine)) return { list: mine.map((s) => P.rows.find((x) => x.s === s)).filter(Boolean), custom: true };
+  let pool = P.rows.filter((x) => x.profile === r.profile && x.s !== r.s && ok(x.mcap));
+  if (pool.length < 4) pool = P.rows.filter((x) => x.sec === r.sec && x.s !== r.s && ok(x.mcap));
+  return { list: pool.sort((a, b) => b.mcap - a.mcap).slice(0, 7), custom: false };
+}
+// Columnas de la comparativa: las métricas que más pesan en el perfil de la empresa
+function peerCols(r) { return Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k]) => k).filter((k) => k !== "runway").slice(0, 7); }
+function spark(h, m) {
+  const vals = [...h.series, h.cur]; const v = vals.filter(ok); if (v.length < 2) return "";
+  const mn = Math.min(...v), mx = Math.max(...v), W = 120, H = 28, n = vals.length;
+  const pts = vals.map((x, i) => (ok(x) ? `${(i / (n - 1)) * W},${H - 3 - ((x - mn) / (mx - mn || 1)) * (H - 6)}` : null)).filter(Boolean);
+  const ay = H - 3 - ((h.avg - mn) / (mx - mn || 1)) * (H - 6);
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true" style="display:block;margin-top:6px"><line x1="0" x2="${W}" y1="${ay}" y2="${ay}" stroke="#64748b" stroke-dasharray="3 3" stroke-width="1"/><polyline points="${pts.join(" ")}" fill="none" stroke="#3b82f6" stroke-width="1.6"/><circle cx="${pts.at(-1).split(",")[0]}" cy="${pts.at(-1).split(",")[1]}" r="2.8" fill="#3b82f6"/></svg>`;
+}
+
 function render() {
   const r = P.r, ov = state.ov.get(r.s) || {}, th = ov.metrics?.thesis || {};
+  const prof = PROFILES[r.profile];
   const markets = (r.mk || "").split(" ").map((m) => MARKETS[m]).filter(Boolean);
   const chg = ok(r.chg) ? `<span class="${r.chg >= 0 ? "pos" : "neg"}">${r.chg >= 0 ? "+" : ""}${nf(2).format(r.chg)}% hoy</span>` : "";
-  const peers = P.rows.filter((x) => x.sec === r.sec && x.s !== r.s && ok(x.mcap)).sort((a, b) => b.mcap - a.mcap).slice(0, 7);
-  const famKey = Object.keys(FAMILIES).find((k) => FAMILIES[k] === FAMILIES[r.family]);
+  const { list: peers, custom } = peersOf(r);
+  const cols = peerCols(r);
+  const keyMetrics = Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  const others = Object.keys(METRICS).filter((k) => !r.weights[k] && relevant(r, k) && (ok(r[k]) || r.hist[k]));
+  const tot = Object.values(r.weights).reduce((s, x) => s + x, 0);
+  const histN = r.fx?.years?.length;
   $("root").innerHTML = `
   <section class="card">
     <div class="hero">
@@ -94,7 +117,7 @@ function render() {
         <h1>${esc(r.ced || r.s)} ${r.ced && r.ced !== r.s ? `<span class="alt">${esc(r.s)} en origen</span>` : ""}</h1>
         <div class="name">${esc(r.n)}</div>
         <div class="chips">
-          <span class="chip">${esc(SECTORS[r.sec])}${r.ind ? " · " + esc(r.ind) : ""}</span>
+          <span class="chip" title="${esc(SECTORS[r.sec])} · ${esc(r.ind || "")}">${esc(prof.l)}</span>
           <span class="chip">${esc(COUNTRIES[r.c] || r.c)}</span>
           ${r.lynch ? `<span class="chip lynch" title="${esc(LYNCH_INFO[r.lynch])}">${LYNCH[r.lynch]}${r.lynch !== r.lynchAuto ? " (tuyo)" : ""}</span>` : ""}
           ${r.cand ? `<span class="chip cand">Candidata</span>` : ""}
@@ -112,39 +135,57 @@ function render() {
     </div>
   </section>
 
-  <h2>Resumen en 30 segundos <span class="sub">Cada bloque compara contra ${esc(r.peerLabel)}</span></h2>
-  <div class="verdicts">${Object.entries(r.verdict).filter(([, x]) => x.s !== undefined).map(([g, x]) => `
+  <h2>Resumen en 30 segundos <span class="sub">Contra ${esc(r.peerLabel)} y contra su propia historia</span></h2>
+  <div class="verdicts">${Object.entries(r.verdict).map(([g, x]) => `
     <div class="vd ${x.lv || ""}">
       <div class="q"><span>${x.q}</span><span class="num" style="color:${COL[lvl(x.s)]}">${ok(x.s) ? x.s + "/100" : "—"}</span></div>
       <div class="a">${x.txt}</div>
-      ${vdMetrics(r, g)}
+      ${g === "Historia" ? histMini(r) : vdMetrics(r, g)}
     </div>`).join("")}
   </div>
 
   <div class="two" style="margin-top:12px">
-    <div class="card"><b>A favor</b><div class="list" style="margin-top:6px">${r.why.slice(0, 5).map((w) => `<div><span class="pos">▲</span>${esc(w.t)}</div>`).join("") || `<div class="na">Ninguna métrica se destaca contra su sector.</div>`}</div></div>
-    <div class="card"><b>A vigilar</b><div class="list" style="margin-top:6px">${r.alerts.slice(0, 5).map((w) => `<div><span class="neg">▼</span>${esc(w.t)}</div>`).join("") || `<div class="na">Sin señales de alarma.</div>`}</div></div>
+    <div class="card"><b>A favor</b><div class="list" style="margin-top:6px">${r.why.slice(0, 6).map((w) => `<div><span class="pos">▲</span>${esc(w.t)}</div>`).join("") || `<div class="na">Ninguna métrica se destaca.</div>`}</div></div>
+    <div class="card"><b>A vigilar</b><div class="list" style="margin-top:6px">${r.alerts.slice(0, 6).map((w) => `<div><span class="neg">▼</span>${esc(w.t)}</div>`).join("") || `<div class="na">Sin señales de alarma.</div>`}</div></div>
   </div>
+
+  <h2>Métricas clave de ${esc(prof.l.toLowerCase())} <span class="sub">${esc(prof.why)}</span></h2>
+  <div class="mgrid">${keyMetrics.map((k) => metricBox(r, k, METRICS[k], tot)).join("")}</div>
+  ${prof.kpi.length || ok(r.backlog) ? `
+  <div class="card" style="margin-top:12px">
+    <b>KPIs del sector</b> <span class="na" style="font-size:12.5px">· datos que publica la empresa en sus reportes y no vienen en los balances. Cargalos a mano y se guardan con tu tesis.</span>
+    <div class="kpis">
+      ${ok(r.fx?.latest?.rpoUsd) ? `<div class="kp"><div class="l">Backlog contratado (RPO, SEC)</div><div class="v num">${fmtBig(r.fx.latest.rpoUsd)}</div><div class="h">Al ${esc(r.fx.latest.rpoEnd || "")} · ${fmt(r.backlog, "x", 1)} sus ventas anuales</div></div>` : ""}
+      ${prof.kpi.map((x) => `<label class="kp"><span class="l">${esc(x.l)}</span><input type="text" data-kpi="${x.k}" value="${esc(r.kpi[x.k] ?? "")}" placeholder="—"><span class="h">${esc(x.hint)}</span></label>`).join("")}
+    </div>
+  </div>` : ""}
 
   <h2>Historia <span class="sub" id="histSrc">Cargando estados contables…</span></h2>
   <div class="charts" id="charts"></div>
 
-  <h2>Contra sus pares <span class="sub">Las ${peers.length} más grandes de ${esc(SECTORS[r.sec])} operables desde Argentina</span></h2>
+  <h2>Contra sus pares <span class="sub">${custom ? "Elegidos por vos" : `Las más grandes de ${esc(prof.l)} operables desde Argentina`}</span></h2>
   <div class="tablewrap"><table>
-    <thead><tr><th class="l">Empresa</th><th>Score</th><th>Mkt cap</th><th>P/E fwd</th><th>PEG</th><th>EV/EBITDA</th><th>${r.sec === "fin" ? "ROE" : "ROIC"}</th><th>Crec. ventas</th><th>Div.</th></tr></thead>
-    <tbody>${[r, ...peers].map((x) => `<tr class="${x === r ? "me" : "peer"}" data-s="${esc(x.s)}"><td class="l">${esc(x.ced || x.s)} <span class="na">${esc((x.n || "").slice(0, 24))}</span></td><td><span class="score ${scoreCls(x.score)}">${x.score ?? "—"}</span></td><td>${fmtCap(x.mcap)}</td><td>${fmt(x.fpe, "x")}</td><td>${fmt(x.peg, "x", 2)}</td><td>${fmt(x.evEbitda, "x")}</td><td>${fmt(r.sec === "fin" ? x.roe : x.roic, "%")}</td><td>${fmt(x.revG, "%")}</td><td>${fmt(x.divY, "%")}</td></tr>`).join("")}
+    <thead><tr><th class="l">Empresa</th><th>Score</th><th>Mkt cap</th>${cols.map((k) => `<th title="${esc(METRICS[k].q)}">${esc(METRICS[k].l)}</th>`).join("")}<th></th></tr></thead>
+    <tbody>${[r, ...peers].map((x) => `<tr class="${x === r ? "me" : "peer"}" data-s="${esc(x.s)}"><td class="l">${esc(x.ced || x.s)} <span class="na">${esc((x.n || "").slice(0, 22))}</span></td><td><span class="score ${scoreCls(x.score)}">${x.score ?? "—"}</span></td><td>${fmtCap(x.mcap)}</td>${cols.map((k) => `<td class="num">${fmt(x[k], METRICS[k].f, METRICS[k].d)}</td>`).join("")}<td>${x === r ? "" : `<button class="x" data-rmpeer="${esc(x.s)}" title="Quitar de la comparación" aria-label="Quitar ${esc(x.ced || x.s)}">×</button>`}</td></tr>`).join("")}
+      <tr class="med"><td class="l na">Mediana de ${esc(r.peerLabel)}</td><td></td><td></td>${cols.map((k) => `<td class="num na">${fmt(r.med[k], METRICS[k].f, METRICS[k].d)}</td>`).join("")}<td></td></tr>
     </tbody></table></div>
-
-  <h2>Todas las métricas <span class="sub">La barra es el percentil contra su sector · tocá un valor para corregirlo</span></h2>
-  <div class="mgrid">${Object.entries(METRICS).map(([k, m]) => metricBox(r, k, m)).join("")}
-    ${[["pe", "P/E (últimos 12 meses)", "x"], ["nm", "Margen neto", "%"], ["payout", "Payout (dividendo / ganancia)", "%"], ["beta", "Beta (volatilidad vs mercado)", "n"], ["d52", "Distancia al máximo de 52 semanas", "%"]].map(([k, l, f]) => `
-    <div class="m"><div class="l"><span>${l}</span></div><div class="v num">${fmt(r[k], f)}</div><div class="med">Mediana del sector: ${fmt(r.med[k], f)}</div></div>`).join("")}
+  <div class="actions" style="margin-top:10px">
+    <input type="search" id="peerAdd" list="tickers" placeholder="Agregar comparable: ticker o nombre" style="width:280px">
+    <button class="btn" id="peerAddBtn">+ Agregar</button>
+    ${custom ? `<button class="btn" id="peerReset">Volver a los automáticos</button>` : ""}
   </div>
+
+  ${others.length ? `<h2>Otras métricas <span class="sub">No pesan en el score de ${esc(prof.l.toLowerCase())}, pero sirven de referencia</span></h2>
+  <div class="mgrid">${others.map((k) => metricBox(r, k, METRICS[k], tot)).join("")}
+    ${[["pe", "P/E (últimos 12 meses)", "x"], ["nm", "Margen neto", "%"], ...(r.sec === "fin" ? [] : [["capexInt", "Capex / ventas", "%"]]), ["beta", "Beta (volatilidad vs mercado)", "n"], ["d52", "Distancia al máximo de 52 semanas", "%"]].filter(([k]) => !r.weights[k] && ok(r[k])).map(([k, l, f]) => `
+    <div class="m"><div class="l"><span>${l}</span></div><div class="v num">${fmt(r[k], f)}</div><div class="med">Mediana del sector: ${fmt(r.med[k], f)}</div></div>`).join("")}
+  </div>` : ""}
 
   <h2 id="tesis">Tu tesis <span class="sub">${state.user ? "Se guarda en tu cuenta" : "Se guarda en este navegador · iniciá sesión en el Screener para sincronizar"}</span></h2>
   <div class="card">
     <div class="thesis">
       <label>Tipo Lynch<select id="tLynch"><option value="">Automático (${LYNCH[r.lynchAuto] || "sin datos"})</option>${Object.entries(LYNCH).map(([k, l]) => `<option value="${k}" ${ov.lynch_type === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label>Industria para el score<select id="tProf"><option value="">Automática (${esc(PROFILES[profileOf(r)].l)})</option>${Object.entries(PROFILES).sort((a, b) => a[1].l.localeCompare(b[1].l)).map(([k, p]) => `<option value="${k}" ${ov.metrics?.profile === k ? "selected" : ""}>${esc(p.l)}</option>`).join("")}</select></label>
       <label>Precio justo pesimista<input type="number" step="any" id="tBear" value="${th.bear ?? ""}" placeholder="${esc(r.cur || "")}"></label>
       <label>Precio justo base<input type="number" step="any" id="tBase" value="${th.base ?? r.fair ?? ""}" placeholder="${ok(r.tgt) ? "Target analistas " + fmt(r.tgt) : esc(r.cur || "")}"></label>
       <label>Precio justo optimista<input type="number" step="any" id="tBull" value="${th.bull ?? ""}" placeholder="${esc(r.cur || "")}"></label>
@@ -155,25 +196,32 @@ function render() {
     <div class="actions" style="margin-top:12px"><button class="btn primary" id="tSave">Guardar tesis</button>${r.edited.size ? `<button class="btn" id="tReset">Restaurar métricas de Yahoo</button>` : ""}</div>
   </div>
 
-  <h2>Cómo se calculó el score <span class="sub">${esc(FAMILIES[r.family].l)}${r.lynch ? " · " + LYNCH[r.lynch] : ""}</span></h2>
+  <h2>Cómo se calculó el score <span class="sub">${esc(prof.l)}${r.lynch ? " · " + LYNCH[r.lynch] : ""}</span></h2>
   <div class="card">
-    <div class="na" style="font-size:13px;margin-bottom:10px">${esc(FAMILIES[r.family].why)}${r.lynch ? " " + esc(LYNCH_INFO[r.lynch]) : ""}</div>
-    <div class="tablewrap" style="border:none"><table class="how"><thead><tr><th class="l">Métrica</th><th class="l">Bloque</th><th>Peso</th><th>Valor</th><th>Mediana sector</th><th>Percentil</th></tr></thead><tbody>
-      ${Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k, w]) => { const tot = Object.values(r.weights).reduce((s, x) => s + x, 0); return `<tr><td class="l" title="${esc(METRICS[k].q)}">${METRICS[k].l}</td><td class="l">${METRICS[k].g}</td><td>${nf(0).format((w / tot) * 100)}%</td><td>${fmt(r[k], METRICS[k].f, METRICS[k].d)}</td><td>${fmt(r.med[k], METRICS[k].f, METRICS[k].d)}</td><td>${r.pct[k] != null ? `<span style="color:${COL[lvl(r.pct[k])]}">${r.pct[k]}</span>` : '<span class="na">sin dato</span>'}</td></tr>`; }).join("")}
+    <div class="na" style="font-size:13px;margin-bottom:10px">${esc(prof.why)}${r.lynch ? " " + esc(LYNCH_INFO[r.lynch]) : ""} ${ok(r.gscore.Historia) ? `Además, un ${nf(0).format(25 * (r.lynch === "stalwart" ? 1.3 : r.lynch === "cyclical" ? 1.4 : 1))}% del score compara contra su propia historia (${r.histKeys.map((k) => METRICS[k].l).join(", ")}).` : "No hay historia suficiente para comparar contra sí misma."}</div>
+    <div class="tablewrap" style="border:none"><table class="how"><thead><tr><th class="l">Métrica</th><th class="l">Bloque</th><th>Peso</th><th>Valor</th><th>Mediana pares</th><th>Percentil vs pares</th><th>Prom. ${histN || ""} años</th><th>Vs su historia</th></tr></thead><tbody>
+      ${Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k, w]) => { const m = METRICS[k], h = r.hist[k]; return `<tr><td class="l" title="${esc(m.q)}">${m.l}</td><td class="l">${m.g}</td><td>${nf(0).format((w / tot) * 100)}%</td><td>${fmt(r[k], m.f, m.d)}</td><td>${fmt(r.med[k], m.f, m.d)}</td><td>${r.pct[k] != null ? `<span style="color:${COL[lvl(r.pct[k])]}">${r.pct[k]}</span>` : '<span class="na">sin dato</span>'}</td><td>${h ? fmt(h.avg, m.f, m.d) : '<span class="na">—</span>'}</td><td>${h ? `<span style="color:${COL[lvl(h.p)]}">${h.p}</span>` : '<span class="na">—</span>'}</td></tr>`; }).join("")}
     </tbody></table></div>
-    <div class="src">Datos de mercado: Yahoo Finance${P.updated ? " · actualizado " + new Date(P.updated).toLocaleString("es-AR") : ""}. ROIC aproximado: EBIT × (1 − 21%) ÷ (deuda + patrimonio − caja).</div>
+    <div class="src">Pares: ${r.peerN} empresas de ${esc(r.peerLabel)} (si una métrica tiene menos de 5 datos en la industria, se usa el sector). Historia: estados anuales de Yahoo Finance${histN ? `, ${r.fx.years[0]}–${r.fx.years.at(-1)}` : ""}. Datos de mercado: Yahoo Finance${P.updated ? " · " + new Date(P.updated).toLocaleString("es-AR") : ""}.</div>
   </div>`;
   updateFair(); bindPage();
   if (P.hist) renderHistory();
 }
 
-function metricBox(r, k, m) {
-  const p = r.pct[k], w = r.weights[k];
+function histMini(r) {
+  if (!r.histKeys?.length) return `<div class="kv"><span>Sin historia suficiente</span><span></span></div>`;
+  return r.histKeys.slice(0, 3).map((k) => { const h = r.hist[k], m = METRICS[k]; return `<div class="kv" title="${esc(m.q)}"><span>${m.l}</span><span class="num">${fmt(h.cur, m.f, m.d)} <span class="na">· prom. ${fmt(h.avg, m.f, m.d)}</span></span></div>`; }).join("");
+}
+
+function metricBox(r, k, m, tot) {
+  const p = r.pct[k], w = r.weights[k], h = r.hist[k];
+  const better = h && ok(h.diff) ? (m.dir > 0 ? h.diff > 0 : h.diff < 0) : null;
   return `<div class="m">
-    <div class="l"><span>${m.l}</span><span class="w">${w ? (p != null ? "P" + p : "") : "no puntúa acá"}</span></div>
+    <div class="l"><span>${m.l}</span><span class="w">${w ? `pesa ${nf(0).format((w / tot) * 100)}%` : ""}${p != null ? ` · P${p}` : ""}</span></div>
     <div class="v num ${r.edited.has(k) ? "edited" : ""}" data-edit="${k}" title="Clic para corregir">${fmt(r[k], m.f, m.d)}</div>
-    ${p != null ? `<div class="pb"><div style="width:${Math.max(p, 3)}%;background:${COL[lvl(p)]}"></div></div>` : `<div class="pb"></div>`}
-    <div class="med">Mediana del sector: ${fmt(r.med[k], m.f, m.d)}${r.edited.has(k) ? ` · Yahoo: ${fmt(P.rawMap.get(r.s)?.[k], m.f, m.d)}` : ""}</div>
+    ${p != null ? `<div class="pb" title="Percentil contra ${esc(r.peerLabel)}"><div style="width:${Math.max(p, 3)}%;background:${COL[lvl(p)]}"></div></div>` : `<div class="pb"></div>`}
+    <div class="med">Mediana pares: ${fmt(r.med[k], m.f, m.d)}${r.edited.has(k) ? ` · Yahoo: ${fmt(P.rawMap.get(r.s)?.[k], m.f, m.d)}` : ""}</div>
+    ${h ? `<div class="med">Promedio últimos ${h.n} años: ${fmt(h.avg, m.f, m.d)} <span style="color:${better ? COL.good : COL.bad}">(${h.diff >= 0 ? "+" : ""}${nf(0).format(h.diff)}%)</span></div>${spark(h, m)}` : ""}
     <div class="q">${esc(m.q)}</div></div>`;
 }
 
@@ -278,7 +326,7 @@ function pdf() {
   const r = P.r, ov = state.ov.get(r.s) || {}, th = ov.metrics?.thesis || {}, fv = fairValue(th);
   const cls = (s) => (!ok(s) ? "" : s >= 70 ? "g" : s >= 45 ? "m2" : "b");
   const imgs = chartImages();
-  const peers = P.rows.filter((x) => x.sec === r.sec && x.s !== r.s && ok(x.mcap)).sort((a, b) => b.mcap - a.mcap).slice(0, 6);
+  const peers = peersOf(r).list.slice(0, 7), cols = peerCols(r);
   $("printRoot").innerHTML = `<div class="rp">
     <h1>${esc(r.ced || r.s)} · ${esc(r.n)}</h1>
     <div class="sub">${esc(SECTORS[r.sec])} · ${esc(COUNTRIES[r.c] || r.c)} · ${LYNCH[r.lynch] || "sin tipo"} · ${today()}</div>
@@ -296,9 +344,10 @@ function pdf() {
     <h2>A favor</h2><ul>${r.why.slice(0, 5).map((w) => `<li>${esc(w.t)}</li>`).join("") || "<li>Ninguna métrica se destaca contra su sector.</li>"}</ul>
     <h2>A vigilar</h2><ul>${r.alerts.slice(0, 5).map((w) => `<li>${esc(w.t)}</li>`).join("") || "<li>Sin señales de alarma.</li>"}</ul>
     ${imgs.length ? `<h2>Historia${P.hist?.history ? ` (${esc(P.hist.history.source)})` : ""}</h2><div class="imgs">${imgs.map((i) => `<div><b>${esc(i.t)}</b><p>${esc(i.read || "")}</p><img src="${i.url}" alt="${esc(i.t)}"></div>`).join("")}</div>` : ""}
-    <h2>Contra sus pares</h2><table><thead><tr><th class="l">Empresa</th><th>Score</th><th>Mkt cap</th><th>P/E fwd</th><th>PEG</th><th>EV/EBITDA</th><th>${r.sec === "fin" ? "ROE" : "ROIC"}</th><th>Crec. ventas</th><th>Div.</th></tr></thead><tbody>${[r, ...peers].map((x) => `<tr><td class="l">${x === r ? "<b>" : ""}${esc(x.ced || x.s)} ${esc((x.n || "").slice(0, 26))}${x === r ? "</b>" : ""}</td><td class="${cls(x.score)}">${x.score ?? "—"}</td><td>${fmtCap(x.mcap)}</td><td>${fmt(x.fpe, "x")}</td><td>${fmt(x.peg, "x", 2)}</td><td>${fmt(x.evEbitda, "x")}</td><td>${fmt(r.sec === "fin" ? x.roe : x.roic, "%")}</td><td>${fmt(x.revG, "%")}</td><td>${fmt(x.divY, "%")}</td></tr>`).join("")}</tbody></table>
-    <h2>Métricas contra ${esc(r.peerLabel)} (${r.peerN} empresas)</h2><table class="pb"><thead><tr><th class="l">Métrica</th><th>${esc(r.ced || r.s)}</th><th>Mediana del sector</th><th>Percentil</th><th>Peso en el score</th></tr></thead><tbody>${Object.entries(METRICS).map(([k, m]) => { const tot = Object.values(r.weights).reduce((s, x) => s + x, 0); return `<tr><td class="l">${m.l}</td><td>${fmt(r[k], m.f, m.d)}</td><td>${fmt(r.med[k], m.f, m.d)}</td><td>${r.pct[k] != null ? "P" + r.pct[k] : "—"}</td><td>${r.weights[k] ? nf(0).format((r.weights[k] / tot) * 100) + "%" : "—"}</td></tr>`; }).join("")}</tbody></table>
-    <div class="foot">Score: percentiles contra el sector, ponderados como ${esc(FAMILIES[r.family].l.toLowerCase())}${r.lynch ? " y tipo " + LYNCH[r.lynch] : ""}. Fuentes: Yahoo Finance${P.hist?.history ? ", " + esc(P.hist.history.source) : ""}. ${esc(r.ced || r.s)} se opera en BYMA${r.ced && r.ced !== r.s ? " como CEDEAR" : ""}. Material de análisis propio, no constituye recomendación de inversión.</div>
+    <h2>Contra sus pares</h2><table><thead><tr><th class="l">Empresa</th><th>Score</th><th>Mkt cap</th>${cols.map((k) => `<th>${esc(METRICS[k].l)}</th>`).join("")}</tr></thead><tbody>${[r, ...peers].map((x) => `<tr><td class="l">${x === r ? "<b>" : ""}${esc(x.ced || x.s)} ${esc((x.n || "").slice(0, 22))}${x === r ? "</b>" : ""}</td><td class="${cls(x.score)}">${x.score ?? "—"}</td><td>${fmtCap(x.mcap)}</td>${cols.map((k) => `<td>${fmt(x[k], METRICS[k].f, METRICS[k].d)}</td>`).join("")}</tr>`).join("")}</tbody></table>
+    <h2>Métricas de ${esc(PROFILES[r.profile].l.toLowerCase())} contra ${esc(r.peerLabel)} y contra su historia</h2><table class="pb"><thead><tr><th class="l">Métrica</th><th>${esc(r.ced || r.s)}</th><th>Mediana pares</th><th>Percentil</th><th>Prom. propio</th><th>Vs historia</th><th>Peso</th></tr></thead><tbody>${Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k, w]) => { const m = METRICS[k], h = r.hist[k], tot = Object.values(r.weights).reduce((s, x) => s + x, 0); return `<tr><td class="l">${m.l}</td><td>${fmt(r[k], m.f, m.d)}</td><td>${fmt(r.med[k], m.f, m.d)}</td><td>${r.pct[k] != null ? "P" + r.pct[k] : "—"}</td><td>${h ? fmt(h.avg, m.f, m.d) : "—"}</td><td>${h ? h.p : "—"}</td><td>${nf(0).format((w / tot) * 100)}%</td></tr>`; }).join("")}</tbody></table>
+    ${Object.keys(r.kpi || {}).length ? `<h2>KPIs del sector</h2><table><tbody>${PROFILES[r.profile].kpi.filter((x) => r.kpi[x.k]).map((x) => `<tr><td class="l">${esc(x.l)}</td><td>${esc(r.kpi[x.k])}</td></tr>`).join("")}</tbody></table>` : ""}
+    <div class="foot">Score: percentiles contra sus pares, ponderados como ${esc(PROFILES[r.profile].l.toLowerCase())}${r.lynch ? " y tipo " + LYNCH[r.lynch] : ""}. Fuentes: Yahoo Finance${P.hist?.history ? ", " + esc(P.hist.history.source) : ""}. ${esc(r.ced || r.s)} se opera en BYMA${r.ced && r.ced !== r.s ? " como CEDEAR" : ""}. Material de análisis propio, no constituye recomendación de inversión.</div>
   </div>`;
   const t = document.title; document.title = `${r.ced || r.s} tesis ${today().replaceAll("/", "-")}`;
   setTimeout(() => { window.print(); document.title = t; }, 80);
@@ -312,10 +361,18 @@ function bindPage() {
   ["tBear", "tBase", "tBull"].forEach((id) => ($(id).oninput = updateFair));
   $("tSave").onclick = async () => {
     const t = thesisVals(), fv = fairValue(t);
-    const ok2 = await saveOverride(r.s, { fair_value: fv, lynch_type: $("tLynch").value || null, notes: $("tNotes").value || null, metrics: { thesis: { ...t, sell: $("tSell").value || null } } });
+    const ok2 = await saveOverride(r.s, { fair_value: fv, lynch_type: $("tLynch").value || null, notes: $("tNotes").value || null, metrics: { thesis: { ...t, sell: $("tSell").value || null }, profile: $("tProf").value || null } });
     if (ok2) { toast("Tesis guardada"); rescore(); }
   };
   if ($("tReset")) $("tReset").onclick = async () => { const o = state.ov.get(r.s); await saveOverride(r.s, { metrics: Object.fromEntries(Object.keys(o?.metrics || {}).filter((k) => k !== "thesis").map((k) => [k, null])) }); rescore(); };
+  const curPeers = () => peersOf(r).list.map((x) => x.s);
+  const setPeers = async (list) => { await saveOverride(r.s, { metrics: { peers: list } }); rescore(); };
+  document.querySelectorAll("[data-rmpeer]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); setPeers(curPeers().filter((s) => s !== b.dataset.rmpeer)); }));
+  const addPeer = () => { const s = resolve($("peerAdd").value); if (!s) return toast("No está en el universo operable desde Argentina"); if (s === r.s) return; if (!P.rows.find((x) => x.s === s)) return toast("Sin datos de mercado para esa acción"); setPeers([...new Set([...curPeers(), s])]); };
+  $("peerAddBtn").onclick = addPeer;
+  $("peerAdd").onkeydown = (e) => { if (e.key === "Enter") addPeer(); };
+  if ($("peerReset")) $("peerReset").onclick = () => setPeers(null);
+  document.querySelectorAll("[data-kpi]").forEach((inp) => (inp.onchange = async () => { const kpi = { ...(state.ov.get(r.s)?.metrics?.kpi || {}) }; if (inp.value.trim()) kpi[inp.dataset.kpi] = inp.value.trim(); else delete kpi[inp.dataset.kpi]; await saveOverride(r.s, { metrics: { kpi } }); toast("KPI guardado"); }));
   document.querySelectorAll("tr.peer").forEach((tr) => (tr.onclick = () => { history.pushState({}, "", "?s=" + encodeURIComponent(tr.dataset.s)); load(tr.dataset.s); window.scrollTo(0, 0); }));
   document.querySelectorAll("[data-edit]").forEach((el) => (el.onclick = () => {
     if (el.querySelector("input")) return;
@@ -329,7 +386,7 @@ function bindPage() {
 }
 function rescore() {
   const y = window.scrollY;
-  P.rows = [...P.rawMap.values()].map((x) => derive(x, state.ov.get(x.s)));
+  P.rows = [...P.rawMap.values()].map((x) => derive(x, state.ov.get(x.s), state.fund.get(x.s)));
   scoreAll(P.rows, { userMult: userMult() });
   P.r = P.rows.find((x) => x.s === P.sym); render(); window.scrollTo(0, y);
 }
@@ -338,7 +395,7 @@ function rescore() {
   initSearch();
   await initSupabase();
   state.onAuth = () => P.r && rescore();
-  await loadOverrides();
+  await Promise.all([loadOverrides(), loadFund()]);
   const q = new URLSearchParams(location.search);
   const s = q.get("s") || q.get("symbol");
   if (s) load(resolve(s) || s.toUpperCase());

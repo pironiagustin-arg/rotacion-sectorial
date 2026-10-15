@@ -1,357 +1,62 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Watchlist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
 <style>
-  :root { --bg:#0f1115; --panel:#171a21; --border:#262a33; --text:#e6e8eb; --muted:#8b8f99; --accent:#4C6EF5; --green:#2F9E44; --red:#E03131; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif; }
-  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-  header h1 { font-size:18px; margin:0; }
-  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
-  .langsw { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; margin-left:16px; vertical-align:middle; }
-  .langsw button { background:#12151b; color:var(--muted); border:none; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; }
-  .langsw button.on { background:var(--accent); color:#fff; }
-  nav a:hover, nav a.active { color:var(--text); }
-  .container { padding:20px; max-width:1000px; margin:0 auto; }
-  .lists-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
-  .list-tab { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:7px 14px; border-radius:16px; cursor:pointer; font-size:13px; display:flex; align-items:center; gap:6px; }
-  .list-tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-  .list-tab .del { opacity:0.6; font-size:11px; }
-  .list-tab .del:hover { opacity:1; }
-  button.ghost { background:transparent; border:1px dashed var(--border); color:var(--muted); padding:7px 14px; border-radius:16px; cursor:pointer; font-size:13px; }
-  .add-row { display:flex; gap:8px; margin-bottom:16px; }
-  input[type=text] { background:var(--panel); border:1px solid var(--border); color:var(--text); padding:9px 14px; border-radius:8px; font-size:14px; text-transform:uppercase; }
-  button.primary { background:var(--accent); color:#fff; border:none; padding:9px 18px; border-radius:8px; cursor:pointer; font-size:14px; }
-  table { width:100%; border-collapse:collapse; }
-  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:14px; }
-  th { color:var(--muted); font-weight:500; font-size:12px; text-transform:uppercase; }
-  .up { color:var(--green); } .down { color:var(--red); }
-  .sym-link { color:var(--text); text-decoration:none; font-weight:600; }
-  .sym-link:hover { color:var(--accent); }
-  .rm-btn { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:16px; }
-  .rm-btn:hover { color:var(--red); }
-  .empty { padding:40px; text-align:center; color:var(--muted); }
-  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:6px 16px 16px; }
-  .toolbar-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
-  .cols-btn { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:7px 14px; border-radius:8px; cursor:pointer; font-size:13px; position:relative; }
-  .cols-btn:hover { color:var(--text); }
-  .cols-panel { position:absolute; top:calc(100% + 6px); right:0; background:#12151b; border:1px solid var(--border); border-radius:10px; padding:10px; z-index:20; width:230px; box-shadow:0 8px 24px rgba(0,0,0,.4); display:none; }
-  .cols-panel.open { display:block; }
-  .cols-panel label { display:flex; align-items:center; gap:8px; font-size:13px; padding:5px 4px; cursor:pointer; border-radius:6px; }
-  .cols-panel label:hover { background:#1b1f28; }
-  .cols-panel .hint { font-size:11px; color:var(--muted); padding:4px 4px 8px; border-bottom:1px solid var(--border); margin-bottom:6px; }
-  th.sortable { cursor:pointer; user-select:none; white-space:nowrap; }
-  th.sortable:hover { color:var(--text); }
-  th .arrow { font-size:10px; margin-left:3px; opacity:.7; }
-  th.sort-active { color:var(--text); }
-
+  .lists { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .lists .chip .x { margin-left:6px; opacity:.6; } .lists .chip .x:hover { opacity:1; }
+  .addrow { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .addrow input { width:320px; max-width:100%; }
+  .colpick { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px; margin-top:10px; }
+  .colpick label { display:flex; gap:8px; align-items:center; font-size:13px; color:var(--muted); cursor:pointer; }
+  .colpick input { accent-color:var(--accent); }
+  .out td { color:var(--dim); }
+  td .rm { background:none; border:none; color:var(--dim); font-size:17px; cursor:pointer; }
+  td .rm:hover { color:var(--bad); }
 </style>
 </head>
 <body>
 <header>
-  <h1 id="pageH1">⭐ Watchlist</h1>
+  <div class="brand">Rotación Sectorial</div>
   <nav>
-    <a id="navDash" href="/">Dashboard</a>
-    <a id="navRrg" href="/rotation.html">RRG</a>
-    <a id="navRrgStocks" href="/rotation-stocks.html">RRG Acciones</a>
-    <a id="navFund" href="/empresa.html">Fundamental</a>
-    <a id="navWatch" href="/watchlist.html" class="active">Watchlist</a>
-    <a href="/screener.html" id="navScreener">Screener</a>
-    <span class="langsw"><button id="langEs">ES</button><button id="langEn">EN</button></span>
+    <a href="/">Dashboard</a>
+    <a href="/rotation.html">RRG</a>
+    <a href="/rotation-stocks.html">RRG Acciones</a>
+    <a href="/empresa.html">Fundamental</a>
+    <a href="/watchlist.html" class="active">Watchlist</a>
+    <a href="/screener.html">Screener</a>
   </nav>
 </header>
-
-<div class="container">
-  <div class="lists-row" id="listsRow"></div>
-  <div class="add-row">
-    <input type="text" id="tickerInput" placeholder="AAPL" maxlength="8" />
-    <button class="primary" id="addBtn">Agregar a esta lista</button>
-  </div>
-  <div class="panel">
-    <div class="toolbar-row">
-      <span class="muted" id="rowCount"></span>
-      <div style="position:relative;">
-        <button class="cols-btn" id="colsBtn">⚙ Métricas</button>
-        <div class="cols-panel" id="colsPanel"></div>
-      </div>
+<main>
+  <div class="top">
+    <div>
+      <h1>Watchlist</h1>
+      <div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando…</span></div>
     </div>
-    <table>
-      <thead><tr id="headRow"></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-    <div id="emptyMsg" class="empty" style="display:none;">Lista vacía — agregá un ticker arriba.</div>
+    <div class="actions">
+      <button class="btn" id="btnCols">⚙ Columnas</button>
+      <button class="btn" id="btnPdf">⤓ PDF de la lista</button>
+    </div>
   </div>
-</div>
-
-<script>
-const STORAGE_KEY = 'watchlists_v2';
-const OLD_KEY = 'watchlist'; // formato viejo de lista única, para migrar
-const COLS_KEY = 'watchlist_cols';
-
-// Métricas disponibles para agregar como columna (vienen de /api/fundamentals → d.metrics.<key>.current)
-const METRIC_OPTIONS = [
-  { key: 'peRatio', label: 'P/E (LTM)', unit: 'x' },
-  { key: 'peForward', label: 'P/E (NTM)', unit: 'x' },
-  { key: 'peg', label: 'PEG', unit: 'x' },
-  { key: 'psRatio', label: 'P/S (LTM)', unit: 'x' },
-  { key: 'pbRatio', label: 'P/B', unit: 'x' },
-  { key: 'evEbitda', label: 'EV/EBITDA', unit: 'x' },
-  { key: 'evSales', label: 'EV/Ventas', unit: 'x' },
-  { key: 'grossMargin', label: 'Margen bruto', unit: 'pct' },
-  { key: 'opMargin', label: 'Margen operativo', unit: 'pct' },
-  { key: 'netMargin', label: 'Margen neto', unit: 'pct' },
-  { key: 'fcfMargin', label: 'Margen FCF', unit: 'pct' },
-  { key: 'roe', label: 'ROE', unit: 'pct' },
-  { key: 'roa', label: 'ROA', unit: 'pct' },
-  { key: 'roic', label: 'ROIC', unit: 'pct' },
-  { key: 'revenueGrowth', label: 'Ingresos YoY', unit: 'pct' },
-  { key: 'epsGrowth', label: 'EPS YoY', unit: 'pct' },
-  { key: 'dividendYield', label: 'Dividend yield', unit: 'pct' },
-  { key: 'payoutRatio', label: 'Payout ratio', unit: 'pct' },
-  { key: 'fcfYield', label: 'FCF yield', unit: 'pct' },
-  { key: 'debtToEquity', label: 'Deuda/Patrimonio', unit: 'x' },
-  { key: 'debtToEbitda', label: 'Deuda/EBITDA', unit: 'x' },
-  { key: 'netDebtToEbitda', label: 'Deuda neta/EBITDA', unit: 'x' },
-  { key: 'currentRatio', label: 'Current ratio', unit: 'x' },
-  { key: 'altmanZ', label: 'Altman Z-Score', unit: 'x' },
-];
-const METRIC_BY_KEY = Object.fromEntries(METRIC_OPTIONS.map(m => [m.key, m]));
-const DEFAULT_COLS = ['peRatio', 'peg', 'revenueGrowth', 'evEbitda'];
-
-function getCols() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(COLS_KEY) || 'null');
-    if (Array.isArray(raw) && raw.length) return raw.filter(k => METRIC_BY_KEY[k]);
-  } catch (e) {}
-  return DEFAULT_COLS.slice();
-}
-function saveCols(cols) { localStorage.setItem(COLS_KEY, JSON.stringify(cols)); }
-let selectedCols = getCols();
-
-function load() {
-  let raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) return JSON.parse(raw);
-  // Migración desde formato viejo (lista única)
-  const old = localStorage.getItem(OLD_KEY);
-  const migrated = { lists: { 'Principal': old ? JSON.parse(old) : [] }, active: 'Principal' };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-  return migrated;
-}
-function save(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
-
-let state = load();
-let rowsData = {}; // sym -> { price, changePct, metrics:{key:value}, error }
-let sortState = { key: null, dir: 1 };
-
-function renderTabs() {
-  const wrap = document.getElementById('listsRow');
-  wrap.innerHTML = '';
-  Object.keys(state.lists).forEach(name => {
-    const tab = document.createElement('div');
-    tab.className = 'list-tab' + (name === state.active ? ' active' : '');
-    tab.innerHTML = `<span>${name}</span>` + (Object.keys(state.lists).length > 1 ? `<span class="del" data-name="${name}">✕</span>` : '');
-    tab.querySelector('span:first-child').onclick = () => { state.active = name; save(state); renderTabs(); fetchAndRender(); };
-    const del = tab.querySelector('.del');
-    if (del) del.onclick = (e) => {
-      e.stopPropagation();
-      if (!confirm(`¿Borrar la lista "${name}"?`)) return;
-      delete state.lists[name];
-      if (state.active === name) state.active = Object.keys(state.lists)[0];
-      save(state); renderTabs(); fetchAndRender();
-    };
-    wrap.appendChild(tab);
-  });
-  const addBtn = document.createElement('button');
-  addBtn.className = 'ghost';
-  addBtn.textContent = '+ Nueva lista';
-  addBtn.onclick = () => {
-    const name = prompt('Nombre de la nueva lista:');
-    if (!name || state.lists[name]) return;
-    state.lists[name] = [];
-    state.active = name;
-    save(state); renderTabs(); fetchAndRender();
-  };
-  wrap.appendChild(addBtn);
-}
-
-async function fetchPrice(sym) {
-  try {
-    const r = await fetch(`/api/fundamentals?symbol=${encodeURIComponent(sym)}`);
-    const d = await r.json();
-    let changePct = null;
-    const priceHist = d.history?.price;
-    if (priceHist && priceHist.length >= 2) {
-      const last = priceHist[priceHist.length - 1].c;
-      const prev = priceHist[priceHist.length - 2].c;
-      changePct = ((last / prev) - 1) * 100;
-    }
-    const m = d.metrics || {};
-    const metrics = {};
-    METRIC_OPTIONS.forEach(opt => { metrics[opt.key] = m[opt.key]?.current ?? null; });
-    return { price: d.price, changePct, error: d.error, metrics };
-  } catch (e) {
-    return { error: e.message, metrics: {} };
-  }
-}
-function fmtX(v) { return v == null || !isFinite(v) ? '—' : v.toFixed(2) + '×'; }
-function fmtPctCell(v) { return v == null || !isFinite(v) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
-function fmtMetric(v, unit) { return unit === 'pct' ? fmtPctCell(v) : fmtX(v); }
-
-// ---------- selector de columnas ----------
-function renderColsPanel() {
-  const panel = document.getElementById('colsPanel');
-  panel.innerHTML = '<div class="hint">Elegí qué métricas mostrar como columna</div>' +
-    METRIC_OPTIONS.map(opt => `<label><input type="checkbox" data-key="${opt.key}" ${selectedCols.includes(opt.key) ? 'checked' : ''}/> ${opt.label}</label>`).join('');
-  panel.querySelectorAll('input[type=checkbox]').forEach(cb => {
-    cb.onchange = () => {
-      const k = cb.dataset.key;
-      if (cb.checked) { if (!selectedCols.includes(k)) selectedCols.push(k); }
-      else { selectedCols = selectedCols.filter(x => x !== k); }
-      saveCols(selectedCols);
-      renderTable();
-    };
-  });
-}
-document.getElementById('colsBtn').onclick = (e) => {
-  e.stopPropagation();
-  document.getElementById('colsPanel').classList.toggle('open');
-};
-document.addEventListener('click', (e) => {
-  const panel = document.getElementById('colsPanel');
-  if (panel.classList.contains('open') && !panel.contains(e.target) && e.target.id !== 'colsBtn') panel.classList.remove('open');
-});
-
-// ---------- orden ----------
-function sortArrow(key) { if (sortState.key !== key) return ''; return sortState.dir === 1 ? ' <span class="arrow">▲</span>' : ' <span class="arrow">▼</span>'; }
-function setSort(key) {
-  if (sortState.key === key) sortState.dir *= -1;
-  else { sortState.key = key; sortState.dir = 1; }
-  renderTable();
-}
-function sortedSymbols() {
-  const list = (state.lists[state.active] || []).slice();
-  if (!sortState.key) return list;
-  const val = (sym) => {
-    const r = rowsData[sym];
-    if (!r) return null;
-    if (sortState.key === 'sym') return sym;
-    if (sortState.key === 'price') return r.price;
-    if (sortState.key === 'changePct') return r.changePct;
-    return r.metrics ? r.metrics[sortState.key] : null;
-  };
-  return list.sort((a, b) => {
-    const va = val(a), vb = val(b);
-    if (va == null && vb == null) return 0;
-    if (va == null) return 1; // los que no tienen dato quedan al final
-    if (vb == null) return -1;
-    if (typeof va === 'string') return sortState.dir * va.localeCompare(vb);
-    return sortState.dir * (va - vb);
-  });
-}
-
-// ---------- tabla ----------
-function renderHead() {
-  const head = document.getElementById('headRow');
-  let html = `<th class="sortable${sortState.key === 'sym' ? ' sort-active' : ''}" data-sort="sym">Ticker${sortArrow('sym')}</th>`;
-  html += `<th class="sortable${sortState.key === 'price' ? ' sort-active' : ''}" data-sort="price">Precio${sortArrow('price')}</th>`;
-  html += `<th class="sortable${sortState.key === 'changePct' ? ' sort-active' : ''}" data-sort="changePct">Var. %${sortArrow('changePct')}</th>`;
-  selectedCols.forEach(k => {
-    const opt = METRIC_BY_KEY[k];
-    html += `<th class="sortable${sortState.key === k ? ' sort-active' : ''}" data-sort="${k}">${opt.label}${sortArrow(k)}</th>`;
-  });
-  html += '<th></th>';
-  head.innerHTML = html;
-  head.querySelectorAll('th.sortable').forEach(th => { th.onclick = () => setSort(th.dataset.sort); });
-}
-
-function renderTable() {
-  renderHead();
-  const tbody = document.getElementById('rows');
-  const list = sortedSymbols();
-  document.getElementById('emptyMsg').style.display = list.length ? 'none' : 'block';
-  document.getElementById('rowCount').textContent = list.length ? `${list.length} ticker${list.length === 1 ? '' : 's'}` : '';
-  tbody.innerHTML = list.map(sym => {
-    const r = rowsData[sym];
-    const loading = !r;
-    const priceTxt = loading ? '…' : r.error ? '—' : (r.price != null ? r.price.toFixed(2) : '—');
-    const chg = loading ? null : r.error ? null : r.changePct;
-    const chgTxt = loading ? '…' : r.error ? 'error' : chg != null ? (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%' : '—';
-    const chgCls = chg == null ? '' : chg >= 0 ? 'up' : 'down';
-    const metricCells = selectedCols.map(k => {
-      const opt = METRIC_BY_KEY[k];
-      const v = loading || r.error ? null : r.metrics[k];
-      const cls = opt.unit === 'pct' && v != null ? (v >= 0 ? 'up' : 'down') : '';
-      return `<td class="${cls}">${loading ? '…' : fmtMetric(v, opt.unit)}</td>`;
-    }).join('');
-    return `<tr data-sym="${sym}">
-      <td><a class="sym-link" href="/empresa.html?s=${sym}" onclick="localStorage.setItem('fund_recent', JSON.stringify([...new Set(['${sym}', ...(JSON.parse(localStorage.getItem('fund_recent')||'[]'))])]))">${sym}</a></td>
-      <td>${priceTxt}</td><td class="${chgCls}">${chgTxt}</td>
-      ${metricCells}
-      <td><button class="rm-btn" data-sym="${sym}">✕</button></td>
-    </tr>`;
-  }).join('');
-
-  tbody.querySelectorAll('.rm-btn').forEach(btn => {
-    btn.onclick = () => {
-      const sym = btn.dataset.sym;
-      state.lists[state.active] = state.lists[state.active].filter(s => s !== sym);
-      save(state); renderTable();
-    };
-  });
-}
-
-async function fetchAndRender() {
-  const list = state.lists[state.active] || [];
-  rowsData = {};
-  renderTable(); // muestra "…" mientras carga
-  await Promise.all(list.map(async sym => {
-    rowsData[sym] = await fetchPrice(sym);
-    renderTable(); // repinta a medida que llegan datos (mantiene el orden ya elegido)
-  }));
-}
-
-document.getElementById('addBtn').onclick = () => {
-  const input = document.getElementById('tickerInput');
-  const sym = input.value.trim().toUpperCase();
-  if (!sym) return;
-  if (!state.lists[state.active]) state.lists[state.active] = [];
-  if (!state.lists[state.active].includes(sym)) state.lists[state.active].push(sym);
-  save(state);
-  input.value = '';
-  fetchAndRender();
-};
-document.getElementById('tickerInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('addBtn').click(); });
-
-renderColsPanel();
-renderTabs();
-fetchAndRender();
-</script>
-<script>
-(function () {
-  var NAV_T = { es:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Acciones',fund:'Fundamental',watch:'Watchlist'}, en:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Stocks',fund:'Fundamentals',watch:'Watchlist'} };
-  var PAGE_T = { es: '⭐ Watchlist', en: '⭐ Watchlist' };
-  var LANG_KEY = 'fund_lang';
-  function getLang() { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'es'; } catch (e) { return 'es'; } }
-  function apply(lang) {
-    var t = NAV_T[lang];
-    var ids = { navDash:t.dash, navRrg:t.rrg, navRrgStocks:t.rrgs, navFund:t.fund, navWatch:t.watch };
-    Object.keys(ids).forEach(function (id) { var el = document.getElementById(id); if (el) el.textContent = ids[id]; });
-    var h1 = document.getElementById('pageH1'); if (h1) h1.textContent = PAGE_T[lang];
-    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
-    if (es) es.classList.toggle('on', lang === 'es');
-    if (en) en.classList.toggle('on', lang === 'en');
-  }
-  window.__setSiteLang = function (l) { try { localStorage.setItem(LANG_KEY, l); } catch (e) {} apply(l); };
-  document.addEventListener('DOMContentLoaded', function () {
-    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
-    if (es) es.onclick = function () { window.__setSiteLang('es'); };
-    if (en) en.onclick = function () { window.__setSiteLang('en'); };
-    apply(getLang());
-  });
-})();
-</script>
+  <div class="lists" id="lists"></div>
+  <div class="addrow">
+    <input type="search" id="add" list="tickers" placeholder="Agregar: CEDEAR, ticker o empresa" autocomplete="off">
+    <datalist id="tickers"></datalist>
+    <button class="btn primary" id="addBtn">Agregar a esta lista</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div id="view"></div>
+</main>
+<div class="overlay" id="overlay"></div>
+<div class="modal" id="modal"></div>
+<div id="printRoot"></div>
+<script src="/js/embed.js"></script>
+<script src="/config.js"></script>
+<script type="module" src="/js/watchlist.js"></script>
 </body>
 </html>

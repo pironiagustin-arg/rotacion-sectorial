@@ -12,7 +12,15 @@ export function toast(msg) {
   t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 2600);
 }
 
-export const state = { sb: null, user: null, ov: new Map(), onAuth: null };
+export const state = { sb: null, user: null, ov: new Map(), fund: new Map(), onAuth: null };
+
+// Fundamentales anuales (sync semanal): métricas por industria e historia de los últimos ejercicios
+export async function loadFund() {
+  if (!state.sb) return state.fund;
+  const { data, error } = await state.sb.from("fund_extra").select("symbol,data").range(0, 4999);
+  if (!error && data) state.fund = new Map(data.map((d) => [d.symbol, d.data]));
+  return state.fund;
+}
 
 // Completa la fila con lo que sabemos del universo (sector, país, mercados, ticker BYMA)
 export function withMeta(row) {

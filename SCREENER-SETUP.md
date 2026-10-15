@@ -31,9 +31,14 @@ Después corré Actions → Sync screener → Run workflow. A partir de ahí se 
 - Los mercados válidos son `SP500 NDX IBOV MERV KOSPI CHINA GLOBAL IA`.
 
 ## Cómo funciona el score
-- Cada métrica se convierte en un percentil (0 a 100) dentro de su grupo de pares: el sector global, o el sector dentro de su país.
-- Esos percentiles se ponderan con los pesos que elegís en "Pesos del score".
-- Valuación: PEG, P/E forward y FCF yield. Calidad: ROIC, ROE, margen operativo y deuda/patrimonio. Crecimiento: EPS esperado y ventas.
-- El PEG se calcula a mano como P/E forward ÷ crecimiento de EPS esperado. Si el EPS esperado no está disponible, se usa EPS forward vs. LTM.
-- **Candidata**: score ≥ 70 y PEG < 1 (o < 1,5 si es Fast Grower). También entra si tu precio justo deja 15% o más de margen.
-- El ROIC es aproximado: EBIT × (1 − 21%) ÷ (deuda + patrimonio − caja).
+- **Perfil de industria:** cada empresa se asigna a uno de 39 perfiles (bancos, software, neocloud, retail, REITs, minería, etc.) según su industria en Yahoo. Se puede cambiar a mano en la ficha.
+- **Qué mide cada perfil:** el perfil define qué métricas cuentan y cuánto pesa cada una. Por ejemplo, efficiency ratio en bancos, Rule of 40 en software, backlog (RPO de la SEC) en neoclouds, P/FFO en REITs y rotación de inventario en retail.
+- **Ajuste por tipo Lynch:** agrega y reajusta métricas. Slow Grower suma payout y crecimiento del dividendo; cíclica suma EV/EBITDA, valor libro y deuda; turnaround suma años de caja y cobertura de intereses.
+- **Comparación contra pares:** percentiles contra la misma industria, o contra el sector si hay menos de 5 datos.
+- **Historia propia:** el 25% del score compara los valores actuales con el promedio de los últimos 4-5 ejercicios de la empresa. En Stalwarts y cíclicas pesa más.
+- **Fuentes de datos:**
+  - Diaria: `snapshots`, sync de lunes a viernes.
+  - Semanal: `fund_extra`, estados anuales de Yahoo más RPO de la SEC, workflow "Sync fundamentales" los domingos.
+
+## App de página única
+`/` es la app: navegación fija arriba y cada sección (Dashboard, RRG, Screener, Fundamental, Watchlist) adentro. Las URLs quedan como `/#empresa?s=AAPL`. Cada página sigue funcionando sola, por ejemplo `/screener.html`.

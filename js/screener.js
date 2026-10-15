@@ -1,17 +1,17 @@
 import { UNIVERSE, SECTORS, MARKETS, COUNTRIES } from "/lib/universe.js";
-import { METRICS, GROUPS, FAMILIES, SECTOR_FAMILY, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
-import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, authClick, loadSnapshots, loadLive, loadOverrides, saveOverride, userMult } from "/js/core.js";
+import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
+import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, authClick, loadSnapshots, loadLive, loadOverrides, saveOverride, userMult, loadFund } from "/js/core.js";
 
 const S = {
   raw: new Map(), rows: [], updated: null, source: "", loading: false,
-  f: { q: "", markets: new Set(), sectors: new Set(), country: "", lynch: "", cap: 0, cand: false, mine: false, peer: "sector" },
+  f: { q: "", markets: new Set(), sectors: new Set(), country: "", lynch: "", prof: "", cap: 0, cand: false, mine: false, peer: "sector" },
   sort: { k: "score", dir: -1 }, limit: 60, view: "table", cmp: new Set(loadLocal("scr_cmp", [])),
 };
 const today = () => new Date().toLocaleDateString("es-AR");
 const go = (sym) => { location.href = "/empresa.html?s=" + encodeURIComponent(sym); };
 
 function rebuild() {
-  S.rows = [...S.raw.values()].map((r) => derive(r, state.ov.get(r.s)));
+  S.rows = [...S.raw.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
   scoreAll(S.rows, { peer: S.f.peer, userMult: userMult() });
 }
 
@@ -24,6 +24,7 @@ function filtered() {
     if (f.sectors.size && !f.sectors.has(r.sec)) return false;
     if (f.country && r.c !== f.country) return false;
     if (f.lynch && r.lynch !== f.lynch) return false;
+    if (f.prof && r.profile !== f.prof) return false;
     if (f.cap && !(r.mcap >= f.cap)) return false;
     if (f.cand && !r.cand) return false;
     if (f.mine && !r.hasThesis) return false;
@@ -50,6 +51,8 @@ function renderFilters() {
   $("fSectors").innerHTML = `<button class="chip ${S.f.sectors.size ? "" : "on"}" data-s="">Todos</button>` +
     Object.entries(SECTORS).map(([k, l]) => `<button class="chip ${S.f.sectors.has(k) ? "on" : ""}" data-s="${k}">${l}</button>`).join("");
   const cs = [...new Set(UNIVERSE.map((u) => u[3]))].sort((a, b) => (COUNTRIES[a] || a).localeCompare(COUNTRIES[b] || b));
+  const used = new Set(S.rows.map((r) => r.profile));
+  $("fProf").innerHTML = `<option value="">Todas las industrias</option>` + Object.entries(PROFILES).filter(([k]) => used.has(k)).sort((a, b) => a[1].l.localeCompare(b[1].l)).map(([k, p]) => `<option value="${k}" ${S.f.prof === k ? "selected" : ""}>${esc(p.l)}</option>`).join("");
   $("fCountry").innerHTML = `<option value="">Todos los países</option>` + cs.map((c) => `<option value="${c}" ${S.f.country === c ? "selected" : ""}>${COUNTRIES[c] || c}</option>`).join("");
 }
 
@@ -65,7 +68,7 @@ function renderKpis(rows) {
 }
 
 const COLS = [
-  { k: "cmp", l: "", cls: "l", nosort: true }, { k: "s", l: "Acción", cls: "l" }, { k: "sec", l: "Sector", cls: "l" }, { k: "lynch", l: "Tipo", cls: "l" },
+  { k: "cmp", l: "", cls: "l", nosort: true }, { k: "s", l: "Acción", cls: "l" }, { k: "profile", l: "Industria", cls: "l" }, { k: "lynch", l: "Tipo", cls: "l" },
   { k: "px", l: "Precio" }, { k: "chg", l: "Día" }, { k: "mcap", l: "Mkt cap" },
   { k: "fpe", l: "P/E fwd", t: METRICS.fpe.q }, { k: "peg", l: "PEG", t: METRICS.peg.q }, { k: "evEbitda", l: "EV/EBITDA", t: METRICS.evEbitda.q },
   { k: "ret", l: "ROIC/ROE", t: "ROIC; en bancos y aseguradoras, ROE" }, { k: "epsG", l: "Crec. EPS", t: METRICS.epsG.q }, { k: "revG", l: "Crec. ventas", t: METRICS.revG.q },
@@ -78,7 +81,7 @@ function rowHtml(r) {
   return `<tr class="row" data-s="${esc(r.s)}">
     <td class="l"><input type="checkbox" class="cmpchk" data-s="${esc(r.s)}" ${S.cmp.has(r.s) ? "checked" : ""} title="Agregar a comparar" aria-label="Comparar ${esc(r.s)}"></td>
     <td class="l"><span class="tk">${esc(r.ced || r.s)}</span>${r.ced && r.ced !== r.s ? ` <span class="na" style="font-size:11px">${esc(r.s)}</span>` : ""} ${r.cand ? '<span class="badge cand">Candidata</span>' : ""} ${r.hasThesis ? '<span class="badge mine">Tesis</span>' : ""}<span class="nm">${esc(r.n)} · ${esc(COUNTRIES[r.c] || r.c)}</span></td>
-    <td class="l sec" title="${esc(SECTORS[r.sec] || "")}">${esc(SECTORS[r.sec] || "")}</td>
+    <td class="l sec" title="${esc(SECTORS[r.sec] || "")} · ${esc(r.ind || "")}">${esc(PROFILES[r.profile].l)}</td>
     <td class="l">${r.lynch ? `<span class="badge" title="${esc(LYNCH_INFO[r.lynch])}">${LYNCH[r.lynch]}</span>` : '<span class="na">—</span>'}</td>
     <td class="num">${fmt(r.px)} <span class="na" style="font-size:11px">${esc(r.cur || "")}</span></td>
     <td>${chg}</td><td class="num">${fmtCap(r.mcap)}</td>
@@ -113,7 +116,7 @@ function renderGroups(rows, by) {
   return `<div class="grid-cards">${items.map(({ k, s }) => `
     <div class="card">
       <h3><span>${esc(by === "sector" ? SECTORS[k] : COUNTRIES[k] || k)}</span><button class="btn sm" data-pdf="${by}" data-key="${esc(k)}">⤓ PDF</button></h3>
-      <div class="sub">${s.n} acciones · ${fmtCap(s.mcap)} · ${s.cand.length} candidatas${by === "sector" ? ` · se mide como ${FAMILIES[SECTOR_FAMILY[k]].l.toLowerCase()}` : ""}</div>
+      <div class="sub">${s.n} acciones · ${fmtCap(s.mcap)} · ${s.cand.length} candidatas</div>
       <div class="mini">
         <div><div class="l">Score</div><div class="v num">${ok(s.score) ? Math.round(s.score) : "—"}</div></div>
         <div><div class="l">P/E fwd</div><div class="v num">${fmt(s.fpe, "x")}</div></div>
@@ -162,7 +165,7 @@ function render() {
   $("cmpbar").classList.toggle("show", S.cmp.size > 0 && S.view !== "compare");
   $("cmpTxt").textContent = `${S.cmp.size} para comparar: ${cmpRows().slice(0, 5).map((r) => r.ced || r.s).join(", ")}${S.cmp.size > 5 ? "…" : ""}`;
 }
-function refreshAll() { rebuild(); render(); }
+function refreshAll() { rebuild(); renderFilters(); render(); }
 
 // ================== PDF ==================
 function pdfFoot() { return `<div class="foot">Fuente: Yahoo Finance · datos al ${S.updated ? new Date(S.updated).toLocaleDateString("es-AR") : today()} · Universo: acciones operables desde Argentina (CEDEARs y acciones locales en BYMA). Score = percentiles contra el sector, ponderados según el tipo de negocio y el tipo Lynch. Material de análisis propio, no constituye recomendación de inversión.</div>`; }
@@ -207,8 +210,9 @@ function openHow() {
   const m = $("modal"), mult = userMult();
   m.innerHTML = `<div class="dh"><h2 style="font-size:17px;margin:0">Cómo se calcula el score</h2><button class="x" id="wClose" aria-label="Cerrar">×</button></div>
     <p class="na" style="font-size:13px;line-height:1.6">Cada métrica se convierte en un percentil (0 a 100) contra las empresas de su mismo sector. Qué métricas cuentan y cuánto pesan depende de <b>qué tipo de negocio es</b> y de su <b>tipo Lynch</b>.</p>
-    <div class="wgroup">Por tipo de negocio</div>
-    ${Object.values(FAMILIES).map((f) => `<div class="how"><b>${f.l}</b> · ${f.why}<div class="na">${Object.entries(f.w).sort((a, b) => b[1] - a[1]).map(([k, w]) => `${METRICS[k].l} ${w}`).join(" · ")}</div></div>`).join("")}
+    <p class="na" style="font-size:13px;line-height:1.6">Además, el 25% del score compara cada métrica con el promedio de los últimos ejercicios de la propia empresa (bloque <b>Historia</b>). En Stalwarts y cíclicas pesa más.</p>
+    <div class="wgroup">Por industria (${Object.keys(PROFILES).length} perfiles)</div>
+    ${Object.values(PROFILES).map((f) => `<div class="how"><b>${f.l}</b> · ${f.why}<div class="na">${Object.entries(f.w).sort((a, b) => b[1] - a[1]).map(([k]) => METRICS[k].l).join(" · ")}</div></div>`).join("")}
     <div class="wgroup">Por tipo Lynch</div>
     ${Object.entries(LYNCH).map(([k, l]) => `<div class="how"><b>${l}</b> · ${LYNCH_INFO[k]}</div>`).join("")}
     <div class="wgroup">Tu ajuste (multiplica el peso de cada bloque)</div>
@@ -223,6 +227,7 @@ function bind() {
   $("q").addEventListener("input", (e) => { S.f.q = e.target.value; S.limit = 60; render(); });
   $("fCountry").addEventListener("change", (e) => { S.f.country = e.target.value; render(); });
   $("fLynch").addEventListener("change", (e) => { S.f.lynch = e.target.value; render(); });
+  $("fProf").addEventListener("change", (e) => { S.f.prof = e.target.value; render(); });
   $("fCap").addEventListener("change", (e) => { S.f.cap = Number(e.target.value); render(); });
   $("fPeer").addEventListener("change", (e) => { S.f.peer = e.target.value; refreshAll(); });
   $("fCand").addEventListener("change", (e) => { S.f.cand = e.target.checked; render(); });
@@ -234,7 +239,7 @@ function bind() {
   $("view").addEventListener("click", (e) => {
     const t = e.target;
     if (t.classList.contains("cmpchk")) { e.stopPropagation(); const s = t.dataset.s; t.checked ? S.cmp.add(s) : S.cmp.delete(s); saveLocal("scr_cmp", [...S.cmp]); render(); return; }
-    const th = t.closest("th[data-k]"); if (th && th.dataset.k) { const k = th.dataset.k; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : (["s", "sec", "lynch"].includes(k) ? 1 : -1) }; render(); return; }
+    const th = t.closest("th[data-k]"); if (th && th.dataset.k) { const k = th.dataset.k; S.sort = { k, dir: S.sort.k === k ? -S.sort.dir : (["s", "sec", "lynch", "profile"].includes(k) ? 1 : -1) }; render(); return; }
     if (t.id === "btnMore") { S.limit += 60; render(); return; }
     const un = t.closest("[data-uncmp]"); if (un) { S.cmp.delete(un.dataset.uncmp); saveLocal("scr_cmp", [...S.cmp]); render(); return; }
     const pdf = t.closest("[data-pdf]");
@@ -291,8 +296,7 @@ async function live() {
   $("btnAuth").style.display = state.sb ? "" : "none";
   $("btnAuth").textContent = state.user ? "Cerrar sesión" : "Iniciar sesión";
   state.onAuth = () => { $("btnAuth").textContent = state.user ? "Cerrar sesión" : "Iniciar sesión"; refreshAll(); statusLine(); };
-  await loadOverrides();
-  const snap = await loadSnapshots();
+  const [, snap] = await Promise.all([loadOverrides(), loadSnapshots(), loadFund()]);
   if (snap.rows.size) { S.raw = snap.rows; S.updated = snap.updated; S.source = "base diaria"; refreshAll(); statusLine(); }
   // Si faltan acciones del universo nuevo o la base tiene más de 24 h, completa en vivo
   if (!snap.rows.size || Date.now() - S.updated > 24 * 3600000 || snap.rows.size < UNIVERSE.length * 0.9) await live();

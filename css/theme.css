@@ -1,0 +1,23 @@
+/* Tema unificado para Dashboard, RRG y RRG Acciones (mismo look que Screener y Fundamental) */
+:root {
+  --bg:#0b1220; --panel:#111a2e; --border:#1e2a44; --text:#e2e8f0; --muted:#94a3b8;
+  --accent:#3b82f6; --green:#22c55e; --red:#ef4444;
+}
+body { font-family: Inter, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important; background:var(--bg) !important; }
+header { background:#111a2e; border-bottom:1px solid var(--border) !important; padding:14px 24px !important; }
+header h1 { font-size:17px !important; font-weight:600 !important; }
+nav a { padding:6px 12px; border-radius:8px; margin-left:4px !important; color:var(--muted) !important; }
+nav a:hover { background:#16213a; color:var(--text) !important; }
+nav a.active { background:var(--accent); color:#fff !important; }
+.panel, .card { border-radius:14px !important; border-color:var(--border) !important; background:var(--panel) !important; }
+.container { max-width:1440px !important; padding:20px 24px !important; }
+button, select, input { font-family:inherit; }
+.range-btn, .btn, button.secondary { border-radius:10px !important; border-color:#2b3a5c !important; background:#16213a; }
+.range-btn.active { background:var(--accent) !important; border-color:var(--accent) !important; }
+input, select { background:#0b1220 !important; border:1px solid #2b3a5c !important; border-radius:10px !important; color:var(--text) !important; }
+table th { color:#64748b !important; font-weight:500 !important; }
+.up { color:#22c55e !important; } .down { color:#ef4444 !important; }
+.alert-alcista { background:#14532d !important; color:#86efac !important; }
+.alert-bajista { background:#7f1d1d !important; color:#fca5a5 !important; }
+html.embedded header { display:none !important; }
+html.embedded .container { padding-top:16px !important; }
