@@ -1,6 +1,6 @@
 import { UNIVERSE, SECTORS, MARKETS, COUNTRIES } from "/lib/universe.js";
 import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
-import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, authClick, loadSnapshots, loadLive, loadOverrides, saveOverride, userMult, loadFund } from "/js/core.js";
+import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, authClick, loadSnapshots, loadLive, loadOverrides, saveOverride, userMult, userProfW, loadFund } from "/js/core.js";
 
 const S = {
   raw: new Map(), rows: [], updated: null, source: "", loading: false,
@@ -12,7 +12,7 @@ const go = (sym) => { location.href = "/empresa.html?s=" + encodeURIComponent(sy
 
 function rebuild() {
   S.rows = [...S.raw.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
-  scoreAll(S.rows, { peer: S.f.peer, userMult: userMult() });
+  scoreAll(S.rows, { peer: S.f.peer, userMult: userMult(), profW: userProfW() });
 }
 
 // ================== Filtros ==================
@@ -217,7 +217,10 @@ function openHow() {
   m.innerHTML = `<div class="dh"><h2 style="font-size:17px;margin:0">Cómo se calcula el score</h2><button class="x" id="wClose" aria-label="Cerrar">×</button></div>
     <p class="na" style="font-size:13px;line-height:1.6">Cada métrica se convierte en un percentil (0 a 100) contra las empresas de su mismo sector. Qué métricas cuentan y cuánto pesan depende de <b>qué tipo de negocio es</b> y de su <b>tipo Lynch</b>.</p>
     <p class="na" style="font-size:13px;line-height:1.6">Además, el 25% del score compara cada métrica con el promedio de los últimos ejercicios de la propia empresa (bloque <b>Historia</b>). En Stalwarts y cíclicas pesa más.</p>
-    <div class="wgroup">Por industria (${Object.keys(PROFILES).length} perfiles)</div>
+    <div class="wgroup">Editar los pesos de una industria</div>
+    <div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap"><select id="pwSel">${Object.entries(PROFILES).sort((a, b) => a[1].l.localeCompare(b[1].l)).map(([k, p]) => `<option value="${k}">${esc(p.l)}${userProfW()[k] ? " (editado)" : ""}</option>`).join("")}</select><span class="na" style="font-size:12px">Mové los pesos, sumá o sacá métricas y guardá. Se aplica a todas las empresas de esa industria.</span></div>
+    <div id="pwBox"></div>
+    <div class="wgroup">Las ${Object.keys(PROFILES).length} industrias y qué miden</div>
     ${Object.values(PROFILES).map((f) => `<div class="how"><b>${f.l}</b> · ${f.why}<div class="na">${Object.entries(f.w).sort((a, b) => b[1] - a[1]).map(([k]) => METRICS[k].l).join(" · ")}</div></div>`).join("")}
     <div class="wgroup">Por tipo Lynch</div>
     ${Object.entries(LYNCH).map(([k, l]) => `<div class="how"><b>${l}</b> · ${LYNCH_INFO[k]}</div>`).join("")}
@@ -225,6 +228,22 @@ function openHow() {
     ${GROUPS.map((g) => `<div class="wrow"><span>${g}</span><input type="range" min="0" max="2" step="0.1" value="${mult[g] ?? 1}" data-g="${g}"><span class="num" id="wv_${g}">${nf(1).format(mult[g] ?? 1)}x</span></div>`).join("")}
     <div style="display:flex;gap:8px;margin-top:16px"><button class="btn primary" id="wSave">Aplicar</button><button class="btn" id="wReset">Volver a 1x</button></div>`;
   m.classList.add("show"); $("overlay").classList.add("show");
+  drawPW();
+}
+// Editor de pesos por industria
+function drawPW() {
+  const k = $("pwSel").value, cur = userProfW()[k] || PROFILES[k].w;
+  const tot = Object.values(cur).reduce((a, b) => a + b, 0) || 1;
+  const missing = Object.keys(METRICS).filter((m) => !(m in cur));
+  $("pwBox").innerHTML = `${Object.entries(cur).sort((a, b) => b[1] - a[1]).map(([m, w]) => `<div class="wrow"><span title="${esc(METRICS[m].q)}">${esc(METRICS[m].l)}</span><input type="range" min="0" max="30" step="1" value="${w}" data-pw="${m}"><span class="num" id="pwv_${m}">${nf(0).format((w / tot) * 100)}%</span></div>`).join("")}
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><select id="pwAdd"><option value="">+ Sumar métrica…</option>${missing.map((m) => `<option value="${m}">${esc(METRICS[m].l)}</option>`).join("")}</select>
+    <button class="btn sm primary" id="pwSave">Guardar pesos de ${esc(PROFILES[k].l)}</button>${userProfW()[k] ? `<button class="btn sm" id="pwReset">Volver a los originales</button>` : ""}</div>`;
+}
+async function savePW(k, w) {
+  const all = { ...userProfW() };
+  if (w) all[k] = w; else delete all[k];
+  saveLocal("scr_profw", all);
+  if (state.user) await saveOverride("__settings", { metrics: { profW: all } });
 }
 function closeModal() { $("modal").classList.remove("show"); $("overlay").classList.remove("show"); }
 
@@ -266,10 +285,17 @@ function bind() {
   $("overlay").addEventListener("click", closeModal);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
   $("btnWeights").addEventListener("click", openHow);
-  $("modal").addEventListener("input", (e) => { const g = e.target.dataset.g; if (g) $("wv_" + g).textContent = nf(1).format(Number(e.target.value)) + "x"; });
+  $("modal").addEventListener("change", (e) => {
+    if (e.target.id === "pwSel") return drawPW();
+    if (e.target.id === "pwAdd" && e.target.value) { const k = $("pwSel").value, w = { ...(userProfW()[k] || PROFILES[k].w), [e.target.value]: 8 }; const tmp = { ...userProfW(), [k]: w }; saveLocal("scr_profw", tmp); drawPW(); }
+  });
+  $("modal").addEventListener("input", (e) => {
+    if (e.target.dataset.pw) { const box = [...document.querySelectorAll("[data-pw]")]; const tot = box.reduce((a, i) => a + Number(i.value), 0) || 1; box.forEach((i) => ($("pwv_" + i.dataset.pw).textContent = nf(0).format((Number(i.value) / tot) * 100) + "%")); return; } const g = e.target.dataset.g; if (g) $("wv_" + g).textContent = nf(1).format(Number(e.target.value)) + "x"; });
   $("modal").addEventListener("click", async (e) => {
     if (e.target.id === "wClose") return closeModal();
     if (e.target.id === "wReset") { document.querySelectorAll("[data-g]").forEach((i) => { i.value = 1; $("wv_" + i.dataset.g).textContent = "1,0x"; }); return; }
+    if (e.target.id === "pwSave") { const k = $("pwSel").value, w = {}; document.querySelectorAll("[data-pw]").forEach((i) => { if (Number(i.value) > 0) w[i.dataset.pw] = Number(i.value); }); await savePW(k, w); refreshAll(); drawPW(); return toast(`Pesos de ${PROFILES[k].l} guardados`); }
+    if (e.target.id === "pwReset") { const k = $("pwSel").value; await savePW(k, null); refreshAll(); drawPW(); return toast("Pesos originales restaurados"); }
     if (e.target.id === "wSave") {
       const mult = {}; document.querySelectorAll("[data-g]").forEach((i) => (mult[i.dataset.g] = Number(i.value)));
       saveLocal("scr_mult", mult);

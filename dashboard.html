@@ -1,386 +1,107 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Rotación Sectorial vs S&P 500</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<style>
-  :root {
-    --bg: #0f1115; --panel: #171a21; --border: #262a33; --text: #e6e8eb;
-    --muted: #8b8f99; --accent: #4C6EF5; --green: #2F9E44; --red: #E03131;
-  }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
-  header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
-  header h1 { font-size:18px; margin:0; }
-  nav a { color:var(--muted); text-decoration:none; margin-left:16px; font-size:14px; }
-  .langsw { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; margin-left:16px; vertical-align:middle; }
-  .langsw button { background:#12151b; color:var(--muted); border:none; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; }
-  .langsw button.on { background:var(--accent); color:#fff; }
-  nav a:hover, nav a.active { color:var(--text); }
-  .container { padding:20px; max-width:1200px; margin:0 auto; }
-  .controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
-  .range-btn { background:var(--panel); border:1px solid var(--border); color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font-size:13px; }
-  .range-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
-  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
-  .chart-wrap { height:440px; position:relative; }
-  .legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .legend-item { display:flex; align-items:center; gap:6px; padding:5px 10px; border-radius:16px; border:1px solid var(--border); cursor:pointer; font-size:12px; user-select:none; }
-  .legend-item.off { opacity:0.35; }
-  .dot { width:10px; height:10px; border-radius:50%; }
-  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:10px; }
-  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
-  .card .name { font-size:12px; color:var(--muted); }
-  .card .val { font-size:20px; font-weight:600; margin-top:4px; }
-  .up { color:var(--green); } .down { color:var(--red); }
-  .alert-tag { display:inline-block; font-size:11px; padding:2px 8px; border-radius:10px; margin-top:6px; }
-  .alert-alcista { background:rgba(47,158,68,0.18); color:#69db7c; }
-  .alert-bajista { background:rgba(224,49,49,0.18); color:#ff8787; }
-  .alert-neutral { background:rgba(139,143,153,0.15); color:var(--muted); }
-  .muted { color:var(--muted); font-size:12px; }
-  .loading { padding:40px; text-align:center; color:var(--muted); }
-  select { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:6px 10px; font-size:13px; }
-  .mkt-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:12px; }
-  .mkt-card { background:#12151b; border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
-  .mkt-card .name { font-size:12px; color:var(--muted); display:flex; justify-content:space-between; align-items:center; }
-  .mkt-card .val { font-size:26px; font-weight:700; margin-top:6px; }
-  .mkt-card .sub { font-size:12px; color:var(--muted); margin-top:4px; }
-  .gauge-wrap { position:relative; height:10px; background:#232838; border-radius:6px; margin-top:10px; overflow:hidden; }
-  .gauge-fill { position:absolute; top:0; bottom:0; left:0; border-radius:6px; }
-  .fg-scale { display:flex; justify-content:space-between; font-size:10px; color:var(--muted); margin-top:4px; }
-  .treasury-row { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
-  .treasury-card { background:#12151b; border:1px solid var(--border); border-radius:10px; padding:12px 14px; text-align:center; }
-  .treasury-card .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
-  .treasury-card .y { font-size:20px; font-weight:700; margin-top:4px; }
-  .treasury-card .chg { font-size:12px; margin-top:3px; }
-  .curve-note { font-size:11px; color:var(--muted); margin-top:10px; }
-</style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/theme.css">
+<link rel="stylesheet" href="/css/app.css">
 <script src="/js/embed.js"></script>
+<style>
+  main { max-width:1500px; }
+  .sec-h { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin:26px 0 10px; flex-wrap:wrap; }
+  .sec-h h2 { margin:0; font-size:17px; font-weight:600; }
+  .sec-h .sub { color:var(--dim); font-size:12.5px; }
+  .sec-h a { color:#93c5fd; font-size:12.5px; text-decoration:none; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:10px; }
+  .tile { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:11px 13px; }
+  .tile .n { color:var(--muted); font-size:12px; display:flex; justify-content:space-between; }
+  .tile .p { font-size:19px; font-weight:600; margin-top:2px; }
+  .tile .c { font-size:12.5px; margin-top:1px; }
+  .tile svg { display:block; margin-top:6px; }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:12px; }
+  .card h3 { margin:0 0 4px; font-size:14.5px; font-weight:600; display:flex; justify-content:space-between; gap:8px; }
+  .card .sub2 { color:var(--dim); font-size:12px; margin-bottom:10px; }
+  .gauge { display:flex; align-items:center; gap:16px; }
+  .gauge .big { font-size:36px; font-weight:700; }
+  .meter { height:10px; border-radius:6px; background:linear-gradient(90deg,#ef4444,#eab308 50%,#22c55e); position:relative; margin:10px 0 4px; }
+  .meter i { position:absolute; top:-4px; width:4px; height:18px; background:#fff; border-radius:2px; }
+  .kv { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; border-top:1px solid var(--border); }
+  .kv span:first-child { color:var(--muted); }
+  .curve { display:flex; align-items:flex-end; gap:8px; height:90px; margin-top:6px; }
+  .curve div { flex:1; background:#1d4ed8; border-radius:6px 6px 0 0; position:relative; min-height:4px; }
+  .curve div b { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:11.5px; font-weight:600; color:var(--text); }
+  .curve-l { display:flex; gap:8px; } .curve-l span { flex:1; text-align:center; color:var(--dim); font-size:11px; margin-top:4px; }
+  .heat td { text-align:center; font-variant-numeric:tabular-nums; font-size:12.5px; padding:7px 6px; }
+  .heat td.l, .heat th.l { text-align:left; }
+  .heat th { text-align:center; position:static; }
+  .seg { display:inline-flex; border:1px solid var(--border2); border-radius:10px; overflow:hidden; }
+  .seg button { background:transparent; border:none; color:var(--muted); padding:6px 11px; font-size:12px; cursor:pointer; font-family:inherit; }
+  .seg button.on { background:var(--accent); color:#fff; }
+  .chartbox { position:relative; height:360px; }
+  .legend { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .legend span { font-size:11.5px; padding:3px 9px; border-radius:99px; border:1px solid var(--border); cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; color:var(--muted); }
+  .legend span.off { opacity:.35; } .legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .mini td { font-size:12.5px; padding:7px 8px; }
+  .mini tr { cursor:pointer; } .mini tr:hover td { background:var(--panel2); }
+  .breadth { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .breadth div { background:var(--panel2); border-radius:10px; padding:9px 11px; }
+  .breadth .v { font-size:20px; font-weight:600; } .breadth .l { color:var(--dim); font-size:11.5px; }
+  .bar2 { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:6px; } .bar2 b { display:block; height:100%; background:var(--good); }
+  .loading { color:var(--dim); font-size:13px; padding:8px 0; }
+</style>
 </head>
 <body>
 <header>
-  <h1 id="pageH1">📊 Rotación Sectorial vs S&P 500</h1>
+  <div class="brand">Rotación Sectorial</div>
   <nav>
-    <a id="navDash" href="/dashboard.html" class="active">Dashboard</a>
-    <a id="navRrg" href="/rotation.html">RRG</a>
-    <a id="navRrgStocks" href="/rotation-stocks.html">RRG Acciones</a>
-    <a id="navFund" href="/empresa.html">Fundamental</a>
-    <a id="navWatch" href="/watchlist.html">Watchlist</a>
-    <a href="/screener.html" id="navScreener">Screener</a>
-    <span class="langsw"><button id="langEs">ES</button><button id="langEn">EN</button></span>
+    <a href="/dashboard.html" class="active">Dashboard</a>
+    <a href="/rotation.html">RRG</a>
+    <a href="/rotation-stocks.html">RRG Acciones</a>
+    <a href="/screener.html">Screener</a>
+    <a href="/empresa.html">Fundamental</a>
+    <a href="/watchlist.html">Watchlist</a>
   </nav>
 </header>
-
-<div class="container">
-  <div class="controls" id="rangeControls">
-    <span class="muted">Rango:</span>
+<main>
+  <div class="top" style="margin-bottom:6px">
+    <div><h1>Dashboard</h1><div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando el mercado…</span></div></div>
+    <div class="actions"><button class="btn" id="btnReload">↻ Actualizar</button></div>
   </div>
 
-  <div class="panel">
-    <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
-    <div class="legend" id="legend"></div>
+  <div class="tiles" id="tiles"><div class="loading">Cargando índices…</div></div>
+
+  <div class="grid3" style="margin-top:12px">
+    <div class="card" id="sentiment"><h3>Sentimiento</h3><div class="loading">Cargando…</div></div>
+    <div class="card" id="curve"><h3>Curva de tasas EE.UU.</h3><div class="loading">Cargando…</div></div>
+    <div class="card" id="breadth"><h3>Amplitud del universo CEDEAR</h3><div class="loading">Cargando…</div></div>
   </div>
 
-  <div class="panel">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <strong>Alertas de fuerza relativa</strong>
-      <span class="muted" id="lastUpdate"></span>
-    </div>
-    <div class="grid" id="alertsGrid"><div class="loading">Cargando…</div></div>
+  <div class="sec-h"><h2>Rotación: quién está por explotar</h2><a href="/rotation.html">Ver RRG completo →</a></div>
+  <div id="signals"></div>
+
+  <div class="sec-h"><h2>Sectores e industrias vs S&P 500</h2>
+    <div class="seg" id="heatMode"><button data-m="rel" class="on">Relativo al S&P</button><button data-m="abs">Absoluto</button></div></div>
+  <div class="tablewrap"><table class="heat" id="heat"><tbody><tr><td class="loading">Cargando…</td></tr></tbody></table></div>
+
+  <div class="sec-h"><h2>Rotación sectorial acumulada</h2><div class="seg" id="ranges"></div></div>
+  <div class="card"><div class="chartbox"><canvas id="relChart"></canvas></div><div class="legend" id="legend"></div>
+    <div class="na" style="font-size:12px;margin-top:8px">Diferencia de rendimiento acumulado de cada sector contra el S&P 500 en el período. Tocá un sector para ocultarlo.</div></div>
+
+  <div class="grid2" style="margin-top:26px">
+    <div class="card"><h3>Mejores candidatas del Screener <a href="/screener.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todas →</a></h3><div class="sub2">Score alto contra su industria y valuación favorable · sin Argentina</div><div id="cands" class="loading">Cargando…</div></div>
+    <div class="card"><h3>Movimientos de hoy en CEDEARs</h3><div class="sub2">Las que más suben y bajan del universo operable</div><div id="movers" class="loading">Cargando…</div></div>
   </div>
-
-  <div class="panel">
-    <div style="margin-bottom:10px;"><strong>Sentimiento de mercado</strong></div>
-    <div class="mkt-row" id="mktRow"><div class="loading">Cargando…</div></div>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card"><h3>Tu watchlist hoy <a href="/watchlist.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2" id="wlName"></div><div id="wl" class="loading">Cargando…</div></div>
+    <div class="card"><h3>Alertas de fuerza relativa</h3><div class="sub2">Cambio de la fuerza relativa a 20 ruedas contra su propia historia (z-score)</div><div id="alerts" class="loading">Cargando…</div></div>
   </div>
-
-  <div class="panel">
-    <div style="margin-bottom:10px;"><strong>Curva de rendimientos del Tesoro (UST)</strong></div>
-    <div class="chart-wrap" style="height:220px;margin-bottom:14px;"><canvas id="curveChart"></canvas></div>
-    <div class="treasury-row" id="treasuryRow"><div class="loading">Cargando…</div></div>
-    <p class="curve-note" id="curveNote"></p>
-  </div>
-</div>
-
-<script>
-const RANGES = [
-  {k:'1w', label:'1S'}, {k:'1m', label:'1M'}, {k:'3m', label:'3M'},
-  {k:'6m', label:'6M'}, {k:'1y', label:'1A'}, {k:'3y', label:'3A'}, {k:'5y', label:'5A'}
-];
-let currentRange = '1y';
-let currentData = null;
-let hidden = new Set();
-let chart = null;
-
-function fmtPct(v) {
-  if (v == null || isNaN(v)) return '—';
-  const s = v >= 0 ? '+' : '';
-  return `${s}${v.toFixed(2)}%`;
-}
-
-function buildRangeButtons() {
-  const wrap = document.getElementById('rangeControls');
-  RANGES.forEach(r => {
-    const btn = document.createElement('button');
-    btn.className = 'range-btn' + (r.k === currentRange ? ' active' : '');
-    btn.textContent = r.label;
-    btn.dataset.range = r.k;
-    btn.onclick = () => { currentRange = r.k; load(); };
-    wrap.appendChild(btn);
-  });
-}
-
-function updateActiveButtons() {
-  document.querySelectorAll('.range-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.range === currentRange);
-  });
-}
-
-function renderChart(data) {
-  const ctx = document.getElementById('mainChart').getContext('2d');
-  const labels = data.series[0].dates.map(t => {
-    const d = new Date(t);
-    if (['1w'].includes(currentRange)) return d.toLocaleString('es-AR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
-    return d.toLocaleDateString('es-AR', {day:'2-digit', month:'2-digit', year: (currentRange==='3y'||currentRange==='5y') ? '2-digit' : undefined});
-  });
-  const datasets = data.series
-    .filter(s => !hidden.has(s.symbol))
-    .map(s => ({
-      label: s.name,
-      symbol: s.symbol,
-      data: s.rel_spread_pct,
-      borderColor: s.color,
-      backgroundColor: s.color,
-      borderWidth: s.is_benchmark ? 3 : 1.75,
-      borderDash: s.is_benchmark ? [] : [],
-      pointRadius: 0,
-      tension: 0.15,
-    }));
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'nearest', intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => `${ctx.dataset.label}: ${fmtPct(ctx.parsed.y)}`
-          }
-        }
-      },
-      scales: {
-        x: { ticks: { color: '#8b8f99', maxTicksLimit: 10 }, grid: { color: '#262a33' } },
-        y: {
-          ticks: { color: '#8b8f99', callback: (v) => v + '%' },
-          grid: { color: '#262a33' },
-          title: { display: true, text: 'Distancia acumulada vs S&P 500 (%)', color: '#8b8f99' }
-        }
-      }
-    }
-  });
-}
-
-function renderLegend(data) {
-  const wrap = document.getElementById('legend');
-  wrap.innerHTML = '';
-  data.series.forEach(s => {
-    const el = document.createElement('div');
-    el.className = 'legend-item' + (hidden.has(s.symbol) ? ' off' : '');
-    el.innerHTML = `<span class="dot" style="background:${s.color}"></span>${s.symbol} · ${s.name}`;
-    el.onclick = () => {
-      if (hidden.has(s.symbol)) hidden.delete(s.symbol); else hidden.add(s.symbol);
-      renderLegend(data);
-      renderChart(data);
-    };
-    wrap.appendChild(el);
-  });
-}
-
-function renderAlerts(data) {
-  const grid = document.getElementById('alertsGrid');
-  grid.innerHTML = '';
-  data.series.filter(s => !s.is_benchmark).forEach(s => {
-    const a = data.alerts[s.symbol] || {};
-    const live = data.live[s.symbol] || {};
-    const chg = live.changePercent;
-    let tag = '<span class="alert-tag alert-neutral">Neutral</span>';
-    if (a.status === 'rotacion_alcista') tag = '<span class="alert-tag alert-alcista">↑ Rotación alcista</span>';
-    if (a.status === 'rotacion_bajista') tag = '<span class="alert-tag alert-bajista">↓ Rotación bajista</span>';
-    if (a.status === 'insuficiente_historial') tag = '<span class="alert-tag alert-neutral">Sin datos suf.</span>';
-    const div = document.createElement('div');
-    div.className = 'card';
-    div.innerHTML = `
-      <div class="name">${s.symbol} · ${s.name}</div>
-      <div class="val ${chg >= 0 ? 'up' : 'down'}">${fmtPct(chg)}</div>
-      <div class="muted">RS mom. 20d: ${a.momentum_20d != null ? fmtPct(a.momentum_20d) : '—'} (z=${a.z ?? '—'})</div>
-      ${tag}
-    `;
-    grid.appendChild(div);
-  });
-}
-
-async function load() {
-  updateActiveButtons();
-  try {
-    const r = await fetch(`/api/sectors?range=${currentRange}`);
-    const data = await r.json();
-    if (data.error) throw new Error(data.error);
-    currentData = data;
-    renderChart(data);
-    renderLegend(data);
-    renderAlerts(data);
-    document.getElementById('lastUpdate').textContent = 'Actualizado: ' + new Date(data.last_update).toLocaleTimeString('es-AR');
-  } catch (e) {
-    document.getElementById('alertsGrid').innerHTML = `<div class="loading">Error cargando datos: ${e.message}</div>`;
-  }
-}
-
-buildRangeButtons();
-load();
-setInterval(load, 90000);
-
-// ---------- VIX, Fear & Greed, Treasuries ----------
-function fgColor(score) {
-  if (score == null) return '#8b8f99';
-  if (score <= 25) return '#E03131';
-  if (score <= 45) return '#F76707';
-  if (score <= 55) return '#F59F00';
-  if (score <= 75) return '#74B816';
-  return '#2F9E44';
-}
-const FG_LABEL_ES = { 'extreme fear': 'Miedo extremo', fear: 'Miedo', neutral: 'Neutral', greed: 'Codicia', 'extreme greed': 'Codicia extrema' };
-function vixColor(change) { if (change == null) return '#8b8f99'; return change <= 0 ? '#2F9E44' : '#E03131'; }
-
-function renderMarketWidgets(m) {
-  const wrap = document.getElementById('mktRow');
-  const vix = m.vix || {}, fg = m.fearGreed || {};
-  const vixChangeTxt = vix.change != null ? (vix.change >= 0 ? '+' : '') + vix.change.toFixed(2) + ' (' + (vix.changePercent >= 0 ? '+' : '') + vix.changePercent.toFixed(2) + '%)' : '—';
-  const fgLabel = fg.rating ? (FG_LABEL_ES[fg.rating] || fg.rating) : '—';
-  wrap.innerHTML = `
-    <div class="mkt-card">
-      <div class="name">VIX <span class="muted">Índice de volatilidad</span></div>
-      <div class="val" style="color:${vixColor(vix.change)}">${vix.value != null ? vix.value.toFixed(2) : '—'}</div>
-      <div class="sub" style="color:${vixColor(vix.change)}">${vixChangeTxt}</div>
-      <div class="sub" style="margin-top:8px;">${vix.value == null ? '' : vix.value < 15 ? 'Complacencia / calma' : vix.value < 20 ? 'Normal' : vix.value < 30 ? 'Nerviosismo' : 'Pánico'}</div>
-    </div>
-    <div class="mkt-card">
-      <div class="name">Fear &amp; Greed Index <span class="muted">CNN</span></div>
-      <div class="val" style="color:${fgColor(fg.score)}">${fg.score != null ? Math.round(fg.score) : '—'} <span style="font-size:14px;font-weight:600;">${fgLabel}</span></div>
-      <div class="gauge-wrap"><div class="gauge-fill" style="width:${fg.score ?? 0}%;background:${fgColor(fg.score)}"></div></div>
-      <div class="fg-scale"><span>Miedo extremo</span><span>Neutral</span><span>Codicia extrema</span></div>
-      <div class="sub" style="margin-top:8px;">Hace 1 semana: ${fg.previousWeek ?? '—'} · Hace 1 mes: ${fg.previousMonth ?? '—'}</div>
-    </div>
-  `;
-}
-
-let curveChart = null;
-function renderCurveChart(m) {
-  const list = m.treasuries || [];
-  const pts = list.filter(t => t.yield != null);
-  const canvas = document.getElementById('curveChart');
-  if (curveChart) { curveChart.destroy(); curveChart = null; }
-  if (!pts.length) return;
-  curveChart = new Chart(canvas.getContext('2d'), {
-    type: 'line',
-    data: {
-      labels: pts.map(t => t.label),
-      datasets: [{
-        label: 'Rendimiento',
-        data: pts.map(t => t.yield),
-        borderColor: '#4C6EF5', backgroundColor: 'rgba(76,110,245,.12)', fill: true,
-        borderWidth: 2, pointRadius: 4, pointBackgroundColor: pts.map(t => t.changeBps == null ? '#4C6EF5' : t.changeBps >= 0 ? '#2F9E44' : '#E03131'),
-        tension: 0.3,
-      }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (c) => {
-          const t = pts[c.dataIndex];
-          const chg = t.changeBps != null ? ' (' + (t.changeBps >= 0 ? '+' : '') + t.changeBps.toFixed(1) + ' pb)' : '';
-          return t.yield.toFixed(2) + '%' + chg;
-        } } },
-      },
-      scales: {
-        x: { ticks: { color: '#8b8f99' }, grid: { color: '#262a33' }, title: { display: true, text: 'Plazo', color: '#8b8f99' } },
-        y: { ticks: { color: '#8b8f99', callback: (v) => v.toFixed(1) + '%' }, grid: { color: '#262a33' } },
-      },
-    },
-  });
-}
-
-function renderTreasuries(m) {
-  const wrap = document.getElementById('treasuryRow');
-  const list = m.treasuries || [];
-  wrap.innerHTML = list.map(t => {
-    const chg = t.changeBps;
-    const cls = chg == null ? '' : chg >= 0 ? 'up' : 'down';
-    const chgTxt = chg == null ? '—' : (chg >= 0 ? '+' : '') + chg.toFixed(1) + ' pb';
-    return `<div class="treasury-card">
-      <div class="lbl">${t.label}</div>
-      <div class="y">${t.yield != null ? t.yield.toFixed(2) + '%' : '—'}</div>
-      <div class="chg ${cls}">${chgTxt}</div>
-    </div>`;
-  }).join('');
-  const t3m = list.find(t => t.key === '3m'), t10y = list.find(t => t.key === '10y');
-  const note = document.getElementById('curveNote');
-  if (t3m && t10y && t3m.yield != null && t10y.yield != null) {
-    const spread = t10y.yield - t3m.yield;
-    note.textContent = spread < 0
-      ? `Curva invertida: el bono a 3 meses rinde ${Math.abs(spread).toFixed(2)} pts más que el de 10 años (spread ${spread.toFixed(2)}%). Señal históricamente asociada a recesión.`
-      : `Curva normal: el bono a 10 años rinde ${spread.toFixed(2)} pts más que el de 3 meses.`;
-  } else {
-    note.textContent = '';
-  }
-}
-
-async function loadMarket() {
-  try {
-    const r = await fetch('/api/market');
-    const m = await r.json();
-    renderMarketWidgets(m);
-    renderCurveChart(m);
-    renderTreasuries(m);
-  } catch (e) {
-    document.getElementById('mktRow').innerHTML = `<div class="loading">Error: ${e.message}</div>`;
-    document.getElementById('treasuryRow').innerHTML = '';
-  }
-}
-loadMarket();
-setInterval(loadMarket, 120000);
-
-</script>
-<script>
-(function () {
-  var NAV_T = { es:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Acciones',fund:'Fundamental',watch:'Watchlist'}, en:{dash:'Dashboard',rrg:'RRG',rrgs:'RRG Stocks',fund:'Fundamentals',watch:'Watchlist'} };
-  var PAGE_T = { es: '📊 Rotación Sectorial vs S&P 500', en: '📊 Sector Rotation vs S&P 500' };
-  var LANG_KEY = 'fund_lang';
-  function getLang() { try { return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'es'; } catch (e) { return 'es'; } }
-  function apply(lang) {
-    var t = NAV_T[lang];
-    var ids = { navDash:t.dash, navRrg:t.rrg, navRrgStocks:t.rrgs, navFund:t.fund, navWatch:t.watch };
-    Object.keys(ids).forEach(function (id) { var el = document.getElementById(id); if (el) el.textContent = ids[id]; });
-    var h1 = document.getElementById('pageH1'); if (h1) h1.textContent = PAGE_T[lang];
-    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
-    if (es) es.classList.toggle('on', lang === 'es');
-    if (en) en.classList.toggle('on', lang === 'en');
-  }
-  window.__setSiteLang = function (l) { try { localStorage.setItem(LANG_KEY, l); } catch (e) {} apply(l); };
-  document.addEventListener('DOMContentLoaded', function () {
-    var es = document.getElementById('langEs'), en = document.getElementById('langEn');
-    if (es) es.onclick = function () { window.__setSiteLang('es'); };
-    if (en) en.onclick = function () { window.__setSiteLang('en'); };
-    apply(getLang());
-  });
-})();
-</script>
+</main>
+<div id="toast" class="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="/config.js"></script>
+<script type="module" src="/js/dashboard.js"></script>
 </body>
 </html>

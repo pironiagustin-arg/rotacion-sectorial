@@ -1,6 +1,6 @@
 import { UNIVERSE, SECTORS, COUNTRIES, MARKETS, SYMBOLS, BATCH_SIZE } from "/lib/universe.js";
 import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt, fmtCap, fmtBig, nf, scoreCls, profileOf, relevant } from "/js/score.js";
-import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, withMeta, META, loadFund } from "/js/core.js";
+import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, userProfW, withMeta, META, loadFund } from "/js/core.js";
 
 const P = { sym: null, rows: [], r: null, hist: null, charts: [] };
 const today = () => new Date().toLocaleDateString("es-AR");
@@ -40,7 +40,7 @@ async function loadRows(sym) {
     }
   }
   P.rows = [...P.rawMap.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
-  scoreAll(P.rows, { userMult: userMult() });
+  scoreAll(P.rows, { userMult: userMult(), profW: userProfW() });
 }
 
 async function load(sym) {
@@ -200,9 +200,11 @@ function render() {
   <h2>Cómo se calculó el score <span class="sub">${esc(prof.l)}${r.lynch ? " · " + LYNCH[r.lynch] : ""}</span></h2>
   <div class="card">
     <div class="na" style="font-size:13px;margin-bottom:10px">${esc(prof.why)}${r.lynch ? " " + esc(LYNCH_INFO[r.lynch]) : ""} ${ok(r.gscore.Historia) ? `Además, un ${nf(0).format(25 * (r.lynch === "stalwart" ? 1.3 : r.lynch === "cyclical" ? 1.4 : 1))}% del score compara contra su propia historia (${r.histKeys.map((k) => METRICS[k].l).join(", ")}).` : "No hay historia suficiente para comparar contra sí misma."}</div>
-    <div class="tablewrap" style="border:none"><table class="how"><thead><tr><th class="l">Métrica</th><th class="l">Bloque</th><th>Peso</th><th>Valor</th><th>Mediana pares</th><th>Percentil vs pares</th><th>Prom. ${histN || ""} años</th><th>Vs su historia</th></tr></thead><tbody>
-      ${Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k, w]) => { const m = METRICS[k], h = r.hist[k]; return `<tr><td class="l" title="${esc(m.q)}">${m.l}</td><td class="l">${m.g}</td><td>${nf(0).format((w / tot) * 100)}%</td><td>${fmt(r[k], m.f, m.d)}</td><td>${fmt(r.med[k], m.f, m.d)}</td><td>${r.pct[k] != null ? `<span style="color:${COL[lvl(r.pct[k])]}">${r.pct[k]}</span>` : '<span class="na">sin dato</span>'}</td><td>${h ? fmt(h.avg, m.f, m.d) : '<span class="na">—</span>'}</td><td>${h ? `<span style="color:${COL[lvl(h.p)]}">${h.p}</span>` : '<span class="na">—</span>'}</td></tr>`; }).join("")}
+    <div class="tablewrap" style="border:none"><table class="how"><thead><tr><th class="l">Métrica</th><th class="l">Bloque</th><th>Peso</th><th>Valor</th><th>Mediana pares</th><th>Percentil vs pares</th><th>Prom. ${histN || ""} años</th><th>Vs su historia</th><th title="Destildá para que esta métrica no cuente en el score de esta empresa">Cuenta</th></tr></thead><tbody>
+      ${Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k, w]) => { const m = METRICS[k], h = r.hist[k]; return `<tr><td class="l" title="${esc(m.q)}">${m.l}</td><td class="l">${m.g}</td><td>${nf(0).format((w / tot) * 100)}%</td><td>${fmt(r[k], m.f, m.d)}</td><td>${fmt(r.med[k], m.f, m.d)}</td><td>${r.pct[k] != null ? `<span style="color:${COL[lvl(r.pct[k])]}">${r.pct[k]}</span>` : '<span class="na">sin dato</span>'}</td><td>${h ? fmt(h.avg, m.f, m.d) : '<span class="na">—</span>'}</td><td>${h ? `<span style="color:${COL[lvl(h.p)]}">${h.p}</span>` : '<span class="na">—</span>'}</td><td><input type="checkbox" checked data-off="${k}" aria-label="Contar ${esc(m.l)}"></td></tr>`; }).join("")}
+      ${(r.offKeys || []).map((k) => { const m = METRICS[k]; return `<tr class="na"><td class="l"><s>${m.l}</s></td><td class="l">${m.g}</td><td>apagada</td><td>${fmt(r[k], m.f, m.d)}</td><td>${fmt(r.med[k], m.f, m.d)}</td><td>${r.pct[k] ?? "—"}</td><td>—</td><td>—</td><td><input type="checkbox" data-off="${k}" aria-label="Volver a contar ${esc(m.l)}"></td></tr>`; }).join("")}
     </tbody></table></div>
+    <div class="na" style="font-size:12px;margin-top:6px">Destildá una métrica para que no cuente en el score de ${esc(r.ced || r.s)} (por ejemplo, si el dato de Yahoo está distorsionado por un evento puntual). Para cambiar los pesos de toda la industria, usá "Cómo puntúa" en el Screener.</div>
     <div class="src">Pares: ${r.peerN} empresas de ${esc(r.peerLabel)} (si una métrica tiene menos de 5 datos en la industria, se usa el sector). Historia: estados anuales de Yahoo Finance${histN ? `, ${r.fx.years[0]}–${r.fx.years.at(-1)}` : ""}. Datos de mercado: Yahoo Finance${P.updated ? " · " + new Date(P.updated).toLocaleString("es-AR") : ""}.</div>
   </div>`;
   updateFair(); bindPage();
@@ -373,6 +375,11 @@ function bindPage() {
   $("peerAddBtn").onclick = addPeer;
   $("peerAdd").onkeydown = (e) => { if (e.key === "Enter") addPeer(); };
   if ($("peerReset")) $("peerReset").onclick = () => setPeers(null);
+  document.querySelectorAll("[data-off]").forEach((cb) => (cb.onchange = async () => {
+    const off = new Set(state.ov.get(r.s)?.metrics?.off || []);
+    cb.checked ? off.delete(cb.dataset.off) : off.add(cb.dataset.off);
+    await saveOverride(r.s, { metrics: { off: off.size ? [...off] : null } }); rescore();
+  }));
   document.querySelectorAll("[data-kpi]").forEach((inp) => (inp.onchange = async () => { const kpi = { ...(state.ov.get(r.s)?.metrics?.kpi || {}) }; if (inp.value.trim()) kpi[inp.dataset.kpi] = inp.value.trim(); else delete kpi[inp.dataset.kpi]; await saveOverride(r.s, { metrics: { kpi } }); toast("KPI guardado"); }));
   document.querySelectorAll("tr.peer").forEach((tr) => (tr.onclick = () => { history.pushState({}, "", "?s=" + encodeURIComponent(tr.dataset.s)); load(tr.dataset.s); window.scrollTo(0, 0); }));
   document.querySelectorAll("[data-edit]").forEach((el) => (el.onclick = () => {
@@ -388,7 +395,7 @@ function bindPage() {
 function rescore() {
   const y = window.scrollY;
   P.rows = [...P.rawMap.values()].map((x) => derive(x, state.ov.get(x.s), state.fund.get(x.s)));
-  scoreAll(P.rows, { userMult: userMult() });
+  scoreAll(P.rows, { userMult: userMult(), profW: userProfW() });
   P.r = P.rows.find((x) => x.s === P.sym); render(); window.scrollTo(0, y);
 }
 

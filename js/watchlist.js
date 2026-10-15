@@ -1,6 +1,6 @@
 import { UNIVERSE, SYMBOLS, BATCH_SIZE, COUNTRIES } from "/lib/universe.js";
 import { METRICS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
-import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, loadFund, withMeta, META } from "/js/core.js";
+import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, userProfW, loadFund, withMeta, META } from "/js/core.js";
 
 const KEY = "watchlists_v2", COLS_KEY = "watchlist_cols_v3";
 const DEFAULT_COLS = ["fpe", "peg", "evEbitda", "revG", "roic", "divY"];
@@ -41,7 +41,7 @@ async function ensureRows(syms) {
 }
 function rebuild() {
   W.rows = [...W.raw.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
-  scoreAll(W.rows, { userMult: userMult() });
+  scoreAll(W.rows, { userMult: userMult(), profW: userProfW() });
 }
 
 // ---------- Render ----------

@@ -19,6 +19,10 @@ export const METRICS = {
   pffo:     { l: "P / FFO", f: "x", dir: -1, g: "Valuación", pos: true, q: "Precio sobre el flujo de fondos operativo (ganancia + depreciación). El P/E de los REITs." },
   fcfY:     { l: "FCF yield", f: "%", dir: 1, g: "Valuación", q: "Caja libre anual como % del precio. Más alto, más barata." },
   roic:     { l: "ROIC", f: "%", dir: 1, g: "Calidad", q: "Retorno sobre el capital invertido. Mide si el negocio crea valor." },
+  roa:      { l: "ROA", f: "%", d: 2, dir: 1, g: "Calidad", q: "Ganancia sobre activos totales. En bancos, más de 1% es bueno; más de 1,5% es excelente." },
+  fcfConv:  { l: "Conversión de caja", f: "%", d: 0, dir: 1, g: "Calidad", q: "Free cash flow sobre ganancia neta (últimos 3 ejercicios). Arriba de 90%: las ganancias son reales y se cobran." },
+  omTrend:  { l: "Tendencia del margen", f: "pp", d: 1, dir: 1, g: "Calidad", q: "Puntos que ganó o perdió el margen operativo en los últimos 3 ejercicios. Positivo = apalancamiento operativo." },
+  dil:      { l: "Dilución anual", f: "%", d: 1, dir: -1, g: "Calidad", q: "Variación anual de la cantidad de acciones. Negativo = recompra acciones; positivo = te diluye." },
   roe:      { l: "ROE", f: "%", dir: 1, g: "Calidad", q: "Ganancia sobre el patrimonio. La métrica central en bancos y aseguradoras." },
   gm:       { l: "Margen bruto", f: "%", dir: 1, g: "Calidad", q: "Lo que queda de cada venta después del costo directo. Indica poder de precio." },
   om:       { l: "Margen operativo", f: "%", dir: 1, g: "Calidad", q: "Ganancia del negocio antes de intereses e impuestos, sobre ventas." },
@@ -29,6 +33,8 @@ export const METRICS = {
   rnd:      { l: "I+D / ventas", f: "%", dir: 1, g: "Calidad", q: "Inversión en investigación y desarrollo. Alimenta el crecimiento futuro en tecnología y farma." },
   epsG:     { l: "Crecimiento EPS esperado", f: "%", dir: 1, g: "Crecimiento", q: "Cuánto se espera que crezcan las ganancias por acción (consenso)." },
   revG:     { l: "Crecimiento de ventas", f: "%", dir: 1, g: "Crecimiento", q: "Variación de las ventas contra el mismo período del año anterior." },
+  revStab:  { l: "Volatilidad del crecimiento", f: "pp", d: 1, dir: -1, g: "Crecimiento", q: "Desvío del crecimiento de ventas año a año. Bajo = crecimiento predecible (lo que se busca en Stalwarts)." },
+  evRevG:   { l: "EV/Ventas ajustado por crecimiento", f: "x", d: 2, dir: -1, g: "Valuación", pos: true, q: "EV/Ventas dividido el crecimiento de ventas (en puntos). El 'PEG' de las empresas que todavía no ganan plata." },
   rule40:   { l: "Rule of 40", f: "%", dir: 1, g: "Crecimiento", q: "Crecimiento de ventas + margen FCF. En software, arriba de 40% es un negocio sano." },
   backlog:  { l: "Backlog / ventas", f: "x", d: 1, dir: 1, g: "Crecimiento", q: "Contratos firmados pendientes de facturar (RPO, dato de la SEC) sobre las ventas anuales. Visibilidad de ingresos futuros." },
   ndEbitda: { l: "Deuda neta / EBITDA", f: "x", dir: -1, g: "Solidez", q: "Años de caja operativa para pagar la deuda. Más de 3x es exigente; en REITs y utilities se toleran 5-6x." },
@@ -47,57 +53,57 @@ export const GROUPS = ["Valuación", "Calidad", "Crecimiento", "Solidez", "Divid
 const K = (k, l, hint) => ({ k, l, hint });
 export const PROFILES = {
   software:   { l: "Software", why: "Se mira crecimiento con rentabilidad (Rule of 40), múltiplo de ventas y dilución por pago en acciones.",
-    w: { rule40: 14, evRev: 10, revG: 14, gm: 10, fcfM: 10, sbc: 6, om: 8, peg: 8, backlog: 8, ndEbitda: 6, roic: 6 }, hist: ["evRev", "fpe", "gm", "om"],
+    w: { rule40: 14, evRev: 10, revG: 14, gm: 10, fcfM: 10, sbc: 6, om: 8, peg: 8, backlog: 8, ndEbitda: 6, roic: 6, dil: 8, evRevG: 8, fcfConv: 4 }, hist: ["evRev", "fpe", "gm", "om"],
     kpi: [K("arr", "ARR (US$ M)", "Ingresos recurrentes anualizados"), K("nrr", "Retención neta NRR (%)", "Más de 120% es excelente"), K("big", "Clientes > US$ 100k", "")] },
   neocloud:   { l: "Neocloud / infraestructura IA", why: "Negocio en construcción: pesan el crecimiento, el backlog contratado, el múltiplo de ventas y la capacidad de financiar el capex.",
-    w: { revG: 18, backlog: 16, evRev: 14, ndEbitda: 12, gm: 10, om: 8, cr: 8, runway: 6, intCov: 8 }, hist: ["evRev", "gm"],
+    w: { revG: 18, backlog: 16, evRev: 14, ndEbitda: 12, gm: 10, om: 8, cr: 8, runway: 6, intCov: 8, dil: 6 }, hist: ["evRev", "gm"],
     kpi: [K("arr", "ARR (US$ M)", "Ingresos recurrentes anualizados"), K("mw", "Capacidad contratada (MW)", ""), K("conc", "Concentración top cliente (%)", "Más de 50% es riesgo alto")] },
   semis:      { l: "Semiconductores", why: "Industria cíclica de alta tecnología: márgenes brutos, retorno sobre capital, I+D y PEG.",
-    w: { peg: 12, fpe: 8, gm: 14, om: 10, roic: 12, revG: 12, epsG: 10, rnd: 6, fcfY: 8, invTurn: 4, ndEbitda: 4 }, hist: ["fpe", "evEbitda", "gm", "om"],
+    w: { peg: 12, fpe: 8, gm: 14, om: 10, roic: 12, revG: 12, epsG: 10, rnd: 6, fcfY: 8, invTurn: 4, ndEbitda: 4, omTrend: 6, fcfConv: 4 }, hist: ["fpe", "evEbitda", "gm", "om"],
     kpi: [K("share", "Market share en su nicho (%)", ""), K("dio", "Días de inventario", "Si sube rápido, anticipa caída del ciclo")] },
   hardware:   { l: "Hardware y equipos", why: "Márgenes más bajos que software: caja libre, retorno sobre capital e inventario.",
-    w: { fpe: 12, peg: 10, evEbitda: 8, fcfY: 12, roic: 12, om: 10, revG: 10, epsG: 10, ndEbitda: 8, invTurn: 8 }, hist: ["fpe", "evEbitda", "om"], kpi: [] },
+    w: { fpe: 12, peg: 10, evEbitda: 8, fcfY: 12, roic: 12, om: 10, revG: 10, epsG: 10, ndEbitda: 8, invTurn: 8, fcfConv: 6 }, hist: ["fpe", "evEbitda", "om"], kpi: [] },
   itservices: { l: "Servicios IT", why: "Negocio de personas: márgenes estables, caja libre y crecimiento.",
-    w: { fpe: 14, fcfY: 12, roic: 14, om: 12, revG: 12, epsG: 12, divY: 6, ndEbitda: 6, shY: 6 }, hist: ["fpe", "om"], kpi: [K("bb", "Book-to-bill (x)", "Más de 1 = crecen los contratos")] },
+    w: { fpe: 14, fcfY: 12, roic: 14, om: 12, revG: 12, epsG: 12, divY: 6, ndEbitda: 6, shY: 6, fcfConv: 8, dil: 4 }, hist: ["fpe", "om"], kpi: [K("bb", "Book-to-bill (x)", "Más de 1 = crecen los contratos")] },
   internet:   { l: "Internet y plataformas", why: "Crecimiento de ventas, márgenes que escalan y múltiplo de ventas.",
-    w: { evRev: 12, peg: 12, revG: 16, om: 12, fcfY: 12, roic: 10, epsG: 10, sbc: 6, ndEbitda: 6 }, hist: ["evRev", "fpe", "om"],
+    w: { evRev: 12, peg: 12, revG: 16, om: 12, fcfY: 12, roic: 10, epsG: 10, sbc: 6, ndEbitda: 6, dil: 6, evRevG: 6, omTrend: 6 }, hist: ["evRev", "fpe", "om"],
     kpi: [K("users", "Usuarios activos (M)", ""), K("arpu", "ARPU (US$)", "Ingreso promedio por usuario")] },
   telecom:    { l: "Telecomunicaciones", why: "Negocio maduro de capital intensivo: EV/EBITDA, caja libre, deuda y dividendo.",
-    w: { evEbitda: 18, fcfY: 18, ndEbitda: 18, divY: 14, payout: 8, revG: 8, om: 8, intCov: 8 }, hist: ["evEbitda", "fcfY"], kpi: [K("churn", "Churn mensual (%)", "Menos de 1% es bueno"), K("arpu", "ARPU", "")] },
+    w: { evEbitda: 18, fcfY: 18, ndEbitda: 18, divY: 14, payout: 8, revG: 8, om: 8, intCov: 8, fcfConv: 6 }, hist: ["evEbitda", "fcfY"], kpi: [K("churn", "Churn mensual (%)", "Menos de 1% es bueno"), K("arpu", "ARPU", "")] },
   retail:     { l: "Retail", why: "En retail los márgenes son finos: EV/Ventas, rotación de inventario y retorno sobre capital.",
-    w: { evRev: 12, fpe: 10, invTurn: 14, om: 12, roic: 14, revG: 12, fcfY: 10, ndEbitda: 8, epsG: 8 }, hist: ["evRev", "fpe", "om"],
+    w: { evRev: 12, fpe: 10, invTurn: 14, om: 12, roic: 14, revG: 12, fcfY: 10, ndEbitda: 8, epsG: 8, omTrend: 6 }, hist: ["evRev", "fpe", "om"],
     kpi: [K("sss", "Ventas mismas tiendas (%)", "El dato clave del trimestre"), K("stores", "Cantidad de tiendas", "")] },
   restaurants:{ l: "Restaurantes", why: "Crecimiento orgánico, márgenes y retorno sobre capital.",
-    w: { fpe: 12, evEbitda: 12, roic: 14, om: 12, revG: 12, epsG: 12, fcfY: 10, ndEbitda: 10, divY: 6 }, hist: ["fpe", "evEbitda", "om"],
+    w: { fpe: 12, evEbitda: 12, roic: 14, om: 12, revG: 12, epsG: 12, fcfY: 10, ndEbitda: 10, divY: 6, fcfConv: 4 }, hist: ["fpe", "evEbitda", "om"],
     kpi: [K("sss", "Ventas mismas tiendas (%)", ""), K("units", "Aperturas netas", "")] },
   brands:     { l: "Marcas de consumo", why: "Poder de marca: margen bruto, retorno sobre capital e inventario.",
-    w: { fpe: 12, peg: 10, gm: 12, om: 12, roic: 14, revG: 12, fcfY: 10, invTurn: 8, ndEbitda: 10 }, hist: ["fpe", "gm", "om"], kpi: [] },
+    w: { fpe: 12, peg: 10, gm: 12, om: 12, roic: 14, revG: 12, fcfY: 10, invTurn: 8, ndEbitda: 10, fcfConv: 6, omTrend: 4 }, hist: ["fpe", "gm", "om"], kpi: [] },
   leisure:    { l: "Turismo y ocio", why: "Muy cíclico y apalancado: EV/EBITDA, deuda y caja libre.",
     w: { evEbitda: 16, fcfY: 14, ndEbitda: 16, om: 12, revG: 12, epsG: 10, intCov: 10, roic: 10 }, hist: ["evEbitda", "om"], kpi: [K("occ", "Ocupación (%)", "")] },
   autos:      { l: "Automotrices", why: "Cíclico con márgenes finos: EV/Ventas, margen operativo y caja.",
     w: { evRev: 12, fpe: 12, om: 14, fcfY: 14, revG: 12, ndEbitda: 10, roic: 10, invTurn: 8, divY: 8 }, hist: ["evRev", "fpe", "om"],
     kpi: [K("deliv", "Entregas (unidades)", ""), K("asp", "Precio promedio por vehículo", "")] },
   pharma:     { l: "Farmacéuticas", why: "Ganancias estables: P/E, caja libre, I+D y dividendo. Ojo con vencimientos de patentes.",
-    w: { fpe: 14, peg: 10, fcfY: 14, om: 12, rnd: 8, roic: 10, revG: 10, epsG: 10, divY: 6, payout: 4, ndEbitda: 6 }, hist: ["fpe", "evEbitda", "om"],
+    w: { fpe: 14, peg: 10, fcfY: 14, om: 12, rnd: 8, roic: 10, revG: 10, epsG: 10, divY: 6, payout: 4, ndEbitda: 6, fcfConv: 6 }, hist: ["fpe", "evEbitda", "om"],
     kpi: [K("ph3", "Productos en fase 3", ""), K("loe", "Ventas con patente por vencer en 5 años (%)", "Más de 30% es riesgo alto")] },
   biotech:    { l: "Biotecnología", why: "Si todavía no gana plata, manda cuántos años de caja tiene y el crecimiento de ventas.",
-    w: { evRev: 14, revG: 18, gm: 10, runway: 14, cr: 10, rnd: 6, om: 10, ndEbitda: 8, fcfM: 10 }, hist: ["evRev"],
+    w: { evRev: 14, revG: 18, gm: 10, runway: 14, cr: 10, rnd: 6, om: 10, ndEbitda: 8, fcfM: 10, dil: 10 }, hist: ["evRev"],
     kpi: [K("ph3", "Productos en fase 3", ""), K("cat", "Próximo catalizador", "Fecha de lectura de ensayos o aprobación")] },
   medtech:    { l: "Dispositivos médicos", why: "Crecimiento estable con márgenes altos.",
-    w: { peg: 12, fpe: 10, gm: 12, om: 12, roic: 12, revG: 12, epsG: 12, fcfY: 10, ndEbitda: 8 }, hist: ["fpe", "evEbitda", "om"], kpi: [] },
+    w: { peg: 12, fpe: 10, gm: 12, om: 12, roic: 12, revG: 12, epsG: 12, fcfY: 10, ndEbitda: 8, fcfConv: 6, omTrend: 4 }, hist: ["fpe", "evEbitda", "om"], kpi: [] },
   hcservices: { l: "Servicios de salud", why: "Márgenes finos y mucho volumen: P/E, crecimiento de ganancias y caja.",
-    w: { fpe: 16, peg: 10, om: 10, roe: 12, revG: 12, epsG: 14, fcfY: 14, ndEbitda: 6, divY: 6 }, hist: ["fpe"], kpi: [K("mlr", "Medical loss ratio (%)", "Si sube, se achica el margen")] },
+    w: { fpe: 16, peg: 10, om: 10, roe: 12, revG: 12, epsG: 14, fcfY: 14, ndEbitda: 6, divY: 6, fcfConv: 6 }, hist: ["fpe"], kpi: [K("mlr", "Medical loss ratio (%)", "Si sube, se achica el margen")] },
   bank:       { l: "Bancos", why: "ROE contra precio/valor libro y eficiencia operativa. ROIC, deuda y EV no aplican.",
-    w: { fpe: 14, pb: 14, roe: 18, eff: 16, epsG: 10, revG: 8, divY: 10, payout: 4, divG: 6 }, hist: ["pe", "pb", "roe", "eff"],
+    w: { fpe: 14, pb: 14, roe: 18, eff: 16, epsG: 10, revG: 8, divY: 10, payout: 4, divG: 6, roa: 14 }, hist: ["pe", "pb", "roe", "eff"],
     kpi: [K("npl", "Morosidad (%)", "Menos de 2% es sana"), K("cet1", "CET1 (%)", "Capital: más de 11% es holgado"), K("nim", "Margen financiero NIM (%)", "")] },
   insurance:  { l: "Aseguradoras", why: "ROE, precio/valor libro y crecimiento de primas.",
-    w: { fpe: 14, pb: 16, roe: 18, epsG: 12, revG: 10, divY: 10, divG: 8, payout: 6, fcfY: 6 }, hist: ["pe", "pb", "roe"],
+    w: { fpe: 14, pb: 16, roe: 18, epsG: 12, revG: 10, divY: 10, divG: 8, payout: 6, fcfY: 6, roa: 6 }, hist: ["pe", "pb", "roe"],
     kpi: [K("cr", "Combined ratio (%)", "Menos de 100% = gana con el negocio de seguros"), K("prem", "Crecimiento de primas (%)", "")] },
   payments:   { l: "Pagos y fintech", why: "Escala con márgenes altos: crecimiento, margen operativo y caja.",
-    w: { peg: 12, fpe: 10, om: 14, roe: 10, revG: 16, epsG: 12, fcfY: 14, fcfM: 6, sbc: 6 }, hist: ["fpe", "om"],
+    w: { peg: 12, fpe: 10, om: 14, roe: 10, revG: 16, epsG: 12, fcfY: 14, fcfM: 6, sbc: 6, omTrend: 6, dil: 6 }, hist: ["fpe", "om"],
     kpi: [K("tpv", "TPV (US$ B)", "Volumen procesado"), K("take", "Take rate (%)", "")] },
   capmarkets: { l: "Mercados de capitales y gestoras", why: "Ingresos ligados al mercado: ROE, márgenes y retorno al accionista.",
-    w: { fpe: 14, pb: 6, roe: 16, om: 14, revG: 12, epsG: 12, divY: 10, fcfY: 10, shY: 6 }, hist: ["pe", "om", "roe"],
+    w: { fpe: 14, pb: 6, roe: 16, om: 14, revG: 12, epsG: 12, divY: 10, fcfY: 10, shY: 6, roa: 4 }, hist: ["pe", "om", "roe"],
     kpi: [K("aum", "Activos bajo gestión (US$ B)", ""), K("flows", "Flujos netos (US$ B)", "")] },
   crypto:     { l: "Tesorería cripto / mineras", why: "Valen por los activos que tienen: precio/valor libro y liquidez. Cargá el mNAV a mano.",
     w: { pb: 30, cr: 20, revG: 20, ndEbitda: 10, om: 10 }, hist: ["pb"],
@@ -125,7 +131,7 @@ export const PROFILES = {
   chemicals:  { l: "Químicos y materiales", why: "Cíclico industrial: EV/EBITDA, caja libre, deuda y márgenes.",
     w: { evEbitda: 14, fcfY: 14, ndEbitda: 12, om: 12, roic: 12, divY: 8, fpe: 8, revG: 10, epsG: 10 }, hist: ["evEbitda", "om"], kpi: [] },
   aerospace:  { l: "Aeroespacial y defensa", why: "Contratos largos: backlog, márgenes y retorno sobre capital.",
-    w: { peg: 10, fpe: 10, om: 12, roic: 12, fcfY: 12, revG: 12, epsG: 12, backlog: 12, ndEbitda: 8 }, hist: ["fpe", "evEbitda", "om"],
+    w: { peg: 10, fpe: 10, om: 12, roic: 12, fcfY: 12, revG: 12, epsG: 12, backlog: 12, ndEbitda: 8, fcfConv: 6 }, hist: ["fpe", "evEbitda", "om"],
     kpi: [K("bb", "Book-to-bill (x)", "Más de 1 = crece la cartera")] },
   airlines:   { l: "Aerolíneas", why: "Muy apalancadas y cíclicas: EV/EBITDA, deuda, márgenes y liquidez.",
     w: { evEbitda: 16, evRev: 10, ndEbitda: 16, om: 14, fcfY: 14, revG: 10, intCov: 10, cr: 10 }, hist: ["evEbitda", "om"],
@@ -133,9 +139,9 @@ export const PROFILES = {
   transport:  { l: "Transporte e infraestructura", why: "Activos de larga vida: márgenes, retorno sobre capital y EV/EBITDA.",
     w: { evEbitda: 14, fcfY: 12, roic: 12, om: 14, ndEbitda: 12, revG: 10, epsG: 10, divY: 8, fpe: 8 }, hist: ["evEbitda", "om"], kpi: [K("traffic", "Tráfico / volumen (var. %)", "")] },
   machinery:  { l: "Industriales y maquinaria", why: "Equilibrio entre valuación, retorno sobre capital y crecimiento.",
-    w: { peg: 10, fpe: 10, evEbitda: 8, fcfY: 12, roic: 14, om: 12, revG: 10, epsG: 12, ndEbitda: 8, invTurn: 4 }, hist: ["fpe", "evEbitda", "om"], kpi: [K("bb", "Book-to-bill (x)", "")] },
+    w: { peg: 10, fpe: 10, evEbitda: 8, fcfY: 12, roic: 14, om: 12, revG: 10, epsG: 12, ndEbitda: 8, invTurn: 4, fcfConv: 6 }, hist: ["fpe", "evEbitda", "om"], kpi: [K("bb", "Book-to-bill (x)", "")] },
   staples:    { l: "Consumo básico", why: "Calidad estable: retorno sobre capital, caja libre y dividendo por encima del crecimiento.",
-    w: { fpe: 12, fcfY: 12, roic: 14, om: 12, gm: 6, epsG: 10, revG: 8, ndEbitda: 8, divY: 10, payout: 4, divG: 6 }, hist: ["fpe", "evEbitda", "om"],
+    w: { fpe: 12, fcfY: 12, roic: 14, om: 12, gm: 6, epsG: 10, revG: 8, ndEbitda: 8, divY: 10, payout: 4, divG: 6, fcfConv: 8, revStab: 6 }, hist: ["fpe", "evEbitda", "om"],
     kpi: [K("vol", "Crecimiento de volumen (%)", "Crecer por volumen vale más que por precio")] },
   agro:       { l: "Agro", why: "Valor de la tierra y ciclo de commodities: precio/valor libro, EV/EBITDA y deuda.",
     w: { evEbitda: 16, pb: 14, fcfY: 12, ndEbitda: 14, om: 10, roe: 12, revG: 10, divY: 6 }, hist: ["pb", "evEbitda"], kpi: [K("ha", "Hectáreas", "")] },
@@ -192,13 +198,15 @@ export function profileOf(r) {
   return SECTOR_DEFAULT[r.sec] || "growth";
 }
 // Métricas que no tienen sentido para cierta industria (no se muestran ni comparan)
-const BANKISH = ["evRev", "evEbitda", "pffo", "fcfM", "fcfY", "rule40", "runway", "gm", "invTurn", "cr", "intCov", "ndEbitda", "rnd", "sbc", "capexInt", "backlog"];
+const BANKISH = ["fcfConv", "evRevG", "dil", "evRev", "evEbitda", "pffo", "fcfM", "fcfY", "rule40", "runway", "gm", "invTurn", "cr", "intCov", "ndEbitda", "rnd", "sbc", "capexInt", "backlog"];
 export function relevant(r, k) {
   if (r.sec === "fin" && !["payments", "crypto"].includes(r.profile) && BANKISH.includes(k)) return false;
   if (k === "pffo" && !["reit", "realestate"].includes(r.profile)) return false;
   if (k === "rule40" && !["software", "internet", "neocloud", "payments"].includes(r.profile)) return false;
   if (k === "runway" && !(ok(r.fcf) && r.fcf < 0)) return false;
   if (k === "eff" && r.profile !== "bank") return false;
+  if (k === "roa" && r.sec !== "fin") return false;
+  if (k === "evRevG" && !(ok(r.revG) && r.revG > 2)) return false;
   return true;
 }
 // Compatibilidad: familia = perfil
@@ -216,11 +224,11 @@ export const LYNCH_INFO = {
   asset: "Vale más por lo que tiene que por lo que gana: precio contra valor libro.",
 };
 const LYNCH_MOD = {
-  fast:       { g: { Crecimiento: 1.5, Dividendos: 0.2 }, m: { peg: 1.3 }, add: { peg: 12, revG: 10, epsG: 10 } },
-  stalwart:   { g: { Calidad: 1.25, Valuación: 1.15, Crecimiento: 0.9 }, m: {}, add: { roe: 8, divG: 6 }, hist: 1.3 },
+  fast:       { g: { Crecimiento: 1.5, Dividendos: 0.2 }, m: { peg: 1.3 }, add: { peg: 12, revG: 10, epsG: 10, omTrend: 6, dil: 4 } },
+  stalwart:   { g: { Calidad: 1.25, Valuación: 1.15, Crecimiento: 0.9 }, m: {}, add: { roe: 8, divG: 6, revStab: 6, fcfConv: 6 }, hist: 1.3 },
   slow:       { g: { Dividendos: 1.8, Valuación: 1.2, Crecimiento: 0.5 }, m: {}, add: { payout: 10, divY: 12, divG: 8, shY: 6 } },
   cyclical:   { g: { Solidez: 1.4, Crecimiento: 0.5 }, m: { peg: 0.3, fpe: 0.5, pe: 0.5 }, add: { evEbitda: 12, pb: 8, ndEbitda: 8 }, hist: 1.4 },
-  turnaround: { g: { Solidez: 1.8, Calidad: 0.7 }, m: { peg: 0, fpe: 0.4 }, add: { runway: 10, cr: 10, intCov: 8, ndEbitda: 8 } },
+  turnaround: { g: { Solidez: 1.8, Calidad: 0.7 }, m: { peg: 0, fpe: 0.4 }, add: { runway: 10, cr: 10, intCov: 8, ndEbitda: 8, omTrend: 10 } },
   asset:      { g: { Crecimiento: 0.5 }, m: { pb: 2 }, add: { pb: 16 } },
 };
 const CYCLICAL_PROFILES = new Set(["oilgas", "mining", "chemicals", "airlines", "autos", "leisure", "oilservices", "agro"]);
@@ -229,14 +237,15 @@ export function classifyLynch(r) {
   if (ok(r.eps) && r.eps <= 0) return "turnaround";
   if (r.sec !== "fin" && ok(r.pb) && r.pb > 0 && r.pb < 0.8) return "asset";
   if (CYCLICAL_PROFILES.has(r.profile) || r.profile === "semis" && /Equipment/.test(r.ind || "")) return "cyclical";
+  if (r.c === "AR") return null;
   const g = ok(r.epsG) ? r.epsG : r.revG;
   if (!ok(g)) return null;
   return g < 7 ? "slow" : g < 18 ? "stalwart" : "fast";
 }
 
 // Pesos efectivos: perfil + ajuste Lynch + multiplicadores del usuario
-export function weightsFor(r, userMult = {}) {
-  const w = { ...PROFILES[r.profile].w };
+export function weightsFor(r, userMult = {}, profW = {}) {
+  const w = { ...(profW[r.profile] || PROFILES[r.profile].w) };
   const mod = LYNCH_MOD[r.lynch];
   if (mod) {
     for (const [k, v] of Object.entries(mod.add || {})) if (!(k in w)) w[k] = v;
@@ -244,7 +253,11 @@ export function weightsFor(r, userMult = {}) {
     for (const k of Object.keys(w)) w[k] *= mod.g?.[METRICS[k].g] ?? 1;
   }
   if (r.sec === "fin" && !["payments", "crypto"].includes(r.profile)) for (const k of ["roic", "ndEbitda", "evEbitda", "evRev", "cr", "fcfY", "intCov", "fcfM"]) delete w[k];
-  for (const k of Object.keys(w)) { w[k] *= userMult[METRICS[k].g] ?? 1; if (!w[k]) delete w[k]; }
+  // Argentina: crecimiento y PEG en pesos no son comparables (inflación)
+  if (r.c === "AR") for (const k of ["revG", "epsG", "peg", "rule40", "evRevG", "divG", "omTrend"]) delete w[k];
+  r.offKeys = [];
+  for (const k of r.off || []) if (k in w) { delete w[k]; r.offKeys.push(k); }
+  for (const k of Object.keys(w)) { if (!METRICS[k]) { delete w[k]; continue; } w[k] *= userMult[METRICS[k].g] ?? 1; if (!w[k]) delete w[k]; }
   return w;
 }
 
@@ -259,11 +272,13 @@ export function derive(raw, ov, fx) {
   // Métricas de estados anuales (sync semanal)
   r.fx = fx || null;
   const L = fx?.latest || {};
-  for (const k of ["fcfM", "rnd", "sbc", "invTurn", "eff", "intCov", "divG", "runway", "backlog", "capexInt"]) if (r[k] == null && ok(L[k])) r[k] = L[k];
+  for (const k of ["fcfM", "rnd", "sbc", "invTurn", "eff", "intCov", "divG", "runway", "backlog", "capexInt", "roa", "fcfConv", "omTrend", "dil", "revStab"]) if (r[k] == null && ok(L[k])) r[k] = L[k];
+  if (r.c === "AR") r.epsG = null;
   if (r.sec !== "fin" && !ok(r.ndEbitda) && ok(fx?.fy?.ndEbitda?.at(-1))) r.ndEbitda = fx.fy.ndEbitda.at(-1);
   r.pffo = ok(r.mcap) && L.ffoUsd > 0 ? r.mcap / L.ffoUsd : null;
   r.shY = ok(r.mcap) && ok(L.payoutsUsd) ? (L.payoutsUsd / r.mcap) * 100 : null;
   r.rule40 = ok(r.revG) && ok(r.fcfM) ? r.revG + r.fcfM : null;
+  r.evRevG = ok(r.evRev) && r.evRev > 0 && ok(r.revG) && r.revG > 2 ? r.evRev / r.revG : null;
   r.d52 = ok(raw.px) && raw.hi52 ? (raw.px / raw.hi52 - 1) * 100 : null;
   r.edited = new Set();
   for (const [k, v] of Object.entries(ov?.metrics || {})) if (METRICS[k] || ["pe", "nm", "eps", "feps"].includes(k)) if (v !== "" && v != null && isFinite(Number(v))) { r[k] = Number(v); r.edited.add(k); }
@@ -276,6 +291,7 @@ export function derive(raw, ov, fx) {
   r.notes = ov?.notes || "";
   r.thesis = ov?.metrics?.thesis || null;
   r.kpi = ov?.metrics?.kpi || {};
+  r.off = Array.isArray(ov?.metrics?.off) ? ov.metrics.off : [];
   r.hasThesis = !!(r.fair || r.notes || ov?.lynch_type || r.thesis);
   r.family = r.profile;
   return r;
@@ -286,6 +302,7 @@ function cmpVal(r, k) { const v = r[k]; if (!ok(v)) return null; if (METRICS[k]?
 const avg = (a) => { const v = a.filter(ok); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
 
 // Historia propia: valor actual contra los últimos ejercicios
+const CYCLE_FLIP = new Set(["pe", "fpe", "evEbitda", "om", "gm", "roic", "roe"]);
 export function histOf(r, k) {
   const s = r.fx?.fy?.[k];
   if (!s) return null;
@@ -293,12 +310,16 @@ export function histOf(r, k) {
   const cur = cmpVal(r, k);
   if (vals.length < 3 || cur == null) return null;
   const a = avg(vals);
+  // Cíclicas (Lynch): P/E y EV/EBITDA altos y márgenes bajos contra su historia = cerca del piso del ciclo
+  const flip = r.lynch === "cyclical" && CYCLE_FLIP.has(k);
+  const dir = (METRICS[k]?.dir ?? 1) * (flip ? -1 : 1);
   let better = 0;
-  for (const v of vals) { if (METRICS[k].dir > 0 ? cur > v : cur < v) better++; else if (cur === v) better += 0.5; }
-  return { avg: a, cur, n: vals.length, years: r.fx.years, series: s, p: Math.round((better / vals.length) * 100), diff: a ? (cur / a - 1) * 100 : null };
+  for (const v of vals) { if (dir > 0 ? cur > v : cur < v) better++; else if (cur === v) better += 0.5; }
+  const diff = a ? (cur / a - 1) * 100 : null;
+  return { avg: a, cur, n: vals.length, years: r.fx.years, series: s, p: Math.round((better / vals.length) * 100), diff, flip, better: ok(diff) ? (dir > 0 ? diff > 0 : diff < 0) : null };
 }
 
-export function scoreAll(rows, { peer = "sector", userMult = {} } = {}) {
+export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = {}) {
   const groupKey = (r) => (peer === "sector-country" ? r.sec + "|" + r.c : r.sec);
   // Las acciones argentinas no entran como pares de las del resto del mundo (inflación en pesos distorsiona crecimiento y márgenes)
   const mk = () => ({ sec: new Map(), prof: new Map() });
@@ -334,7 +355,7 @@ export function scoreAll(rows, { peer = "sector", userMult = {} } = {}) {
     }
     for (const k of ["nm", "upside", "d52", "beta", "capexInt"]) r.med[k] = median(sect.map((p) => p[k]));
     // Score contra pares
-    r.weights = weightsFor(r, userMult);
+    r.weights = weightsFor(r, userMult, profW);
     let tot = 0, sw = 0, ss = 0; const gs = {};
     for (const [k, w] of Object.entries(r.weights)) {
       tot += w; const g = METRICS[k].g; gs[g] = gs[g] || { s: 0, w: 0 };
@@ -362,9 +383,10 @@ export function scoreAll(rows, { peer = "sector", userMult = {} } = {}) {
     for (const k of hk) {
       const h = r.hist[k], m = METRICS[k];
       if (Math.abs(h.diff ?? 0) < 10) continue;
-      const better = m.dir > 0 ? h.diff > 0 : h.diff < 0;
+      const better = h.better;
       const t = `${m.l} ${fmt(h.cur, m.f, m.d)} vs ${fmt(h.avg, m.f, m.d)} de promedio en sus últimos ${h.n} ejercicios`;
-      (better ? r.why : r.alerts).push({ k, w: 8, p: better ? 85 : 15, t: `${better ? (m.g === "Valuación" ? "Más barata que su historia" : "Mejor que su historia") : (m.g === "Valuación" ? "Más cara que su historia" : "Peor que su historia")}: ${t}` });
+      const head = h.flip ? (better ? "Cíclica cerca del piso del ciclo" : "Cíclica cerca del pico del ciclo") : better ? (m.g === "Valuación" ? "Más barata que su historia" : "Mejor que su historia") : (m.g === "Valuación" ? "Más cara que su historia" : "Peor que su historia");
+      (better ? r.why : r.alerts).push({ k, w: 8, p: better ? 85 : 15, t: `${head}: ${t}` });
     }
     if (ok(r.fcf) && r.fcf < 0 && r.sec !== "fin") r.alerts.push({ w: 99, t: ok(r.runway) ? `Quema caja: le alcanza para ${fmt(r.runway, "x", 1).replace("x", "")} años al ritmo actual` : "Quema caja: el free cash flow es negativo" });
     if (ok(r.eps) && r.eps <= 0) r.alerts.push({ w: 98, t: "Hoy pierde plata (EPS de los últimos 12 meses negativo)" });
@@ -373,6 +395,9 @@ export function scoreAll(rows, { peer = "sector", userMult = {} } = {}) {
     if (ok(r.payout) && r.payout > (["reit", "utility", "midstream"].includes(r.profile) ? 110 : 85)) r.alerts.push({ w: 95, t: `Payout de ${fmt(r.payout, "%", 0)}: el dividendo está poco cubierto por la ganancia` });
     if (ok(r.sbc) && r.sbc > 15) r.alerts.push({ w: 94, t: `Paga ${fmt(r.sbc, "%", 0)} de sus ventas en acciones: diluye al accionista` });
     if (ok(r.eff) && r.eff > 65) r.alerts.push({ w: 93, t: `Banco poco eficiente: gasta ${fmt(r.eff, "%", 0)} de sus ingresos en operar` });
+    if (ok(r.dil) && r.dil > 4) r.alerts.push({ w: 91, t: `Diluye: la cantidad de acciones crece ${fmt(r.dil, "%", 1)} por año` });
+    if (ok(r.fcfConv) && r.fcfConv < 50 && r.sec !== "fin" && ok(r.eps) && r.eps > 0) r.alerts.push({ w: 90, t: `Solo ${fmt(r.fcfConv, "%", 0)} de la ganancia se convierte en caja: revisar la calidad de las ganancias` });
+    if (r.profile === "bank" && ok(r.roa) && r.roa < 0.7) r.alerts.push({ w: 89, t: `ROA de ${fmt(r.roa, "%", 2)}: rentabilidad baja sobre sus activos` });
     if (ok(r.intCov) && r.intCov < 2 && r.intCov > -50 && r.sec !== "fin") r.alerts.push({ w: 92, t: `La ganancia operativa cubre ${fmt(r.intCov, "x")} los intereses` });
     r.why.sort((a, b) => b.w * b.p - a.w * a.p);
     r.alerts.sort((a, b) => b.w - a.w);
@@ -412,6 +437,7 @@ export function fmt(v, f, d) {
   if (Math.abs(v) < 0.5 * 10 ** -dd) v = 0;
   if (f === "%") return nf(dd).format(v) + "%";
   if (f === "x") return nf(dd).format(v) + "x";
+  if (f === "pp") return (v > 0 ? "+" : "") + nf(dd).format(v) + " pp";
   return nf(dd).format(v);
 }
 export function fmtCap(v) {

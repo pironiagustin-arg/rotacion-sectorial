@@ -110,4 +110,5 @@ export async function saveOverride(sym, patch) {
   return true;
 }
 
+export function userProfW() { return state.ov.get("__settings")?.metrics?.profW || loadLocal("scr_profw", {}); }
 export function userMult() { return state.ov.get("__settings")?.metrics?.mult || loadLocal("scr_mult", {}); }

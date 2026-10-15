@@ -9,7 +9,7 @@ const TYPES = ["TotalRevenue", "CostOfRevenue", "GrossProfit", "OperatingIncome"
   "ResearchAndDevelopment", "StockBasedCompensation", "FreeCashFlow", "CapitalExpenditure", "OperatingCashFlow", "TotalDebt",
   "CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments", "StockholdersEquity", "Inventory", "DilutedAverageShares",
   "OrdinarySharesNumber", "CashDividendsPaid", "RepurchaseOfCapitalStock", "InterestExpense", "ReconciledDepreciation",
-  "NonInterestExpense", "InvestedCapital", "CurrentAssets", "CurrentLiabilities", "TaxRateForCalcs"];
+  "NonInterestExpense", "InvestedCapital", "TotalAssets", "CurrentAssets", "CurrentLiabilities", "TaxRateForCalcs"];
 
 const ok = (v) => v != null && isFinite(v);
 const div = (a, b) => (ok(a) && ok(b) && b !== 0 ? a / b : null);
@@ -95,6 +95,8 @@ export async function fundExtra(symbol, fx) {
     put("capexInt", i, rev > 0 && ok(g("CapitalExpenditure", d)) ? pct(Math.abs(g("CapitalExpenditure", d)), rev) : null);
     put("intCov", i, ok(oi) && Math.abs(g("InterestExpense", d) ?? 0) > 0 ? oi / Math.abs(g("InterestExpense", d)) : null);
     put("dps", i, shares > 0 && divPaid ? divPaid / shares : null);
+    put("sh", i, shares);
+    put("roa", i, pct(ni, avg("TotalAssets", i)));
     put("ffoPS", i, shares > 0 && ok(ffo) ? ffo / shares : null);
     // Múltiplos al cierre de cada ejercicio (solo si la cotización y los balances están en la misma moneda)
     if (sameCur && shares > 0) {
@@ -118,6 +120,17 @@ export async function fundExtra(symbol, fx) {
   const fcfLast = g("FreeCashFlow", last), cashLast = g("CashCashEquivalentsAndShortTermInvestments", last) ?? g("CashAndCashEquivalents", last);
   const ffoLast = ok(g("NetIncome", last)) ? g("NetIncome", last) + (g("ReconciledDepreciation", last) ?? 0) : null;
   const divPaidLast = Math.abs(g("CashDividendsPaid", last) ?? 0), buyLast = Math.abs(g("RepurchaseOfCapitalStock", last) ?? 0);
+  // Calidad y consistencia (últimos ejercicios)
+  const sh = (fy.sh || []).map((v, i) => [i, v]).filter(([, v]) => ok(v) && v > 0);
+  const dil = sh.length >= 3 ? (Math.pow(sh.at(-1)[1] / sh[0][1], 1 / (sh.at(-1)[0] - sh[0][0])) - 1) * 100 : null;
+  const k3 = dates.slice(-3);
+  const fcf3 = k3.map((d) => g("FreeCashFlow", d)), ni3 = k3.map((d) => g("NetIncome", d));
+  const sumF = fcf3.every(ok) ? fcf3.reduce((a, b) => a + b, 0) : null, sumN = ni3.every(ok) ? ni3.reduce((a, b) => a + b, 0) : null;
+  const fcfConv = sumN > 0 && ok(sumF) ? (sumF / sumN) * 100 : null;
+  const omA = (fy.om || []).filter(ok);
+  const omTrend = omA.length >= 3 ? omA.at(-1) - omA[Math.max(0, omA.length - 4)] : null;
+  const rg = (fy.revG || []).filter(ok);
+  const revStab = rg.length >= 3 ? Math.sqrt(rg.reduce((s, x) => s + (x - rg.reduce((a, b) => a + b, 0) / rg.length) ** 2, 0) / rg.length) : null;
   return {
     s: symbol, ok: true, cur, qcur: px.cur, years: dates.map((d) => d.slice(0, 4)), fyEnd: last,
     fy,
@@ -129,6 +142,7 @@ export async function fundExtra(symbol, fx) {
       rpoUsd: rpo?.v ?? null, rpoEnd: rpo?.end ?? null,
       backlog: rpo?.v && g("TotalRevenue", last) > 0 && (!cur || cur === "USD") ? r4(rpo.v / g("TotalRevenue", last)) : null,
       revUsd: toUsd(g("TotalRevenue", last)),
+      roa: lastOf("roa"), dil: r4(dil), fcfConv: r4(fcfConv), omTrend: r4(omTrend), revStab: r4(revStab),
     },
     t: Date.now(),
   };
