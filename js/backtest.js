@@ -67,7 +67,6 @@ $("ptabs").onclick = (e) => { const b = e.target.closest("[data-i]"); if (!b) re
 
 // ---------- Señales RRG ----------
 async function rrgView() {
-  setTimeout(() => { const b = document.getElementById("rrgLive"); if (b) renderRrgLive(b); }, 0);
   const el = $("vRrg");
   const d = await fetch("/data/rrg_backtest.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!d) { el.innerHTML = `<div class="empty">El backtest de señales todavía no se generó.</div>`; return; }
@@ -100,7 +99,8 @@ async function rrgView() {
     <div class="card" style="margin-top:12px"><h3>Últimas señales y qué pasó</h3><div class="tablewrap"><table class="rt"><thead><tr><th class="l">Fecha</th><th class="l">Sector</th><th>¿Explotó?</th><th>Sector vs SPY 60r</th><th class="l">3 líderes a 6 meses → resultado 60r vs sector</th></tr></thead><tbody>
       ${d.events.slice(0, 25).map((e) => `<tr><td class="l">${fd(e.date)}</td><td class="l"><b>${esc(e.sym)}</b> <span class="na">${esc(e.name)}</span></td><td class="num">${e.cross != null ? `Sí, en ${e.cross} r.` : '<span class="neg">No</span>'}</td><td class="num">${pp(e.rel[60])}</td><td class="l">${(e.top || []).map((t) => `${esc(t.s)} ${pp(t.f60, 0)}`).join(" · ") || "—"}</td></tr>`).join("")}
       </tbody></table></div></div>
-    <div class="caveat" data-x>Simulación día a día con la misma fórmula que usa la app (sin mirar el futuro). Rendimientos sin costos ni impuestos, en dólares. Las acciones son las del universo actual (sesgo de supervivencia a favor). Rendimientos pasados no garantizan los futuros.</div>`;
+    <div class="caveat">Simulación día a día con la misma fórmula que usa la app (sin mirar el futuro). Rendimientos sin costos ni impuestos, en dólares. Las acciones son las del universo actual (sesgo de supervivencia a favor). Rendimientos pasados no garantizan los futuros.</div>`;
+  renderRrgLive($("rrgLive"));
 }
 $("btTabs").onclick = (e) => { const b = e.target.closest("[data-v]"); if (!b) return; document.querySelectorAll("#btTabs .tab").forEach((x) => x.classList.toggle("on", x === b)); $("vScore").style.display = b.dataset.v === "score" ? "" : "none"; $("vRrg").style.display = b.dataset.v === "rrg" ? "" : "none"; if (b.dataset.v === "rrg" && !$("vRrg").innerHTML) rrgView(); };
 if (location.hash === "#rrg") $("btTabs").querySelector('[data-v="rrg"]').click();
