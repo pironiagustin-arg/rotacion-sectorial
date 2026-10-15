@@ -70,12 +70,15 @@ async function load(sym) {
           renderThesis();
         });
       }
-      if (pr && !pr.error && pr.profile?.summary && pr.profile.summary === pr.profile.summary_en) {
-        const [sum, titles] = await Promise.all([translateEs(pr.profile.summary), translateEs((pr.news || []).map((n) => n.title).join("\n"))]);
+      if (pr && !pr.error) {
+        const needSum = pr.profile?.summary && pr.profile.summary === pr.profile.summary_en;
+        const todo = (pr.news || []).filter((n) => !n.title_es || n.title_es === n.title);
+        const [sum, titles] = await Promise.all([needSum ? translateEs(pr.profile.summary) : null, todo.length ? translateEs(todo.map((n) => n.title.replace(/\n/g, " ")).join("\n")) : null]);
         if (P.sym !== sym) return;
         if (sum) pr.profile.summary = sum;
-        if (titles) titles.split("\n").forEach((t, i) => { if (pr.news[i]) pr.news[i].title_es = t; });
-        renderAbout(); renderThesis();
+        const tl = titles ? titles.split("\n") : [];
+        if (tl.length === todo.length) todo.forEach((n, i) => (n.title_es = tl[i]));
+        if (sum || tl.length) { renderAbout(); renderThesis(); }
       }
     });
   const h = await fetch(`/api/company?symbol=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
