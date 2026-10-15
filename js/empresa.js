@@ -54,7 +54,18 @@ async function load(sym) {
   P.prof = null;
   render();
   fetch(`/api/profile?symbol=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
-    .then((pr) => { if (P.sym !== sym) return; P.prof = pr || { error: true }; renderAbout(); renderThesis(); });
+    .then(async (pr) => {
+      if (P.sym !== sym) return;
+      P.prof = pr || { error: true }; renderAbout(); renderThesis();
+      // Si el servidor no pudo traducir, se traduce desde el navegador
+      if (pr && !pr.error && pr.profile?.summary && pr.profile.summary === pr.profile.summary_en) {
+        const [sum, titles] = await Promise.all([translateEs(pr.profile.summary), translateEs((pr.news || []).map((n) => n.title).join("\n"))]);
+        if (P.sym !== sym) return;
+        if (sum) pr.profile.summary = sum;
+        if (titles) titles.split("\n").forEach((t, i) => { if (pr.news[i]) pr.news[i].title_es = t; });
+        renderAbout(); renderThesis();
+      }
+    });
   const h = await fetch(`/api/company?symbol=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (P.sym !== sym) return;
   P.hist = h; renderHistory();
@@ -248,6 +259,19 @@ function metricBox(r, k, m, tot) {
     <div class="q">${esc(m.q)}</div></div>`;
 }
 
+async function translateEs(text) {
+  if (!text) return null;
+  try {
+    const parts = text.match(/[\s\S]{1,1500}(?:\.\s|\n|$)/g) || [text];
+    let out = "";
+    for (const c of parts) {
+      const r = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=es&dt=t&q=${encodeURIComponent(c)}`);
+      if (!r.ok) return null;
+      out += ((await r.json())?.[0] || []).map((x) => x[0]).join("");
+    }
+    return out;
+  } catch { return null; }
+}
 // ---------- Presentación: qué hace ----------
 const fmtDate = (t) => new Date(t).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
 function renderAbout() {
