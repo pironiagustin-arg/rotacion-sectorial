@@ -244,6 +244,60 @@ export function classifyLynch(r) {
 }
 
 // Pesos efectivos: perfil + ajuste Lynch + multiplicadores del usuario
+// ---------- Ajustes automáticos por empresa ----------
+// Además del perfil de industria y el tipo Lynch, cada empresa tiene situaciones propias que vuelven
+// inútiles (o más importantes) ciertas métricas. Se detectan solas y quedan explicadas en la ficha.
+const BIG_DEBT_OK = new Set(["reit", "utility", "midstream", "telecom", "realestate", "ipp"]);
+function autoAdjust(r, w) {
+  const out = [], fin = r.sec === "fin" && !["payments", "crypto"].includes(r.profile);
+  const has = (k) => k in w;
+  const drop = (ks) => ks.filter((k) => has(k)).map((k) => (delete w[k], k));
+  const add = (k, v) => { if (!has(k) && METRICS[k]) { w[k] = v; return k; } return null; };
+  const scale = (ks, f) => ks.filter((k) => has(k)).map((k) => ((w[k] *= f), k));
+  const note = (t, ks) => { const k = ks.filter(Boolean); if (k.length) out.push({ t, k }); };
+
+  // 1. Pierde plata: P/E y PEG no existen; se valúa por ventas
+  if ((ok(r.eps) && r.eps <= 0) || (ok(r.fpe) && r.fpe <= 0)) {
+    const k = drop(["pe", "fpe", "peg", "payout", "fcfConv"]);
+    if (!fin) k.push(add("evRev", 12), ok(r.revG) && r.revG > 2 ? add("evRevG", 8) : null, add("runway", 6));
+    note("Hoy pierde plata: no se usan P/E, PEG ni payout; se valúa por ventas y se mira cuánta caja le queda.", k);
+  }
+  // 2. Patrimonio casi nulo o negativo (recompras agresivas): ROE y P/B quedan inflados
+  if (!fin && ((ok(r.pb) && r.pb <= 0) || (ok(r.roe) && r.roe > 100) || (ok(r.pb) && r.pb > 40))) {
+    const moved = ["roe", "pb"].filter(has).reduce((a, k) => a + w[k], 0);
+    const k = drop(["roe", "pb"]);
+    if (k.length) { w.roic = (w.roic || 0) + moved; k.push("roic"); }
+    note("Patrimonio contable casi nulo o negativo por recompras: ROE y precio/valor libro están distorsionados, su peso pasa al ROIC.", k);
+  }
+  // 3. No paga dividendo: no se la castiga por eso (salvo Slow Growers, que se compran por dividendo)
+  if (!(r.divY > 0) && r.lynch !== "slow") note("No paga dividendo: dividend yield, payout y crecimiento del dividendo no cuentan.", drop(["divY", "payout", "divG"]));
+  // 4. Ganancia extraordinaria: el margen neto supera por mucho al operativo
+  if (!fin && ok(r.nm) && ok(r.om) && r.nm > r.om + 12) {
+    note("El margen neto supera por mucho al operativo (probable ganancia extraordinaria): el P/E pesa menos y se suma EV/EBITDA.", [...scale(["pe", "fpe", "peg"], 0.5), add("evEbitda", 8)]);
+  }
+  // 5. Hipercrecimiento: el múltiplo de ganancias engaña, manda el crecimiento
+  if (ok(r.revG) && r.revG >= 40 && r.lynch !== "cyclical") {
+    note(`Crece ${fmt(r.revG, "%", 0)} anual: pesa más el crecimiento y se valúa con EV/Ventas ajustado por crecimiento.`, [...scale(["pe", "fpe"], 0.6), ...scale(["revG", "rule40"], 1.3), !fin ? add("evRevG", 8) : null]);
+  }
+  // 6. Pocos analistas: el crecimiento estimado es poco confiable
+  if (ok(r.nAn) && r.nAn < 4) note(`Solo ${r.nAn} ${r.nAn === 1 ? "analista la cubre" : "analistas la cubren"}: el crecimiento estimado y el PEG pesan menos.`, scale(["epsG", "peg"], 0.4));
+  // 7. Quema caja: importa cuánto le dura
+  if (!fin && ok(r.fcf) && r.fcf < 0) note("Quema caja: se suman años de caja y liquidez.", [add("runway", 10), add("cr", 6)]);
+  // 8. Deuda alta para su industria
+  if (!fin && ok(r.ndEbitda) && r.ndEbitda > 3 && !BIG_DEBT_OK.has(r.profile)) {
+    note(`Deuda neta de ${fmt(r.ndEbitda, "x")} su EBITDA: la solidez financiera pesa más.`, [...scale(["ndEbitda", "cr", "intCov"], 1.4), add("intCov", 8), add("ndEbitda", 10)]);
+  }
+  // 9. Caja neta: la cobertura de intereses no aporta
+  if (!fin && ok(r.ndEbitda) && r.ndEbitda < 0) note("Tiene más caja que deuda: la cobertura de intereses no aporta.", drop(["intCov"]));
+  // 10. Paga mucho en acciones aunque no sea software
+  if (ok(r.sbc) && r.sbc > 8) note(`Paga ${fmt(r.sbc, "%", 0)} de sus ventas en acciones: se suma la dilución.`, [add("sbc", 6), add("dil", 6)]);
+  // 11. Dividendo que crece de forma sostenida (Stalwarts y Slow Growers)
+  if (["stalwart", "slow"].includes(r.lynch) && ok(r.divG) && r.divG > 5 && r.divY > 1.5) note("Dividendo que crece más de 5% anual: se suma su crecimiento.", [add("divG", 8), add("payout", 4)]);
+  // 12. Mucha caja sobre su valor: EV/EBITDA refleja mejor el precio que el P/E
+  if (!fin && ok(r.ndEbitda) && r.ndEbitda < -2) note("Mucha caja neta: se suma EV/EBITDA, que descuenta esa caja del precio.", [add("evEbitda", 8)]);
+  return out;
+}
+
 export function weightsFor(r, userMult = {}, profW = {}) {
   const w = { ...(profW[r.profile] || PROFILES[r.profile].w) };
   const mod = LYNCH_MOD[r.lynch];
@@ -253,6 +307,7 @@ export function weightsFor(r, userMult = {}, profW = {}) {
     for (const k of Object.keys(w)) w[k] *= mod.g?.[METRICS[k].g] ?? 1;
   }
   if (r.sec === "fin" && !["payments", "crypto"].includes(r.profile)) for (const k of ["roic", "ndEbitda", "evEbitda", "evRev", "cr", "fcfY", "intCov", "fcfM"]) delete w[k];
+  r.auto = autoAdjust(r, w);
   // Argentina: crecimiento y PEG en pesos no son comparables (inflación)
   if (r.c === "AR") for (const k of ["revG", "epsG", "peg", "rule40", "evRevG", "divG", "omTrend"]) delete w[k];
   r.offKeys = [];

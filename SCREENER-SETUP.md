@@ -34,6 +34,17 @@ Después corré Actions → Sync screener → Run workflow. A partir de ahí se 
 - **Perfil de industria:** cada empresa se asigna a uno de 39 perfiles (bancos, software, neocloud, retail, REITs, minería, etc.) según su industria en Yahoo. Se puede cambiar a mano en la ficha.
 - **Qué mide cada perfil:** el perfil define qué métricas cuentan y cuánto pesa cada una. Por ejemplo, efficiency ratio en bancos, Rule of 40 en software, backlog (RPO de la SEC) en neoclouds, P/FFO en REITs y rotación de inventario en retail.
 - **Ajuste por tipo Lynch:** agrega y reajusta métricas. Slow Grower suma payout y crecimiento del dividendo; cíclica suma EV/EBITDA, valor libro y deuda; turnaround suma años de caja y cobertura de intereses.
+- **Ajustes automáticos por empresa:** según su situación, cada empresa ajusta sola qué métricas cuentan:
+  - si pierde plata, no se usan P/E ni PEG y se valúa por ventas;
+  - si tiene patrimonio negativo por recompras, el peso de ROE y P/B pasa al ROIC;
+  - si no paga dividendo, no se la castiga por eso;
+  - si tuvo una ganancia extraordinaria, el P/E pesa la mitad;
+  - si crece más de 40%, manda el crecimiento;
+  - si la cubren pocos analistas, el crecimiento estimado pesa menos;
+  - si quema caja o tiene deuda alta, pesa más la solidez;
+  - si paga mucho en acciones, se suma la dilución.
+
+  Cada ajuste aparece explicado en la ficha.
 - **Comparación contra pares:** percentiles contra la misma industria, o contra el sector si hay menos de 5 datos.
 - **Historia propia:** el 25% del score compara los valores actuales con el promedio de los últimos 4-5 ejercicios de la empresa. En Stalwarts y cíclicas pesa más.
 - **Fuentes de datos:**
