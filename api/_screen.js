@@ -34,7 +34,7 @@ export async function yget(url) {
 const raw = (o) => (o && typeof o === "object" ? (o.raw ?? null) : (o ?? null));
 const num = (v) => (v == null || !isFinite(v) ? null : v);
 
-async function quotes(symbols) {
+export async function quotes(symbols) {
   const out = new Map();
   for (let i = 0; i < symbols.length; i += 50) {
     const chunk = symbols.slice(i, i + 50);
@@ -132,4 +132,13 @@ export async function loadSymbols(symbols) {
       t: Date.now(),
     };
   });
+}
+
+// Tipos de cambio a USD de las monedas más comunes: unidades de moneda por 1 USD
+const FX_LIST = ["EUR", "GBP", "JPY", "CNY", "HKD", "KRW", "TWD", "BRL", "ARS", "MXN", "CAD", "AUD", "CHF", "DKK", "SEK", "NOK", "INR", "ZAR", "CLP", "COP", "SGD", "ILS"];
+export async function fxRates() {
+  const q = await quotes(FX_LIST.map((c) => `${c}=X`));
+  const fx = { USD: 1 };
+  for (const c of FX_LIST) { const p = q.get(`${c}=X`)?.regularMarketPrice; if (p) fx[c] = p; }
+  return fx;
 }

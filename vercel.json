@@ -17,6 +17,12 @@
     },
     "api/company.js": {
       "maxDuration": 30
+    },
+    "api/sync-fund.js": {
+      "maxDuration": 60
+    },
+    "api/fund.js": {
+      "maxDuration": 30
     }
   }
 }
