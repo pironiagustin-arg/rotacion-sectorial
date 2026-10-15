@@ -22,3 +22,11 @@ jobs:
           done
           echo "Guardadas: $total acciones · lotes con error: $fails"
           [ "$total" -gt 0 ] || { echo "::error::No se guardó ninguna acción"; exit 1; }
+      - name: Señales de rotación (RRG)
+        env:
+          SITE: ${{ secrets.SITE_URL }}
+          SECRET: ${{ secrets.SYNC_SECRET }}
+        run: |
+          out=$(curl -s -m 70 -H "x-sync-secret: $SECRET" "$SITE/api/signals?save=1")
+          echo "$out" | jq -r '.signals[] | select(.status != null) | "\(.symbol) \(.status) \(.score)"' || echo "$out"
+          echo "$out" | jq -e '.saved' >/dev/null

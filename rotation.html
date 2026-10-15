@@ -73,6 +73,7 @@
   </nav>
 </header>
 <div class="container">
+  <div class="panel" id="signalsPanel"></div>
   <div class="panel">
     <div class="add-row">
       <input type="text" id="extraInput" placeholder="EWZ, FXI, EEM…" maxlength="8" />
@@ -391,6 +392,10 @@ setInterval(() => { if (!playing) load(); }, 90000);
     apply(getLang());
   });
 })();
+</script>
+<script type="module">
+  import { mountPanel } from "/js/signals.js";
+  mountPanel(document.getElementById("signalsPanel"), { title: "Sectores e industrias por explotar" });
 </script>
 </body>
 </html>

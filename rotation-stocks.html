@@ -72,6 +72,7 @@
   </nav>
 </header>
 <div class="container">
+  <div class="panel" id="signalsPanel"></div>
   <div class="panel">
     <div class="add-row">
       <input type="text" id="tickerInput" placeholder="AAPL" maxlength="8" />
@@ -399,6 +400,13 @@ setInterval(() => { if (!playing) load(); }, 90000);
     apply(getLang());
   });
 })();
+</script>
+<script type="module">
+  import { mountPanel } from "/js/signals.js";
+  const syms = () => { try { return JSON.parse(localStorage.getItem("rrg_stocks_list") || "[]"); } catch (e) { return []; } };
+  let panel = await mountPanel(document.getElementById("signalsPanel"), { symbols: syms, title: "Tus acciones por explotar", link: (s) => "/empresa.html?s=" + encodeURIComponent(s.symbol) });
+  const orig = window.saveList;
+  if (orig) window.saveList = (l) => { orig(l); clearTimeout(window.__sgT); window.__sgT = setTimeout(() => mountPanel(document.getElementById("signalsPanel"), { symbols: syms, title: "Tus acciones por explotar", link: (s) => "/empresa.html?s=" + encodeURIComponent(s.symbol) }), 800); };
 </script>
 </body>
 </html>

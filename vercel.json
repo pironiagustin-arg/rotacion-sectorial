@@ -23,6 +23,12 @@
     },
     "api/fund.js": {
       "maxDuration": 30
+    },
+    "api/signals.js": {
+      "maxDuration": 60
+    },
+    "api/overview.js": {
+      "maxDuration": 30
     }
   }
 }
