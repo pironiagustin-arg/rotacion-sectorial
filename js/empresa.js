@@ -324,6 +324,7 @@ const NEWS_CATS = [
   ["Guidance", /\b(raises?|lifts?|boosts?|cuts?|lowers?|slashes?|reaffirms?)\b.{0,30}\b(guidance|forecast|outlook)\b/i],
 ];
 const NEWS_JUNK = /\?$|prediction|\bcould\b|\bmight\b|union|strike|workers|labor|advis[eo]r|investigat|lawsuit|sues?\b|backing|upgrade|downgrade|price target|rating|analyst|options? (trading|activity)|unusual|shares (rise|fall|drop|jump)|stock (rises|falls|drops|jumps)|should you|is it time|stocks? to (buy|watch)|top \d|best \d|\bwhy\b|here's|what to know|motley|price prediction|could (soar|be)|millionaire|vs\.? /i;
+const TR = new Map();
 function keyNews(nws, fil, r) {
   const out = [], seen = new Set();
   const STOP = /^(the|inc|corp|corporation|company|group|holdings?|ltd|plc|sa|nv|co)$/i;
@@ -338,7 +339,8 @@ function keyNews(nws, fil, r) {
     const key = n.title.toLowerCase().replace(/[^a-z ]/g, "").split(" ").slice(0, 5).join(" ");
     if (seen.has(key) || out.some((o) => o.cat === cat[0] && Math.abs(o.t - n.t) < 3 * 864e5)) continue;
     seen.add(key);
-    out.push({ cat: cat[0], t: n.t, title: n.title_es || n.title, url: n.url, src: n.publisher });
+    const es = TR.get(n.title) || (n.title_es && n.title_es !== n.title ? n.title_es : null);
+    out.push({ cat: cat[0], t: n.t, title: es || n.title, en: es ? null : n.title, url: n.url, src: n.publisher });
   }
   out.sort((a, b) => NEWS_CATS.findIndex((c) => c[0] === a.cat) - NEWS_CATS.findIndex((c) => c[0] === b.cat) || b.t - a.t);
   const picked = out.slice(0, 3);
@@ -408,7 +410,10 @@ function renderThesis() {
   if (ok(r.rule40) && r.rule40 >= 40 && ["software", "internet", "payments", "neocloud"].includes(r.profile)) add(pro, `Rule of 40 de ${fmt(r.rule40, "%", 0)}: crece rápido sin descuidar la caja.`, "Métricas");
   if (ok(r.omTrend) && r.omTrend > 3) add(pro, `Apalancamiento operativo: el margen operativo mejoró ${fmt(r.omTrend, "pp", 1)} en los últimos 3 ejercicios.`, "Métricas");
   // Noticias clave (máx. 3): contratos, acuerdos, adquisiciones, cambio de CEO, recompras, dividendos, guidance
-  keyNews(nws, fil, r).forEach((k) => deals.push(`<a href="${esc(k.url)}" target="_blank" rel="noopener"><span class="tag">${esc(k.cat)}</span>${fmtDate(k.t)} · ${esc(k.title)}${k.src ? ` <span class="na">(${esc(k.src)})</span>` : ""} ↗</a>`));
+  const kn = keyNews(nws, fil, r);
+  const pend = kn.filter((k) => k.en && !TR.has(k.en));
+  if (pend.length) { pend.forEach((k) => TR.set(k.en, null)); Promise.all(pend.map((k) => translateEs(k.en).then((t) => t && TR.set(k.en, t)))).then(() => { if (P.r === r) renderThesis(); }); }
+  kn.forEach((k) => deals.push(`<a href="${esc(k.url)}" target="_blank" rel="noopener"><span class="tag">${esc(k.cat)}</span>${fmtDate(k.t)} · ${esc(k.title)}${k.src ? ` <span class="na">(${esc(k.src)})</span>` : ""} ↗</a>`));
   if (pr.talk) talkPros(pr.talk, pro, con, add);
   // Management y dueños
   const p = pr.profile || {};
