@@ -36,6 +36,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - name: Candidatas del día (seguimiento del score)
+        env:
+          SITE: ${{ secrets.SITE_URL }}
         run: node scripts/compute.mjs picks
       - name: Guardar resultados en el repo
         run: |

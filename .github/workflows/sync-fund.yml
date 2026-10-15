@@ -28,8 +28,10 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
       - name: Backtest del score y 13F de grandes fondos
+        env:
+          SITE: ${{ secrets.SITE_URL }}
         run: |
-          node scripts/compute.mjs backtest
+          node scripts/compute.mjs backtest || echo "::warning::backtest falló, se conserva el anterior"
           node scripts/compute.mjs funds
       - name: Guardar resultados en el repo
         run: |

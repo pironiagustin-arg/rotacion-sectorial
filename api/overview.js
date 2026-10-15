@@ -91,7 +91,20 @@ async function histView(req, res) {
   return res.status(200).json({ date, ars: a?.c ?? null, arsDate: a?.date ?? null, us, spy, ccl });
 }
 
+// GET /api/overview?view=chart&sym=AAPL&range=5y&interval=1wk -> cierres ajustados (lo usa el backtest desde GitHub Actions)
+async function chartView(req, res) {
+  const sym = String(req.query.sym || "").toUpperCase(), range = /^(1y|2y|5y|10y|5d|1mo)$/.test(req.query.range) ? req.query.range : "5y", iv = /^(1d|1wk|1mo)$/.test(req.query.interval) ? req.query.interval : "1wk";
+  if (!/^[A-Z0-9.\-^=]{1,15}$/.test(sym)) return res.status(400).json({ error: "Símbolo inválido" });
+  const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${iv}`, { headers: { "User-Agent": UA } });
+  if (!r.ok) return res.status(r.status).json({ error: "Yahoo " + r.status });
+  const x = (await r.json())?.chart?.result?.[0];
+  const ts = x?.timestamp || [], c = x?.indicators?.adjclose?.[0]?.adjclose || x?.indicators?.quote?.[0]?.close || [];
+  res.setHeader("Cache-Control", "public, s-maxage=43200");
+  return res.status(200).json({ sym, pts: ts.map((t, i) => [t * 1000, c[i] != null ? round(c[i], 4) : null]).filter((p) => p[1] != null) });
+}
+
 export default async function handler(req, res) {
+  if (req.query?.view === "chart") return chartView(req, res);
   if (req.query?.s) return liveQuotes(req, res);
   if (req.query?.view === "hist") return histView(req, res);
   if (req.query?.view === "ars") return arsView(req, res);

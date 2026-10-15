@@ -37,8 +37,16 @@ async function pool(items, n, fn) {
   await Promise.all(Array.from({ length: n }, async () => { while (k < items.length) { const i = k++; try { out[i] = await fn(items[i], i); } catch { out[i] = null; } } }));
   return out;
 }
+// Desde GitHub Actions Yahoo bloquea las IPs: si hay SITE, los precios se piden a través de la app en Vercel
+const SITE = process.env.SITE || "";
 async function chart(sym, range = "5y", interval = "1wk") {
   for (let a = 0; a < 3; a++) {
+    if (SITE) {
+      const r = await fetch(`${SITE}/api/overview?view=chart&sym=${encodeURIComponent(sym)}&range=${range}&interval=${interval}`);
+      if (r.status === 429 || r.status >= 500) { await sleep(1500 * (a + 1)); continue; }
+      if (!r.ok) return null;
+      return ((await r.json()).pts || []).map(([t, c]) => ({ t, c })).filter((p) => p.c > 0);
+    }
     const r = await fetch(`https://query${a % 2 + 1}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${interval}`, { headers: { "User-Agent": UA } });
     if (r.status === 429) { await sleep(1500 * (a + 1)); continue; }
     if (!r.ok) return null;
@@ -59,7 +67,7 @@ async function picks() {
   const { rows, fund } = await loadBase();
   const d = rows.map((r) => S.derive(r, null, fund.get(r.s)));
   S.scoreAll(d, {});
-  const spy = (await chart("SPY", "5d", "1d"))?.at(-1)?.c ?? null;
+  const spy = (await chart("SPY", "5d", "1d"))?.at(-1)?.c ?? rows.find((r) => r.s === "SPY")?.px ?? null;
   const day = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
   const top = d.filter((r) => eligible(r) && S.ok(r.score)).sort((a, b) => b.score - a.score);
   const list = [...new Map([...top.filter((r) => r.cand), ...top.slice(0, 15)].map((r) => [r.s, r])).values()]
@@ -134,6 +142,7 @@ async function backtest() {
     });
     console.log(`${y}: n=${sc.length} top10 ${r2(avg(top10.map((r) => r.ret)))}% vs SPY ${r2(spyRet)}%`);
   }
+  if (!periods.length) { console.error("::error::Backtest sin períodos (¿sin precios?): se conserva el anterior"); process.exitCode = 1; return; }
   fs.writeFileSync(path.join(DATA, "backtest.json"), JSON.stringify({ generated: new Date().toISOString(), periods }));
 }
 
