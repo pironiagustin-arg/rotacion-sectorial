@@ -274,6 +274,7 @@ async function translateEs(text) {
 }
 // ---------- Presentación: qué hace ----------
 const fmtDate = (t) => new Date(t).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+const CTRY = { "United States": "EE.UU.", "United Kingdom": "Reino Unido", Netherlands: "Países Bajos", Germany: "Alemania", France: "Francia", Switzerland: "Suiza", Japan: "Japón", China: "China", "Hong Kong": "Hong Kong", Taiwan: "Taiwán", "South Korea": "Corea del Sur", Brazil: "Brasil", Argentina: "Argentina", Canada: "Canadá", Australia: "Australia", Ireland: "Irlanda", Israel: "Israel", Spain: "España", Italy: "Italia", Denmark: "Dinamarca", Sweden: "Suecia", Norway: "Noruega", Finland: "Finlandia", Mexico: "México", Chile: "Chile", Colombia: "Colombia", India: "India", Singapore: "Singapur", Luxembourg: "Luxemburgo", Uruguay: "Uruguay", "South Africa": "Sudáfrica", Belgium: "Bélgica" };
 function renderAbout() {
   const el = $("about"); if (!el) return;
   const pr = P.prof, r = P.r;
@@ -286,7 +287,7 @@ function renderAbout() {
     ok(r.om) ? ["Margen operativo", fmt(r.om, "%")] : null,
     ok(r.revG) ? ["Crecimiento de ventas", fmt(r.revG, "%")] : null,
     p.employees ? ["Empleados", nf(0).format(p.employees)] : null,
-    p.city || p.country ? ["Sede", [p.city, p.country].filter(Boolean).join(", ")] : null,
+    p.city || p.country ? ["Sede", [p.city, CTRY[p.country] || p.country].filter(Boolean).join(", ")] : null,
     p.ceo ? ["CEO", `${p.ceo.name}${p.ceo.age ? ` (${p.ceo.age} años)` : ""}`] : null,
   ].filter(Boolean);
   const long = p.summary.length > 700;
@@ -348,6 +349,9 @@ function renderThesis() {
   if (r.c === "BR") add(con, "Riesgo Brasil: tasas altas, real volátil e intervención política en estatales.", "País");
   if (r.kpi?.conc && Number(r.kpi.conc) >= 30) add(con, `Concentración de clientes: el principal cliente representa ${r.kpi.conc}% de las ventas.`, "Clientes");
   if (pr.earnings?.next && pr.earnings.next - Date.now() < 21 * 864e5 && pr.earnings.next > Date.now()) add(con, `Presenta resultados el ${fmtDate(pr.earnings.next)}: espera volatilidad alrededor de esa fecha.`, "Calendario");
+  const newDebt = fil.filter((f) => f.items.includes("2.03")).length, newShares = fil.filter((f) => f.items.includes("3.02")).length;
+  if (newDebt >= 2) add(con, `Tomó deuda nueva relevante ${newDebt} veces en el último año (presentaciones 8-K a la SEC).`, "Financiamiento");
+  if (newShares >= 1) add(con, `Emitió acciones fuera de oferta pública ${newShares === 1 ? "una vez" : newShares + " veces"} en el último año: posible dilución.`, "Financiamiento");
   if (r.profile === "neocloud") add(con, "Modelo intensivo en capital: necesita financiar compras masivas de GPUs y data centers con deuda o emisión de acciones, y depende de pocos clientes grandes.", "Modelo de negocio");
   // Veredicto
   const val = g["Valuación"], cal = g["Calidad"], cre = g["Crecimiento"];

@@ -39,7 +39,7 @@ export const METRICS = {
   backlog:  { l: "Backlog / ventas", f: "x", d: 1, dir: 1, g: "Crecimiento", q: "Contratos firmados pendientes de facturar (RPO, dato de la SEC) sobre las ventas anuales. Visibilidad de ingresos futuros." },
   ndEbitda: { l: "Deuda neta / EBITDA", f: "x", dir: -1, g: "Solidez", q: "Años de caja operativa para pagar la deuda. Más de 3x es exigente; en REITs y utilities se toleran 5-6x." },
   cr:       { l: "Liquidez corriente", f: "x", d: 2, dir: 1, g: "Solidez", q: "Activos de corto plazo sobre deudas de corto plazo. Debajo de 1 hay que mirar." },
-  intCov:   { l: "Cobertura de intereses", f: "x", dir: 1, g: "Solidez", q: "Ganancia operativa sobre intereses. Menos de 3x es frágil." },
+  intCov:   { l: "Cobertura de intereses", f: "x", dir: 1, g: "Solidez", pos: true, q: "Ganancia operativa sobre intereses. Menos de 3x es frágil." },
   runway:   { l: "Años de caja", f: "x", d: 1, dir: 1, g: "Solidez", q: "Si quema caja: cuántos años le dura la caja actual al ritmo de quema." },
   divY:     { l: "Dividend yield", f: "%", dir: 1, g: "Dividendos", q: "Dividendo anual como % del precio." },
   payout:   { l: "Payout ratio", f: "%", dir: -1, g: "Dividendos", pos: true, q: "Qué parte de la ganancia reparte como dividendo. Más de 75% deja poco margen (salvo REITs y utilities)." },
