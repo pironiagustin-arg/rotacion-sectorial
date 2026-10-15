@@ -332,15 +332,6 @@ async function renderByma() {
     <a href="/cedears.html" class="na" style="margin-left:8px;color:#93c5fd">Comparar →</a>`;
 }
 
-// ---------- Grandes fondos (13F) ----------
-let FUNDS = null;
-const fundsP = fetch("/data/funds.json").then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => { FUNDS = d; if (P.r && P.prof) renderThesis(); });
-function fundsOf(r) {
-  const list = FUNDS?.bySymbol?.[r.s] || [];
-  return [...list].sort((a, b) => (b.value || 0) - (a.value || 0));
-}
-const FST = { new: "abrió posición", add: "aumentó", trim: "redujo", hold: "sin cambios", sold: "vendió todo" };
-
 // ---------- Noticias clave ----------
 const NEWS_CATS = [
   ["Management", /\b(names?|appoints?|hires?|taps?|promotes?)\b.{0,50}\b(CEO|CFO|chief|president|chair\w*)\b|\b(CEO|CFO|chief executive|chief financial officer|chairman|founder)\b.{0,50}\b(steps? down|resign\w*|retir\w*|depart\w*|exit\w*|to leave|successor|replac\w*|ousted|fired)|\bnew (CEO|CFO|chief executive)\b/i],
@@ -445,11 +436,6 @@ function renderThesis() {
   if (ok(an.targetMean) && ok(r.px)) { const up = (an.targetMean / r.px - 1) * 100; if (up >= 15) add(pro, `Los ${an.n || ""} analistas que la cubren ven un precio objetivo promedio de ${fmt(an.targetMean)} (${fmt(up, "%", 0)} arriba del precio actual).`, "Analistas"); if (up < -5) add(con, `El precio ya supera el objetivo promedio de los analistas (${fmt(an.targetMean)}).`, "Analistas"); }
   if (ups >= 2 && ups > downs) add(pro, `${ups} mejoras de recomendación en los últimos 4 meses.`, "Analistas");
   if (downs >= 2 && downs > ups) add(con, `${downs} bajas de recomendación en los últimos 4 meses.`, "Analistas");
-  // Grandes fondos
-  const fl = fundsOf(r), fBuy = fl.filter((f) => f.status === "new" || f.status === "add"), fSell = fl.filter((f) => f.status === "sold" || f.status === "trim");
-  if (fBuy.length >= 2 && fBuy.length > fSell.length) add(pro, `Grandes fondos comprando el último trimestre: ${fBuy.slice(0, 4).map((f) => f.fund).join(", ")}.`, "Fondos");
-  else if (fl.some((f) => f.pct >= 5 && f.status !== "sold")) { const f = fl.find((x) => x.pct >= 5); add(pro, `${f.fund} (${f.who}) la tiene como posición grande: ${nf(1).format(f.pct)}% de su cartera.`, "Fondos"); }
-  if (fSell.length >= 3 && fSell.length > fBuy.length) add(con, `Grandes fondos vendiendo el último trimestre: ${fSell.slice(0, 4).map((f) => f.fund).join(", ")}.`, "Fondos");
   // Riesgos
   r.alerts.filter((a) => !/historia|pico del ciclo/i.test(a.t)).slice(0, 4).forEach((a) => add(con, a.t, "Métricas"));
   r.alerts.filter((a) => /historia|pico del ciclo/i.test(a.t)).slice(0, 2).forEach((a) => add(con, a.t, "Valuación"));
@@ -484,7 +470,7 @@ function renderThesis() {
     <div class="two tz">
       <div><h4>Noticias clave</h4><ul class="tl links">${deals.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin contratos, acuerdos, cambios de management ni recompras en las noticias recientes.</li>'}</ul></div>
       <div><h4>Management y dueños</h4><ul class="tl">${mgmt.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin datos de management.</li>'}</ul>
-        ${fl.length ? `<h4 style="margin-top:12px">Grandes fondos <span class="na" style="font-weight:400">· 13F al ${esc(fl[0].period)}</span></h4><ul class="tl">${fl.slice(0, 6).map((f) => `<li><b>${esc(f.fund)}</b> <span class="na">(${esc(f.who)})</span>: ${f.status === "sold" ? '<span class="neg">vendió todo</span>' : `${ok(f.pct) ? nf(1).format(f.pct) + "% de su cartera" : ""}${f.status ? ` · <span class="${f.status === "new" || f.status === "add" ? "pos" : f.status === "trim" ? "neg" : "na"}">${FST[f.status]}${ok(f.chg) && f.status !== "hold" ? " " + (f.chg >= 0 ? "+" : "") + nf(0).format(f.chg) + "%" : ""}</span>` : ""}`}</li>`).join("")}</ul><a href="/fondos.html" style="color:#93c5fd;font-size:12.5px">Ver todos los fondos →</a>` : ""}
+
         ${ok(an.targetMean) ? `<h4 style="margin-top:12px">Analistas</h4><ul class="tl"><li>Recomendación: ${esc({ strong_buy: "compra fuerte", buy: "compra", hold: "mantener", sell: "venta", strong_sell: "venta fuerte", underperform: "por debajo del mercado", outperform: "por encima del mercado" }[an.recKey] || an.recKey || "—")} · ${an.n || "—"} analistas</li><li>Precio objetivo: ${fmt(an.targetLow)} a ${fmt(an.targetHigh)} (promedio ${fmt(an.targetMean)})</li>${pr.earnings?.next ? `<li>Próximos resultados: ${fmtDate(pr.earnings.next)}</li>` : ""}</ul>` : ""}</div>
     </div>
     <div class="src">Fuentes: score propio, comunicado de resultados y hechos relevantes presentados a la SEC (8-K / 6-K), Yahoo Finance (insiders, analistas, noticias). Citas traducidas automáticamente. El TAM no viene en ningún dato público: cargalo en "Tu tesis" para el chequeo de valuación. Es material de análisis, no una recomendación.</div>`;

@@ -2,7 +2,7 @@ import { UNIVERSE } from "/lib/universe.js";
 import { PROFILES, LYNCH, ok, derive, scoreAll, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
 import { $, esc, loadLocal, state, META, initSupabase, loadSnapshots, loadOverrides, loadFund, userMult, userProfW } from "/js/core.js";
 import { startLive } from "/js/live.js";
-import { renderEarnings, EARN_CSS } from "/js/earnings.js";
+import { renderEarnings, EARN_CSS, logo } from "/js/earnings.js";
 import { fetchArs } from "/js/ars.js";
 import { watchSymbols, getPortfolio } from "/js/lists.js";
 { const st = document.createElement("style"); st.textContent = EARN_CSS; document.head.appendChild(st); }
@@ -120,16 +120,42 @@ async function loadDolar() {
   const dl = d.dolar || {}, money = (v) => (ok(v) ? "$ " + nf(2).format(v) : "—");
   const byCed = new Map(UNIVERSE.filter((u) => u[5]).map((u) => [u[5], u]));
   const liq = Object.entries(d.implied).filter(([k, x]) => x.volArs > 3e8 && byCed.has(k)).map(([k, x]) => ({ k, s: byCed.get(k)[0], dev: (x.ccl / d.medCcl - 1) * 100 })).filter((x) => Math.abs(x.dev) <= 8).sort((a, b) => a.dev - b.dev);
-  const chips = (arr) => arr.map((x) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}" style="color:var(--text);text-decoration:none;margin-right:10px"><b>${esc(x.k)}</b> <span class="${x.dev < 0 ? "pos" : "neg"}">${x.dev >= 0 ? "+" : ""}${nf(2).format(x.dev)}%</span></a>`).join("");
+  const card = (x, i) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}">${logo(x.s, x.k, 30)}<div><b>${esc(x.k)}</b><small class="${x.dev < 0 ? "pos" : "neg"}">${x.dev >= 0 ? "+" : ""}${nf(2).format(x.dev)}%</small> <span class="rk">#${i + 1}</span></div></a>`;
   $("dolar").className = "";
   $("dolar").innerHTML = `<div class="breadth"><div><div class="v num">${money(d.medCcl)}</div><div class="l">CCL implícito (mediana CEDEARs)</div></div><div><div class="v num">${money(dl.bolsa?.venta)}</div><div class="l">MEP</div></div><div><div class="v num">${money(dl.oficial?.venta)}</div><div class="l">Oficial${ok(dl.oficial?.venta) && ok(d.medCcl) ? ` · brecha ${nf(1).format((d.medCcl / dl.oficial.venta - 1) * 100)}%` : ""}</div></div><div><div class="v num">${money(dl.blue?.venta)}</div><div class="l">Blue</div></div></div>
-    <div class="kv" style="margin-top:8px"><span>Más baratos (CCL bajo)</span><span>${chips(liq.slice(0, 4))}</span></div>
-    <div class="kv"><span>Más caros (CCL alto)</span><span>${chips(liq.slice(-4).reverse())}</span></div>`;
+    <div class="cclh">Más baratos: comprás la acción con un dólar más bajo</div><div class="ccl3">${liq.slice(0, 3).map(card).join("")}</div>
+    <div class="cclh">Más caros: conviene evitarlos o esperar</div><div class="ccl3">${liq.slice(-3).reverse().map(card).join("")}</div>`;
+}
+
+// ---------- Tu cartera hoy ----------
+async function loadPf() {
+  const pf = getPortfolio();
+  if (!pf.positions.length) { $("pf").className = ""; $("pf").innerHTML = `<div class="na">Todavía no cargaste tu cartera. <a href="/cartera.html" style="color:#93c5fd">Cargá tus compras</a> para ver cuánto ganás en dólares y contra el S&P 500.</div>`; return; }
+  const [d, q] = await Promise.all([fetchArs(), fetch("/api/overview?s=SPY").then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+  const spy = q?.q?.SPY?.px;
+  let vU = 0, vA = 0, cU = 0, sV = 0, day = 0; const per = new Map();
+  for (const p of pf.positions) {
+    const x = d?.cedears?.[p.ced]; if (!x?.ars) continue;
+    const ccl = META.get(p.s)?.[3] === "AR" ? d.medCcl : d.implied?.[p.ced]?.ccl || d.medCcl;
+    const a = p.qty * x.ars, u = a / ccl;
+    vA += a; vU += u; cU += p.costUsd || 0; if (p.spy0 && spy) sV += (p.costUsd * spy) / p.spy0;
+    if (ok(x.chg)) day += a - a / (1 + x.chg / 100);
+    const g = per.get(p.ced) || { ced: p.ced, s: p.s, chg: x.chg, u: 0 }; g.u += u; per.set(p.ced, g);
+  }
+  const g = vU - cU, vs = sV ? (vU / sV - 1) * 100 : null, money = (v) => "$ " + nf(0).format(v), usd = (v) => "US$ " + nf(0).format(v);
+  const movers = [...per.values()].filter((x) => ok(x.chg)).sort((a, b) => Math.abs(b.chg) - Math.abs(a.chg)).slice(0, 4);
+  $("pf").className = "";
+  $("pf").innerHTML = `<div class="breadth">
+    <div><div class="v num">${usd(vU)}</div><div class="l">${money(vA)}</div></div>
+    <div><div class="v num ${day >= 0 ? "pos" : "neg"}">${day >= 0 ? "+" : ""}${money(day)}</div><div class="l">Hoy (${pctTxt(vA ? (day / (vA - day)) * 100 : null)})</div></div>
+    <div><div class="v num ${g >= 0 ? "pos" : "neg"}">${g >= 0 ? "+" : ""}${usd(g)}</div><div class="l">Ganancia en dólares (${pctTxt(cU ? (g / cU) * 100 : null, 1)})</div></div>
+    <div><div class="v num">${ok(vs) ? pctTxt(vs, 1) : "—"}</div><div class="l">Contra el S&P 500</div></div></div>
+    ${movers.length ? `<div class="cclh">Lo que más se mueve hoy</div><div class="ccl3" style="grid-template-columns:repeat(${Math.min(4, movers.length)},1fr)">${movers.map((x) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}">${logo(x.s, x.ced, 26)}<div><b>${esc(x.ced)}</b><small class="${x.chg >= 0 ? "pos" : "neg"}">${x.chg >= 0 ? "+" : ""}${nf(1).format(x.chg)}%</small></div></a>`).join("")}</div>` : ""}`;
 }
 
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando el mercado…";
-  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s); return u; }), loadDolar()];
+  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]); renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s, all); loadPf().catch(() => {}); return u; }), loadDolar()];
   const res = await Promise.allSettled(tasks);
   const fails = res.filter((r) => r.status === "rejected");
   fails.forEach((f) => console.warn(f.reason));

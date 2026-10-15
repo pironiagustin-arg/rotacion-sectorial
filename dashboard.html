@@ -47,6 +47,12 @@
   .breadth div { background:var(--panel2); border-radius:10px; padding:9px 11px; }
   .breadth .v { font-size:20px; font-weight:600; } .breadth .l { color:var(--dim); font-size:11.5px; }
   .bar2 { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:6px; } .bar2 b { display:block; height:100%; background:var(--good); }
+  .ccl3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px; }
+  .ccl3 a { display:flex; align-items:center; gap:9px; background:var(--panel2); border-radius:10px; padding:9px 10px; text-decoration:none; color:var(--text); border:1px solid transparent; }
+  .ccl3 a:hover { border-color:var(--border2); }
+  .ccl3 b { font-size:13.5px; display:block; } .ccl3 small { font-size:12px; }
+  .ccl3 .rk { font-size:10.5px; color:var(--dim); }
+  .cclh { font-size:12px; color:var(--muted); margin-top:12px; }
   .loading { color:var(--dim); font-size:13px; padding:8px 0; }
 </style>
 </head>
@@ -84,9 +90,10 @@
     <div class="card"><h3>Mejores candidatas del Screener <a href="/screener.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todas →</a></h3><div class="sub2">Score alto contra su industria y valuación favorable · sin Argentina</div><div id="cands" class="loading">Cargando…</div></div>
     <div class="card"><h3>Tu watchlist hoy <a href="/watchlist.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2" id="wlName"></div><div id="wl" class="loading">Cargando…</div></div>
   </div>
+  <div class="card" style="margin-top:12px"><h3>Calendario de resultados <span class="na" style="font-weight:400;font-size:12px">próximos 30 días</span></h3><div class="sub2">Cuándo reportan tus acciones (watchlist y cartera) o todo el universo</div><div id="earn" class="loading">Cargando…</div></div>
   <div class="grid2" style="margin-top:12px">
-    <div class="card"><h3>Resultados: tu watchlist y cartera</h3><div class="sub2">Quién reporta pronto y qué dijo el management de los que ya reportaron</div><div id="earn" class="loading">Cargando…</div></div>
-    <div class="card"><h3>Dólar y CEDEARs <a href="/cedears.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todos →</a></h3><div class="sub2">CCL implícito en los CEDEARs y dónde conviene comprar hoy</div><div id="dolar" class="loading">Cargando…</div></div>
+    <div class="card"><h3>Dólar y CEDEARs <a href="/cedears.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todos →</a></h3><div class="sub2">CCL implícito: dónde conviene comprar hoy</div><div id="dolar" class="loading">Cargando…</div></div>
+    <div class="card"><h3>Tu cartera hoy <a href="/cartera.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2">Valor, resultado del día y contra el S&P 500</div><div id="pf" class="loading">Cargando…</div></div>
   </div>
 </main>
 <div id="toast" class="toast"></div>
