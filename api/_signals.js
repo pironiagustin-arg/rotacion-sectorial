@@ -64,14 +64,16 @@ function analyze(trail, wtrail, px, bpx) {
     const prox = clamp(1 - (100 - p.x) / 3) * 30;
     const speed = clamp(dx5 / 1.2) * 20;
     const mom = clamp((p.y - 100) / 2) * 10;
-    const vScore = relVol != null ? clamp((relVol - 0.95) / 0.45) * 20 : 0;
-    const aScore = accum != null ? clamp((accum - 1) / 0.8) * 15 : 0;
-    const wk = wq === "improving" || wq === "leading" || wUp > 0 ? 5 : 0;
-    score = Math.round(prox + speed + mom + vScore + aScore + wk);
-    status = dx5 <= 0 ? "estancado" : score >= 65 && (eta ?? 99) <= 12 && (relVol ?? 0) >= 1.05 ? "por_explotar" : score >= 45 ? "cargando" : "temprano";
+    const vScore = relVol != null ? clamp((relVol - 0.95) / 0.45) * 15 : 0;
+    const aScore = accum != null ? clamp((accum - 0.9) / 0.7) * 20 : 0;
+    // El semanal confirma (o no) lo que muestra el diario
+    const wk = wq === "improving" || wq === "leading" ? 5 : wq === "lagging" && !(wUp > 0) ? -5 : 0;
+    score = Math.max(0, Math.round(prox + speed + mom + vScore + aScore + wk));
+    // "Por explotar" exige volumen arriba del promedio Y que ese volumen sea comprador (acumulación)
+    status = dx5 <= 0 ? "estancado" : score >= 62 && (eta ?? 99) <= 12 && (relVol ?? 0) >= 1.05 && (accum ?? 0) >= 1 ? "por_explotar" : score >= 45 ? "cargando" : "temprano";
   } else if (q === "leading") {
     const was = trail.slice(-8, -1).some((t) => quad(t) === "improving");
-    if (was && days <= 7) { status = "cruzo"; score = Math.round(60 + clamp(((relVol ?? 1) - 1) / 0.5) * 20 + clamp(((accum ?? 1) - 1) / 0.8) * 20); }
+    if (was && days <= 7) { status = "cruzo"; score = Math.round(40 + clamp(((relVol ?? 1) - 0.95) / 0.5) * 20 + clamp(((accum ?? 1) - 0.9) / 0.7) * 25 + (wq === "leading" || wq === "improving" ? 15 : 0)); }
   } else if (q === "weakening") {
     const was = trail.slice(-8, -1).some((t) => quad(t) === "leading");
     if (was && days <= 7) { status = "perdiendo"; score = Math.round(50 + clamp(-dy5 / 2) * 50); }
