@@ -406,7 +406,8 @@ export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = 
     const pegMax = r.lynch === "fast" ? 1.5 : 1.2;
     const pegOk = !["fast", "stalwart"].includes(r.lynch) || r.profile === "neocloud" || (ok(r.peg) && r.peg <= pegMax);
     const base = ok(r.score) && r.score >= 70 && ok(val) && val >= 55 && pegOk;
-    r.cand = (base && r.c !== "AR") || (ok(r.fairUp) && r.fairUp >= 15);
+    // Tesorerías cripto: valen por su cripto (mNAV), no por fundamentales: no se marcan solas como candidatas
+    r.cand = (base && r.c !== "AR" && r.profile !== "crypto") || (ok(r.fairUp) && r.fairUp >= 15);
     r.candReason = base ? `Score ${r.score} con valuación mejor que el ${val}% de ${r.peerLabel}${["fast", "stalwart"].includes(r.lynch) && ok(r.peg) ? ` y PEG ${fmt(r.peg, "x", 2)}` : ""}` : r.cand ? `Tu precio justo deja ${fmt(r.fairUp, "%", 0)} de margen` : "";
     r.verdict = verdict(r);
   }

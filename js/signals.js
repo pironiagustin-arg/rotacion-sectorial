@@ -53,6 +53,13 @@ function miniRRG(tail, color) {
     <circle cx="${X(L.x)}" cy="${Y(L.y)}" r="4" fill="${color}"/></svg>`;
 }
 
+// Línea compacta para los que ya cruzaron o están perdiendo fuerza
+export function signalChips(list, status, label) {
+  const xs = list.filter((s) => s.status === status);
+  if (!xs.length) return "";
+  const st = STATUS[status];
+  return `<div class="sg-chips"><span class="sg-cl" style="color:${st.tx}">${label}</span>${xs.map((s) => `<span class="sg-chip" title="${esc(s.name || "")} · fuerza ${s.score}/100 · volumen ${s.relVol != null ? (s.relVol >= 1 ? "+" : "") + nf(0).format((s.relVol - 1) * 100) + "%" : "—"} · acumulación ${s.accum ?? "—"}x"><b>${esc(s.symbol)}</b> ${esc(s.name || "")} <span style="color:${st.c}">${s.score}</span></span>`).join("")}</div>`;
+}
 export function signalCard(s, hist = {}, opts = {}) {
   const st = STATUS[s.status]; if (!st) return "";
   const k = streak(hist, s.symbol, s.status);
@@ -89,7 +96,11 @@ export const SIGNAL_CSS = `
 .sg-btn{background:#16213a;border:1px solid #2b3a5c;color:#e2e8f0;padding:7px 12px;border-radius:10px;cursor:pointer;font-family:inherit;font-size:12.5px}
 .sg-btn:hover{border-color:#3b82f6}
 .sg-empty{color:#94a3b8;font-size:13px;padding:10px 0}
-.sg-more{color:#64748b;font-size:12px;margin-top:8px}`;
+.sg-more{color:#64748b;font-size:12px;margin-top:8px}
+.sg-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-family:Inter,sans-serif}
+.sg-cl{font-size:12px;font-weight:600;margin-right:4px}
+.sg-chip{font-size:12px;color:#94a3b8;background:#16213a;border:1px solid #1e2a44;border-radius:99px;padding:3px 10px}
+.sg-chip b{color:#e2e8f0}`;
 
 // Avisos del navegador cuando aparece una señal fuerte nueva
 const SEEN = "rrg_signal_seen";
@@ -119,10 +130,11 @@ export async function mountPanel(el, { symbols = null, title, link } = {}) {
   let showAll = false, list = [], hist = {};
   const draw = () => {
     const box = el.querySelector("#sgList");
-    const main = list.filter((s) => ["por_explotar", "cruzo", "cargando", "perdiendo"].includes(s.status));
-    const shown = showAll ? list.filter((s) => s.status) : main;
-    if (!shown.length) { box.className = "sg-empty"; box.textContent = list.length ? "Ninguno cargando hacia Leading ahora. Tocá 'Ver todos' para ver los que recién arrancan." : "Sin datos."; return; }
-    box.className = "sg-wrap"; box.innerHTML = shown.map((s) => signalCard(s, hist, { link })).join("");
+    // Tarjetas: lo que está cargando en Improving (lo que pediste ver). Los que ya cruzaron o pierden fuerza van en una línea.
+    const cards = list.filter((s) => (showAll ? ["por_explotar", "cargando", "temprano", "estancado"] : ["por_explotar", "cargando"]).includes(s.status));
+    const chips = signalChips(list, "cruzo", "Ya cruzaron a Leading:") + signalChips(list, "perdiendo", "Perdiendo fuerza:");
+    box.className = "";
+    box.innerHTML = (cards.length ? `<div class="sg-wrap">${cards.map((s) => signalCard(s, hist, { link })).join("")}</div>` : `<div class="sg-empty">${list.length ? "Ahora no hay ninguno cargando en Improving hacia Leading." + (showAll ? "" : " Tocá 'Ver todos' para ver los que recién arrancan.") : "Sin datos."}</div>`) + chips;
   };
   el.querySelector("#sgAll").onclick = () => { showAll = !showAll; el.querySelector("#sgAll").textContent = showAll ? "Ver solo las fuertes" : "Ver todos"; draw(); };
   try {

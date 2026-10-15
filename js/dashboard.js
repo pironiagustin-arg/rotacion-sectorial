@@ -1,7 +1,7 @@
 import { UNIVERSE } from "/lib/universe.js";
 import { PROFILES, LYNCH, ok, derive, scoreAll, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
 import { $, esc, loadLocal, state, initSupabase, loadSnapshots, loadOverrides, loadFund, userMult, userProfW } from "/js/core.js";
-import { fetchSignals, signalHistory, signalCard, notifyNew, askNotifications, SIGNAL_CSS } from "/js/signals.js";
+import { fetchSignals, signalHistory, signalCard, signalChips, notifyNew, askNotifications, SIGNAL_CSS } from "/js/signals.js";
 
 const D = { range: "1y", chart: null, hidden: new Set(loadLocal("dash_hidden", [])), heatMode: "rel", ov: null };
 const pctTxt = (v, d = 2) => (ok(v) ? `<span class="${v >= 0 ? "pos" : "neg"}">${v >= 0 ? "+" : ""}${nf(d).format(v)}%</span>` : '<span class="na">—</span>');
@@ -71,10 +71,10 @@ async function loadMarket() {
 async function loadSignals() {
   if (!document.getElementById("sg-css")) { const st = document.createElement("style"); st.id = "sg-css"; st.textContent = SIGNAL_CSS; document.head.appendChild(st); }
   const [list, hist] = await Promise.all([fetchSignals(), signalHistory()]);
-  const strong = list.filter((s) => ["por_explotar", "cruzo", "cargando"].includes(s.status)).slice(0, 6);
-  const lose = list.filter((s) => s.status === "perdiendo");
-  $("signals").innerHTML = (strong.length ? `<div class="sg-wrap">${strong.map((s) => signalCard(s, hist)).join("")}</div>` : `<div class="card na">Ningún sector ni industria cargando hacia Leading ahora mismo.</div>`) +
-    `<div class="sg-more">${lose.length ? `Perdiendo fuerza (de Leading a Weakening): ${lose.map((s) => `<b>${esc(s.symbol)}</b> ${esc(s.name)}`).join(", ")}. ` : ""}<a href="#" id="notifBtn" style="color:#93c5fd">🔔 Avisarme cuando aparezca una señal fuerte</a></div>`;
+  const strong = list.filter((s) => ["por_explotar", "cargando"].includes(s.status)).slice(0, 8);
+  $("signals").innerHTML = (strong.length ? `<div class="sg-wrap">${strong.map((s) => signalCard(s, hist)).join("")}</div>` : `<div class="card na">Ahora no hay sectores ni industrias cargando en Improving hacia Leading.</div>`) +
+    signalChips(list, "cruzo", "Ya cruzaron a Leading:") + signalChips(list, "perdiendo", "Perdiendo fuerza:") +
+    `<div class="sg-more"><a href="#" id="notifBtn" style="color:#93c5fd">🔔 Avisarme cuando aparezca una señal fuerte</a></div>`;
   $("notifBtn").onclick = (e) => { e.preventDefault(); askNotifications(); };
   notifyNew(list);
 }
@@ -112,7 +112,7 @@ async function loadUniverse() {
   scoreAll(rows, { userMult: userMult(), profW: userProfW() });
   const ext = rows.filter((r) => r.c !== "AR");
   const line = (r, extra) => `<tr data-s="${esc(r.s)}"><td class="l"><b>${esc(r.ced || r.s)}</b> <span class="na">${esc((r.n || "").slice(0, 26))}</span></td>${extra}</tr>`;
-  const cands = ext.filter((r) => r.cand).sort((a, b) => b.score - a.score).slice(0, 8);
+  const cands = ext.filter((r) => r.cand && r.profile !== "crypto").sort((a, b) => b.score - a.score).slice(0, 8);
   $("cands").className = ""; $("cands").innerHTML = cands.length ? `<table class="mini"><tbody>${cands.map((r) => line(r, `<td class="l na">${esc(PROFILES[r.profile].l)}</td><td class="na">${LYNCH[r.lynch] || ""}</td><td class="num">${pctTxt(r.chg, 1)}</td><td><span class="score ${scoreCls(r.score)}">${r.score}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Hoy no hay candidatas.</div>`;
   const withChg = ext.filter((r) => ok(r.chg) && ok(r.mcap) && r.mcap > 2e9);
   const up = [...withChg].sort((a, b) => b.chg - a.chg).slice(0, 5), dn = [...withChg].sort((a, b) => a.chg - b.chg).slice(0, 5);
