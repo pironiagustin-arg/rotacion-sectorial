@@ -120,6 +120,25 @@ async function secData(symbol) {
   } catch { return { filings: [], talk: null }; }
 }
 
+// Google News (RSS) buscando el nombre de la empresa junto a eventos clave: mejor cobertura que Yahoo
+async function gnews(name) {
+  if (!name) return [];
+  try {
+    const clean = name.replace(/,?\s+(Inc\.?|Corporation|Corp\.?|Company|Co\.|Ltd\.?|plc|N\.V\.|S\.A\.|Holdings?|Group|Limited|& Co\.)\b/gi, "").trim();
+    const q = `"${clean}" (contract OR agreement OR acquire OR acquisition OR CEO OR buyback OR repurchase OR partnership OR deal OR dividend OR guidance) when:120d`;
+    const r = await fetch(`https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!r.ok) return [];
+    const xml = await r.text();
+    const tag = (it, t) => (it.match(new RegExp(`<${t}[^>]*>([\\s\\S]*?)</${t}>`)) || [])[1] || "";
+    const dec = (x) => x.replace(/<!\[CDATA\[|\]\]>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").trim();
+    return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 40).map((m) => {
+      const it = m[1], src = dec(tag(it, "source"));
+      let title = dec(tag(it, "title")); if (src && title.endsWith(" - " + src)) title = title.slice(0, -(src.length + 3));
+      return { title, url: dec(tag(it, "link")), publisher: src || "Google News", t: Date.parse(tag(it, "pubDate")) || 0 };
+    }).filter((n) => n.title && n.url);
+  } catch { return []; }
+}
+
 async function news(symbol) {
   try {
     const j = await yget(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=30`);
@@ -132,11 +151,15 @@ export default async function handler(req, res) {
   const symbol = String(req.query?.symbol || "").trim().toUpperCase();
   if (!/^[A-Z0-9.\-]{1,12}$/.test(symbol)) return res.status(400).json({ error: "Ticker inválido" });
   try {
-    const mods = "assetProfile,defaultKeyStatistics,netSharePurchaseActivity,upgradeDowngradeHistory,recommendationTrend,calendarEvents,earningsHistory,majorHoldersBreakdown,financialData";
+    const mods = "price,assetProfile,defaultKeyStatistics,netSharePurchaseActivity,upgradeDowngradeHistory,recommendationTrend,calendarEvents,earningsHistory,majorHoldersBreakdown,financialData";
     const [qs, nws, sec] = await Promise.all([
       yget(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${mods}`).then((j) => j?.quoteSummary?.result?.[0] || {}).catch(() => ({})),
       news(symbol), secData(symbol),
     ]);
+    const gn = await gnews(qs.price?.longName || qs.price?.shortName || null);
+    const seenT = new Set(nws.map((n) => n.title.toLowerCase().slice(0, 50)));
+    for (const n of gn) if (!seenT.has(n.title.toLowerCase().slice(0, 50))) { seenT.add(n.title.toLowerCase().slice(0, 50)); nws.push(n); }
+    nws.sort((a, b) => b.t - a.t); nws.splice(50);
     const ap = qs.assetProfile || {}, ks = qs.defaultKeyStatistics || {}, ns = qs.netSharePurchaseActivity || {}, mh = qs.majorHoldersBreakdown || {}, fd = qs.financialData || {};
     const ceo = (ap.companyOfficers || []).find((o) => /chief executive|ceo/i.test(o.title || "")) || (ap.companyOfficers || [])[0] || null;
     const ninety = Date.now() - 120 * 864e5;

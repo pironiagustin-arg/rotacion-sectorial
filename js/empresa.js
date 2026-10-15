@@ -312,21 +312,26 @@ function renderAbout() {
 
 // ---------- Noticias clave ----------
 const NEWS_CATS = [
-  ["Management", /\b(CEO|chief executive|CFO|chief financial|steps? down|resign|appoint|names? .{0,30}(president|chief|chair)|successor|to retire|new chair)/i],
-  ["Recompra", /buyback|repurchase|buy back/i],
-  ["Adquisición", /\b(acquir|acquisition|to buy|merger|merge|takeover|takes? over|stake in)/i],
-  ["Contrato", /\b(contract|agreement|order|award|multi-?year|signs?|wins?|lands?|secures?|supply deal|\$[\d.]+ ?(billion|bn|million) deal)/i],
-  ["Alianza", /\b(partner|collaborat|alliance|joint venture|teams? up)/i],
-  ["Dividendo", /dividend/i],
-  ["Guidance", /\b(guidance|raises? .{0,20}(forecast|outlook)|cuts? .{0,20}(forecast|outlook)|lowers? .{0,20}(forecast|outlook))/i],
+  ["Management", /\b(names?|appoints?|hires?|taps?|promotes?)\b.{0,50}\b(CEO|CFO|chief|president|chair\w*)\b|\b(CEO|CFO|chief executive|chief financial officer|chairman|founder)\b.{0,50}\b(steps? down|resign\w*|retir\w*|depart\w*|exit\w*|to leave|successor|replac\w*|ousted|fired)|\bnew (CEO|CFO|chief executive)\b/i],
+  ["Recompra", /\b(buyback|repurchase|buy back)\b/i],
+  ["Adquisición", /\b(to acquire|acquires?|acquired|acquisition of|agrees? to buy|to buy .{0,30} for \$|merger|merge with|takeover bid)\b/i],
+  ["Contrato", /\b(contract|agreement|deal with|signs|signed|inks|inked|wins|secures|secured|awarded|order for|order from|multi-?year|supply deal)\b/i],
+  ["Alianza", /\b(partnership|partners with|collaborat\w*|alliance|joint venture|teams? up)\b/i],
+  ["Dividendo", /\b(raises?|hikes?|boosts?|increases?|special|cuts?|suspends?)\b.{0,25}\bdividend/i],
+  ["Guidance", /\b(raises?|lifts?|boosts?|cuts?|lowers?|slashes?|reaffirms?)\b.{0,30}\b(guidance|forecast|outlook)\b/i],
 ];
-const NEWS_JUNK = /\?$|should you|is it time|stocks? to (buy|watch)|top \d|best \d|\bwhy\b|here's|what to know|motley|price prediction|could (soar|be)|millionaire|vs\.? /i;
-function keyNews(nws, fil) {
+const NEWS_JUNK = /\?$|prediction|\bcould\b|\bmight\b|union|strike|workers|labor|advis[eo]r|investigat|lawsuit|sues?\b|backing|upgrade|downgrade|price target|rating|analyst|options? (trading|activity)|unusual|shares (rise|fall|drop|jump)|stock (rises|falls|drops|jumps)|should you|is it time|stocks? to (buy|watch)|top \d|best \d|\bwhy\b|here's|what to know|motley|price prediction|could (soar|be)|millionaire|vs\.? /i;
+function keyNews(nws, fil, r) {
   const out = [], seen = new Set();
+  const STOP = /^(the|inc|corp|corporation|company|group|holdings?|ltd|plc|sa|nv|co)$/i;
+  const nameTok = (r.n || "").replace(/[,.]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.test(w))[0] || "";
+  const subj = new RegExp(`\\b(${[nameTok, r.s.split(".")[0], r.ced].filter(Boolean).map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})('s|’s)?\\b`, "i");
   for (const n of nws) {
     if (!n.title || NEWS_JUNK.test(n.title)) continue;
+    const m = n.title.match(subj);
+    if (!m || m.index > 45) continue;
     const cat = NEWS_CATS.find(([, re]) => re.test(n.title));
-    if (!cat) continue;
+    if (!cat || (cat[0] === "Management" && m.index > 5)) continue;
     const key = n.title.toLowerCase().replace(/[^a-z ]/g, "").split(" ").slice(0, 5).join(" ");
     if (seen.has(key) || out.some((o) => o.cat === cat[0] && Math.abs(o.t - n.t) < 3 * 864e5)) continue;
     seen.add(key);
@@ -400,7 +405,7 @@ function renderThesis() {
   if (ok(r.rule40) && r.rule40 >= 40 && ["software", "internet", "payments", "neocloud"].includes(r.profile)) add(pro, `Rule of 40 de ${fmt(r.rule40, "%", 0)}: crece rápido sin descuidar la caja.`, "Métricas");
   if (ok(r.omTrend) && r.omTrend > 3) add(pro, `Apalancamiento operativo: el margen operativo mejoró ${fmt(r.omTrend, "pp", 1)} en los últimos 3 ejercicios.`, "Métricas");
   // Noticias clave (máx. 3): contratos, acuerdos, adquisiciones, cambio de CEO, recompras, dividendos, guidance
-  keyNews(nws, fil).forEach((k) => deals.push(`<a href="${esc(k.url)}" target="_blank" rel="noopener"><span class="tag">${esc(k.cat)}</span>${fmtDate(k.t)} · ${esc(k.title)}${k.src ? ` <span class="na">(${esc(k.src)})</span>` : ""} ↗</a>`));
+  keyNews(nws, fil, r).forEach((k) => deals.push(`<a href="${esc(k.url)}" target="_blank" rel="noopener"><span class="tag">${esc(k.cat)}</span>${fmtDate(k.t)} · ${esc(k.title)}${k.src ? ` <span class="na">(${esc(k.src)})</span>` : ""} ↗</a>`));
   if (pr.talk) talkPros(pr.talk, pro, con, add);
   // Management y dueños
   const p = pr.profile || {};
