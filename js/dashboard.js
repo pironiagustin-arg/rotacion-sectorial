@@ -84,6 +84,7 @@ async function loadUniverse() {
   const [, snap] = await Promise.all([loadOverrides(), loadSnapshots(), loadFund()]);
   const rows = [...snap.rows.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
   scoreAll(rows, { userMult: userMult(), profW: userProfW() });
+  D.mcap = new Map(rows.map((r) => [r.s, r.mcap]));
   const ext = rows.filter((r) => r.c !== "AR" && !(r.mk || "").includes("REF"));
   const line = (r, extra) => `<tr data-s="${esc(r.s)}"><td class="l"><b>${esc(r.ced || r.s)}</b> <span class="na">${esc((r.n || "").slice(0, 26))}</span></td>${extra}</tr>`;
   const cands = ext.filter((r) => r.cand && r.profile !== "crypto").sort((a, b) => b.score - a.score).slice(0, 8);
@@ -155,7 +156,7 @@ async function loadPf() {
 
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando el mercado…";
-  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]); renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s, all); loadPf().catch(() => {}); return u; }), loadDolar()];
+  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]); renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s, all, (s) => D.mcap?.get(s)); loadPf().catch(() => {}); return u; }), loadDolar()];
   const res = await Promise.allSettled(tasks);
   const fails = res.filter((r) => r.status === "rejected");
   fails.forEach((f) => console.warn(f.reason));
