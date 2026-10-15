@@ -23,4 +23,4 @@ export function ratioOf(ars, ccl, usPx) {
   const best = STD.reduce((b, x) => (Math.abs(x / r - 1) < Math.abs(b / r - 1) ? x : b), STD[0]);
   return Math.abs(best / r - 1) < 0.08 ? best : Math.round(r);
 }
-export const devTxt = (dev) => dev == null ? "" : Math.abs(dev) < 0.5 ? "en línea" : dev < 0 ? "barato" : "caro";
+export const devTxt = (dev) => dev == null ? "" : Math.abs(dev) > 8 ? "dato a revisar (precio viejo o cambio de ratio)" : Math.abs(dev) < 0.5 ? "en línea" : dev < 0 ? "barato" : "caro";

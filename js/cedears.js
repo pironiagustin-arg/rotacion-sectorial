@@ -14,7 +14,7 @@ const big = (v) => (!ok(v) ? "—" : v >= 1e9 ? "$ " + nf(1).format(v / 1e9) + "
 function kpis() {
   const d = C.d, dl = d.dolar || {};
   const card = (l, v, s) => `<div class="kpi"><div class="l">${l}</div><div class="v num">${v}</div><div class="s">${s || ""}</div></div>`;
-  const all = Object.entries(d.implied).filter(([, x]) => x.volArs > 3e8).map(([k, x]) => ({ k, dev: (x.ccl / d.medCcl - 1) * 100 }));
+  const all = Object.entries(d.implied).filter(([, x]) => x.volArs > 3e8).map(([k, x]) => ({ k, dev: (x.ccl / d.medCcl - 1) * 100 })).filter((x) => Math.abs(x.dev) <= 8);
   const cheap = [...all].sort((a, b) => a.dev - b.dev).slice(0, 3).map((x) => x.k).join(", ");
   $("kpis").innerHTML = card("CCL implícito (mediana CEDEARs)", money(d.medCcl, 2), "Promedio del mercado con volumen") +
     card("Dólar MEP", money(dl.bolsa?.venta, 2), "dolarapi.com") + card("Contado con liqui", money(dl.contadoconliqui?.venta, 2), "dolarapi.com") +
@@ -48,7 +48,7 @@ function render() {
     ${list.slice(0, 400).map((r) => `<tr><td class="l"><b>${r.sym ? `<a href="/empresa.html?s=${encodeURIComponent(r.sym)}">${esc(r.ced)}</a>` : esc(r.ced)}</b></td><td class="l na">${esc(r.name.slice(0, 34))}</td>
       <td class="num">${money(r.ars, r.ars < 100 ? 2 : 0)}</td><td class="num">${pct(r.chg)}</td><td class="num">${ok(r.usd) ? "US$ " + nf(2).format(r.usd) : "—"}</td>
       <td class="num">${money(r.ccl, 2)}</td>
-      <td class="num">${ok(r.dev) ? `<span class="devbar" style="width:${Math.min(60, Math.abs(r.dev) * 12)}px;background:${r.dev < 0 ? "#22c55e" : "#ef4444"}"></span><span class="${r.dev < -0.5 ? "pos" : r.dev > 0.5 ? "neg" : "na"}">${r.dev >= 0 ? "+" : ""}${nf(2).format(r.dev)}% · ${devTxt(r.dev)}</span>` : '<span class="na">—</span>'}</td>
+      <td class="num">${ok(r.dev) ? `<span class="devbar" style="width:${Math.min(60, Math.abs(r.dev) * 12)}px;background:${r.dev < 0 ? "#22c55e" : "#ef4444"}"></span><span class="${Math.abs(r.dev) > 8 ? "na" : r.dev < -0.5 ? "pos" : r.dev > 0.5 ? "neg" : "na"}">${r.dev >= 0 ? "+" : ""}${nf(2).format(r.dev)}% · ${Math.abs(r.dev) > 8 ? '<span title="Desvío demasiado grande: suele ser un precio viejo, poca liquidez o un cambio de ratio">⚠ revisar</span>' : devTxt(r.dev)}</span>` : '<span class="na">—</span>'}</td>
       <td class="num">${big(r.vol)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">No hay CEDEARs con ese filtro.</div>`;
 }
 async function load() {
