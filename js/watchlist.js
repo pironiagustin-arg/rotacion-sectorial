@@ -1,6 +1,10 @@
 import { UNIVERSE, SYMBOLS, BATCH_SIZE, COUNTRIES } from "/lib/universe.js";
 import { METRICS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
 import { startLive } from "/js/live.js";
+import { renderEarnings, EARN_CSS } from "/js/earnings.js";
+{ const st = document.createElement("style"); st.textContent = EARN_CSS; document.head.appendChild(st); }
+let earnKey = "";
+function earn() { const syms = (W.lists?.[W.active] || []).filter((s) => META.get(s)?.[3] !== "AR"); const k = W.active + syms.join(); if (k === earnKey) return; earnKey = k; renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s); }
 import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, userProfW, loadFund, withMeta, META } from "/js/core.js";
 
 const KEY = "watchlists_v2", COLS_KEY = "watchlist_cols_v3";
@@ -50,7 +54,7 @@ function renderLists() {
   $("lists").innerHTML = Object.keys(W.lists).map((n) => `<button class="chip ${n === W.active ? "on" : ""}" data-list="${esc(n)}">${esc(n)} <span class="c">${W.lists[n].length}</span>${Object.keys(W.lists).length > 1 ? `<span class="x" data-del="${esc(n)}" title="Borrar lista">×</span>` : ""}</button>`).join("") +
     `<button class="chip" id="newList">+ Nueva lista</button>`;
 }
-function current() { return W.lists[W.active].map((s) => W.rows.find((r) => r.s === s) || { s, out: true }); }
+function current() { setTimeout(earn, 0); return W.lists[W.active].map((s) => W.rows.find((r) => r.s === s) || { s, out: true }); }
 function render() {
   renderLists();
   const rows = current(), inU = rows.filter((r) => !r.out);

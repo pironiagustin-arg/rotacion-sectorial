@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CEDEARs en pesos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<script src="/js/embed.js"></script>
+<style>
+  main { max-width:1400px; }
+  .bar2 { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 12px; }
+  .bar2 input[type=search] { width:260px; }
+  .devbar { display:inline-block; height:6px; border-radius:3px; vertical-align:middle; margin-right:6px; }
+  .bar2 .tabs { margin:0; border:none; }
+  .help { color:var(--dim); font-size:12.5px; line-height:1.55; margin:4px 0 14px; max-width:980px; }
+  td.l a { color:var(--text); text-decoration:none; } td.l a:hover { color:#93c5fd; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Rotación Sectorial</div>
+  <nav><a href="/">App</a></nav>
+</header>
+<main>
+  <div class="top">
+    <div><h1>CEDEARs en pesos y dólar implícito</h1><div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando BYMA…</span></div></div>
+    <div class="actions"><button class="btn" id="btnReload">↻ Actualizar</button></div>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="help">Cada CEDEAR tiene su propio <b>dólar implícito (CCL)</b>: precio en pesos × ratio ÷ precio de la acción en EE.UU. Si está <span class="pos">por debajo</span> de la mediana del mercado, ese CEDEAR está <b>barato en pesos</b>: comprás la acción con un dólar más bajo. Si está <span class="neg">por encima</span>, está caro: conviene comprar otro o esperar. Con poco volumen el desvío suele ser ruido de punta compradora/vendedora.</div>
+  <div class="bar2">
+    <input type="search" id="q" placeholder="Buscar ticker o empresa">
+    <div class="tabs" id="tabs"><button class="tab on" data-f="uni">Mi universo</button><button class="tab" data-f="all">Todos</button><button class="tab" data-f="wl">Watchlist y cartera</button></div>
+    <label class="toggle"><input type="checkbox" id="liq" checked> Solo líquidos (más de $50 M operados hoy)</label>
+  </div>
+  <div id="view"></div>
+</main>
+<div id="toast" class="toast"></div>
+<script src="/config.js"></script>
+<script type="module" src="/js/cedears.js"></script>
+</body>
+</html>

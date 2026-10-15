@@ -1,7 +1,11 @@
 import { UNIVERSE } from "/lib/universe.js";
 import { PROFILES, LYNCH, ok, derive, scoreAll, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
-import { $, esc, loadLocal, state, initSupabase, loadSnapshots, loadOverrides, loadFund, userMult, userProfW } from "/js/core.js";
+import { $, esc, loadLocal, state, META, initSupabase, loadSnapshots, loadOverrides, loadFund, userMult, userProfW } from "/js/core.js";
 import { startLive } from "/js/live.js";
+import { renderEarnings, EARN_CSS } from "/js/earnings.js";
+import { fetchArs } from "/js/ars.js";
+import { watchSymbols, getPortfolio } from "/js/lists.js";
+{ const st = document.createElement("style"); st.textContent = EARN_CSS; document.head.appendChild(st); }
 
 const D = { range: "1y", chart: null, hidden: new Set(loadLocal("dash_hidden", [])), ov: null };
 const pctTxt = (v, d = 2) => (ok(v) ? `<span class="${v >= 0 ? "pos" : "neg"}">${v >= 0 ? "+" : ""}${nf(d).format(v)}%</span>` : '<span class="na">—</span>');
@@ -110,9 +114,22 @@ async function loadUniverse() {
   return snap.updated;
 }
 
+// ---------- Dólar y CEDEARs ----------
+async function loadDolar() {
+  const d = await fetchArs(0); if (!d) throw new Error("ars");
+  const dl = d.dolar || {}, money = (v) => (ok(v) ? "$ " + nf(2).format(v) : "—");
+  const byCed = new Map(UNIVERSE.filter((u) => u[5]).map((u) => [u[5], u]));
+  const liq = Object.entries(d.implied).filter(([k, x]) => x.volArs > 3e8 && byCed.has(k)).map(([k, x]) => ({ k, s: byCed.get(k)[0], dev: (x.ccl / d.medCcl - 1) * 100 })).sort((a, b) => a.dev - b.dev);
+  const chips = (arr) => arr.map((x) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}" style="color:var(--text);text-decoration:none;margin-right:10px"><b>${esc(x.k)}</b> <span class="${x.dev < 0 ? "pos" : "neg"}">${x.dev >= 0 ? "+" : ""}${nf(2).format(x.dev)}%</span></a>`).join("");
+  $("dolar").className = "";
+  $("dolar").innerHTML = `<div class="breadth"><div><div class="v num">${money(d.medCcl)}</div><div class="l">CCL implícito (mediana CEDEARs)</div></div><div><div class="v num">${money(dl.bolsa?.venta)}</div><div class="l">MEP</div></div><div><div class="v num">${money(dl.oficial?.venta)}</div><div class="l">Oficial${ok(dl.oficial?.venta) && ok(d.medCcl) ? ` · brecha ${nf(1).format((d.medCcl / dl.oficial.venta - 1) * 100)}%` : ""}</div></div><div><div class="v num">${money(dl.blue?.venta)}</div><div class="l">Blue</div></div></div>
+    <div class="kv" style="margin-top:8px"><span>Más baratos (CCL bajo)</span><span>${chips(liq.slice(0, 4))}</span></div>
+    <div class="kv"><span>Más caros (CCL alto)</span><span>${chips(liq.slice(-4).reverse())}</span></div>`;
+}
+
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando el mercado…";
-  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse()];
+  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s); return u; }), loadDolar()];
   const res = await Promise.allSettled(tasks);
   const fails = res.filter((r) => r.status === "rejected");
   fails.forEach((f) => console.warn(f.reason));

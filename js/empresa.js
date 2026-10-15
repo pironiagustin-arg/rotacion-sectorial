@@ -1,6 +1,8 @@
 import { UNIVERSE, SECTORS, COUNTRIES, MARKETS, SYMBOLS, BATCH_SIZE } from "/lib/universe.js";
 import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt, fmtCap, fmtBig, nf, scoreCls, profileOf, relevant } from "/js/score.js";
 import { startLive } from "/js/live.js";
+import { talkRead } from "/js/talk.js";
+import { fetchArs, arsOf, ratioOf, devTxt } from "/js/ars.js";
 import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, userProfW, withMeta, META, loadFund } from "/js/core.js";
 
 const P = { sym: null, rows: [], r: null, hist: null, charts: [] };
@@ -158,6 +160,7 @@ function render() {
       </div>
       <div class="ring ${scoreCls(r.score)}" title="Score contra ${r.peerN} empresas de ${esc(r.peerLabel)}"><div class="v">${ok(r.score) ? r.score : "—"}</div><div class="l">Score / 100</div></div>
     </div>
+    <div id="byma" class="byma"></div>
     <div class="oneliner">${oneLiner(r)}</div>
     <div class="actions" style="margin-top:14px">
       <button class="btn" id="bPdf">⤓ PDF de la tesis</button>
@@ -253,7 +256,7 @@ function render() {
     </div>
     <div class="actions" style="margin-top:12px"><button class="btn primary" id="tSave">Guardar tesis</button>${r.edited.size ? `<button class="btn" id="tReset">Restaurar métricas de Yahoo</button>` : ""}</div>
   </div>`;
-  updateFair(); updateTam(); bindPage(); renderAbout(); renderThesis();
+  updateFair(); updateTam(); bindPage(); renderAbout(); renderThesis(); renderByma();
   if (P.hist) renderHistory();
 }
 
@@ -313,6 +316,31 @@ function renderAbout() {
   if ($("aboutMore")) $("aboutMore").onclick = () => { $("aboutT").classList.toggle("clamp"); $("aboutMore").textContent = $("aboutT").classList.contains("clamp") ? "Leer completo" : "Ver menos"; };
 }
 
+// ---------- BYMA: precio en pesos y dólar implícito ----------
+async function renderByma() {
+  const r = P.r, el = $("byma"); if (!el) return;
+  if (!r.ced) { el.innerHTML = ""; return; }
+  const d = await fetchArs(); if (P.r !== r) return;
+  const a = arsOf(d, r.ced);
+  if (!a?.ars) { el.innerHTML = `<span class="na">Sin operaciones hoy en BYMA para ${esc(r.ced)}.</span>`; return; }
+  const local = r.c === "AR", ratio = !local && r.cur === "USD" ? ratioOf(a.ars, a.ccl, r.px) : null;
+  const dc = a.dev == null ? "na" : a.dev < -0.5 ? "pos" : a.dev > 0.5 ? "neg" : "na";
+  el.innerHTML = `<span class="lab">${local ? "En BYMA" : "CEDEAR en BYMA"}</span> <b class="num">$ ${nf(a.ars < 100 ? 2 : 0).format(a.ars)}</b> ${ok(a.chg) ? `<span class="${a.chg >= 0 ? "pos" : "neg"}">${a.chg >= 0 ? "+" : ""}${nf(2).format(a.chg)}%</span>` : ""}
+    ${a.usd ? `<span class="sep">·</span><span>US$ ${nf(2).format(a.usd)} <span class="na">(especie D, MEP)</span></span>` : ""}
+    ${!local && a.ccl ? `<span class="sep">·</span><span>CCL implícito <b class="num">$ ${nf(2).format(a.ccl)}</b> <span class="${dc}">${a.dev >= 0 ? "+" : ""}${nf(2).format(a.dev)}% vs mediana · ${devTxt(a.dev)}</span></span>` : ""}
+    ${ratio ? `<span class="sep">·</span><span class="na">Ratio ${ratio}:1</span>` : ""}
+    <a href="/cedears.html" class="na" style="margin-left:8px;color:#93c5fd">Comparar →</a>`;
+}
+
+// ---------- Grandes fondos (13F) ----------
+let FUNDS = null;
+const fundsP = fetch("/data/funds.json").then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => { FUNDS = d; if (P.r && P.prof) renderThesis(); });
+function fundsOf(r) {
+  const list = FUNDS?.bySymbol?.[r.s] || [];
+  return [...list].sort((a, b) => (b.value || 0) - (a.value || 0));
+}
+const FST = { new: "abrió posición", add: "aumentó", trim: "redujo", hold: "sin cambios", sold: "vendió todo" };
+
 // ---------- Noticias clave ----------
 const NEWS_CATS = [
   ["Management", /\b(names?|appoints?|hires?|taps?|promotes?)\b.{0,50}\b(CEO|CFO|chief|president|chair\w*)\b|\b(CEO|CFO|chief executive|chief financial officer|chairman|founder)\b.{0,50}\b(steps? down|resign\w*|retir\w*|depart\w*|exit\w*|to leave|successor|replac\w*|ousted|fired)|\bnew (CEO|CFO|chief executive)\b/i],
@@ -355,20 +383,6 @@ function keyNews(nws, fil, r) {
 }
 
 // ---------- Qué dijo el management ----------
-function talkRead(tk) {
-  const en = [...tk.quotes.map((q) => q.text), ...tk.outlook].join(" ");
-  const cnt = (re) => (en.match(re) || []).length;
-  const pos = cnt(/\b(record|strong|accelerat\w*|momentum|exceed\w*|robust|confident|inflection|exceptional|outstanding|best|healthy|expand\w*)\b/gi);
-  const neg = cnt(/\b(headwind\w*|challeng\w*|uncertain\w*|declin\w*|pressure\w*|soft\w*|weak\w*|cautious|slow\w*|difficult|volatil\w*|tariff\w*|disappoint\w*)\b/gi);
-  const tone = pos + neg === 0 ? null : (pos - neg) / (pos + neg);
-  const g = /rais(e|ed|es|ing)\b[^.]{0,50}(outlook|guidance|forecast)|(outlook|guidance)[^.]{0,30}\brais/i.test(en) ? ["sube", "pos", "Subió el guidance"]
-    : /(lower|reduc|cut)(s|ed|ing)?\b[^.]{0,50}(outlook|guidance|forecast)/i.test(en) ? ["baja", "neg", "Bajó el guidance"]
-    : /reaffirm|reiterat|maintain(s|ed)? (its |the |our )?(full[- ]year |annual )?(outlook|guidance)/i.test(en) ? ["mantiene", "", "Ratificó el guidance"]
-    : tk.outlook.length ? ["da", "", "Dio guidance para el próximo período"] : null;
-  const TH = [["IA", /\bAI\b|artificial intelligence|generative|GPU|inference|tokens?\b/i], ["Demanda", /demand|backlog|bookings|pipeline|orders/i], ["Márgenes", /margin/i], ["Inversión y capacidad", /capital expenditure|capex|data cent|capacity|build ?out|infrastructure/i], ["Recompras y dividendos", /repurchase|buyback|dividend|returned .{0,20}shareholders/i], ["Costos y eficiencia", /cost|efficien|restructur|productivity/i], ["Macro y consumo", /macro|tariff|consumer|inflation|interest rate|economy/i], ["Productos nuevos", /launch|new product|introduc|platform|innovation/i], ["Clientes", /customer|client|users?\b|subscriber|members/i], ["Expansión internacional", /international|global|emerging markets|China|Europe/i]];
-  const themes = TH.filter(([, re]) => re.test(en)).map(([l]) => l).slice(0, 6);
-  return { tone, toneTxt: tone == null ? null : tone > 0.35 ? "Optimista" : tone < -0.2 ? "Cauto" : "Equilibrado", g, themes, date: tk.date, url: tk.url, quotes: tk.quotes, outlook: tk.outlook, outlook_es: tk.outlook_es };
-}
 function talkPros(tk, pro, con, add) {
   const t = talkRead(tk);
   if (t.g?.[0] === "sube") add(pro, "El management subió su guidance en el último comunicado de resultados.", "Management");
@@ -431,6 +445,11 @@ function renderThesis() {
   if (ok(an.targetMean) && ok(r.px)) { const up = (an.targetMean / r.px - 1) * 100; if (up >= 15) add(pro, `Los ${an.n || ""} analistas que la cubren ven un precio objetivo promedio de ${fmt(an.targetMean)} (${fmt(up, "%", 0)} arriba del precio actual).`, "Analistas"); if (up < -5) add(con, `El precio ya supera el objetivo promedio de los analistas (${fmt(an.targetMean)}).`, "Analistas"); }
   if (ups >= 2 && ups > downs) add(pro, `${ups} mejoras de recomendación en los últimos 4 meses.`, "Analistas");
   if (downs >= 2 && downs > ups) add(con, `${downs} bajas de recomendación en los últimos 4 meses.`, "Analistas");
+  // Grandes fondos
+  const fl = fundsOf(r), fBuy = fl.filter((f) => f.status === "new" || f.status === "add"), fSell = fl.filter((f) => f.status === "sold" || f.status === "trim");
+  if (fBuy.length >= 2 && fBuy.length > fSell.length) add(pro, `Grandes fondos comprando el último trimestre: ${fBuy.slice(0, 4).map((f) => f.fund).join(", ")}.`, "Fondos");
+  else if (fl.some((f) => f.pct >= 5 && f.status !== "sold")) { const f = fl.find((x) => x.pct >= 5); add(pro, `${f.fund} (${f.who}) la tiene como posición grande: ${nf(1).format(f.pct)}% de su cartera.`, "Fondos"); }
+  if (fSell.length >= 3 && fSell.length > fBuy.length) add(con, `Grandes fondos vendiendo el último trimestre: ${fSell.slice(0, 4).map((f) => f.fund).join(", ")}.`, "Fondos");
   // Riesgos
   r.alerts.filter((a) => !/historia|pico del ciclo/i.test(a.t)).slice(0, 4).forEach((a) => add(con, a.t, "Métricas"));
   r.alerts.filter((a) => /historia|pico del ciclo/i.test(a.t)).slice(0, 2).forEach((a) => add(con, a.t, "Valuación"));
@@ -465,6 +484,7 @@ function renderThesis() {
     <div class="two tz">
       <div><h4>Noticias clave</h4><ul class="tl links">${deals.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin contratos, acuerdos, cambios de management ni recompras en las noticias recientes.</li>'}</ul></div>
       <div><h4>Management y dueños</h4><ul class="tl">${mgmt.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin datos de management.</li>'}</ul>
+        ${fl.length ? `<h4 style="margin-top:12px">Grandes fondos <span class="na" style="font-weight:400">· 13F al ${esc(fl[0].period)}</span></h4><ul class="tl">${fl.slice(0, 6).map((f) => `<li><b>${esc(f.fund)}</b> <span class="na">(${esc(f.who)})</span>: ${f.status === "sold" ? '<span class="neg">vendió todo</span>' : `${ok(f.pct) ? nf(1).format(f.pct) + "% de su cartera" : ""}${f.status ? ` · <span class="${f.status === "new" || f.status === "add" ? "pos" : f.status === "trim" ? "neg" : "na"}">${FST[f.status]}${ok(f.chg) && f.status !== "hold" ? " " + (f.chg >= 0 ? "+" : "") + nf(0).format(f.chg) + "%" : ""}</span>` : ""}`}</li>`).join("")}</ul><a href="/fondos.html" style="color:#93c5fd;font-size:12.5px">Ver todos los fondos →</a>` : ""}
         ${ok(an.targetMean) ? `<h4 style="margin-top:12px">Analistas</h4><ul class="tl"><li>Recomendación: ${esc({ strong_buy: "compra fuerte", buy: "compra", hold: "mantener", sell: "venta", strong_sell: "venta fuerte", underperform: "por debajo del mercado", outperform: "por encima del mercado" }[an.recKey] || an.recKey || "—")} · ${an.n || "—"} analistas</li><li>Precio objetivo: ${fmt(an.targetLow)} a ${fmt(an.targetHigh)} (promedio ${fmt(an.targetMean)})</li>${pr.earnings?.next ? `<li>Próximos resultados: ${fmtDate(pr.earnings.next)}</li>` : ""}</ul>` : ""}</div>
     </div>
     <div class="src">Fuentes: score propio, comunicado de resultados y hechos relevantes presentados a la SEC (8-K / 6-K), Yahoo Finance (insiders, analistas, noticias). Citas traducidas automáticamente. El TAM no viene en ningún dato público: cargalo en "Tu tesis" para el chequeo de valuación. Es material de análisis, no una recomendación.</div>`;
