@@ -1,5 +1,6 @@
 import { UNIVERSE, SECTORS, COUNTRIES, MARKETS, SYMBOLS, BATCH_SIZE } from "/lib/universe.js";
 import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt, fmtCap, fmtBig, nf, scoreCls, profileOf, relevant } from "/js/score.js";
+import { startLive } from "/js/live.js";
 import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, userProfW, withMeta, META, loadFund } from "/js/core.js";
 
 const P = { sym: null, rows: [], r: null, hist: null, charts: [] };
@@ -58,6 +59,17 @@ async function load(sym) {
       if (P.sym !== sym) return;
       P.prof = pr || { error: true }; renderAbout(); renderThesis();
       // Si el servidor no pudo traducir, se traduce desde el navegador
+      const talk = pr?.talk;
+      if (talk && talk.quotes.some((q) => !q.es) || talk?.outlook?.length && !(talk.outlook_es || []).some(Boolean)) {
+        const src = [...talk.quotes.map((q) => q.text), ...talk.outlook];
+        translateEs(src.join("\n")).then((t) => {
+          if (!t || P.sym !== sym) return;
+          const arr = t.split("\n");
+          if (arr.length !== src.length) return;
+          talk.quotes.forEach((q, i) => (q.es = arr[i])); talk.outlook_es = talk.outlook.map((_, i) => arr[talk.quotes.length + i]);
+          renderThesis();
+        });
+      }
       if (pr && !pr.error && pr.profile?.summary && pr.profile.summary === pr.profile.summary_en) {
         const [sum, titles] = await Promise.all([translateEs(pr.profile.summary), translateEs((pr.news || []).map((n) => n.title).join("\n"))]);
         if (P.sym !== sym) return;
@@ -118,7 +130,7 @@ function render() {
   const r = P.r, ov = state.ov.get(r.s) || {}, th = ov.metrics?.thesis || {};
   const prof = PROFILES[r.profile];
   const markets = (r.mk || "").split(" ").map((m) => MARKETS[m]).filter(Boolean);
-  const chg = ok(r.chg) ? `<span class="${r.chg >= 0 ? "pos" : "neg"}">${r.chg >= 0 ? "+" : ""}${nf(2).format(r.chg)}% hoy</span>` : "";
+  const chg = ok(r.chg) ? `<span class="${r.chg >= 0 ? "pos" : "neg"}" data-live-chg="${esc(r.s)}" data-live-suf=" hoy">${r.chg >= 0 ? "+" : ""}${nf(2).format(r.chg)}% hoy</span>` : "";
   const { list: peers, custom } = peersOf(r);
   const cols = peerCols(r);
   const keyMetrics = Object.entries(r.weights).sort((a, b) => b[1] - a[1]).map(([k]) => k);
@@ -139,7 +151,7 @@ function render() {
           ${(r.mk || "").includes("REF") ? `<span class="chip" style="color:#fde68a">Sin CEDEAR · solo como par de comparación</span>` : ""}
           ${markets.map((m) => `<span class="chip">${esc(m)}</span>`).join("")}
         </div>
-        <div class="price"><span class="p num">${fmt(r.px)} <span class="na" style="font-size:14px">${esc(r.cur || "")}</span></span>${chg}<span class="na">Market cap ${fmtCap(r.mcap)}</span>${ok(r.tgt) ? `<span class="na">Target analistas ${fmt(r.tgt)} (${r.upside >= 0 ? "+" : ""}${nf(0).format(r.upside)}%)</span>` : ""}</div>
+        <div class="price"><span class="p num"><span data-live-px="${esc(r.s)}" data-live-ext>${fmt(r.px)}</span> <span class="na" style="font-size:14px">${esc(r.cur || "")}</span></span><span class="na" style="font-size:12px"><span class="livedot"></span>en vivo</span>${chg}<span class="na">Market cap ${fmtCap(r.mcap)}</span>${ok(r.tgt) ? `<span class="na">Target analistas ${fmt(r.tgt)} (${r.upside >= 0 ? "+" : ""}${nf(0).format(r.upside)}%)</span>` : ""}</div>
       </div>
       <div class="ring ${scoreCls(r.score)}" title="Score contra ${r.peerN} empresas de ${esc(r.peerLabel)}"><div class="v">${ok(r.score) ? r.score : "—"}</div><div class="l">Score / 100</div></div>
     </div>
@@ -298,8 +310,79 @@ function renderAbout() {
   if ($("aboutMore")) $("aboutMore").onclick = () => { $("aboutT").classList.toggle("clamp"); $("aboutMore").textContent = $("aboutT").classList.contains("clamp") ? "Leer completo" : "Ver menos"; };
 }
 
+// ---------- Noticias clave ----------
+const NEWS_CATS = [
+  ["Management", /\b(CEO|chief executive|CFO|chief financial|steps? down|resign|appoint|names? .{0,30}(president|chief|chair)|successor|to retire|new chair)/i],
+  ["Recompra", /buyback|repurchase|buy back/i],
+  ["Adquisición", /\b(acquir|acquisition|to buy|merger|merge|takeover|takes? over|stake in)/i],
+  ["Contrato", /\b(contract|agreement|order|award|multi-?year|signs?|wins?|lands?|secures?|supply deal|\$[\d.]+ ?(billion|bn|million) deal)/i],
+  ["Alianza", /\b(partner|collaborat|alliance|joint venture|teams? up)/i],
+  ["Dividendo", /dividend/i],
+  ["Guidance", /\b(guidance|raises? .{0,20}(forecast|outlook)|cuts? .{0,20}(forecast|outlook)|lowers? .{0,20}(forecast|outlook))/i],
+];
+const NEWS_JUNK = /\?$|should you|is it time|stocks? to (buy|watch)|top \d|best \d|\bwhy\b|here's|what to know|motley|price prediction|could (soar|be)|millionaire|vs\.? /i;
+function keyNews(nws, fil) {
+  const out = [], seen = new Set();
+  for (const n of nws) {
+    if (!n.title || NEWS_JUNK.test(n.title)) continue;
+    const cat = NEWS_CATS.find(([, re]) => re.test(n.title));
+    if (!cat) continue;
+    const key = n.title.toLowerCase().replace(/[^a-z ]/g, "").split(" ").slice(0, 5).join(" ");
+    if (seen.has(key) || out.some((o) => o.cat === cat[0] && Math.abs(o.t - n.t) < 3 * 864e5)) continue;
+    seen.add(key);
+    out.push({ cat: cat[0], t: n.t, title: n.title_es || n.title, url: n.url, src: n.publisher });
+  }
+  out.sort((a, b) => NEWS_CATS.findIndex((c) => c[0] === a.cat) - NEWS_CATS.findIndex((c) => c[0] === b.cat) || b.t - a.t);
+  const picked = out.slice(0, 3);
+  const SEC = { "1.01": "Contrato", "2.01": "Adquisición", "5.02": "Management" };
+  for (const f of fil) {
+    if (picked.length >= 3) break;
+    const it = f.items.find((x) => SEC[x]); if (!it) continue;
+    if (picked.some((p) => p.cat === SEC[it])) continue;
+    picked.push({ cat: SEC[it], t: Date.parse(f.date), title: `${f.labels.find((l) => l) || "Hecho relevante"} (presentación 8-K a la SEC)`, url: f.url });
+  }
+  return picked.sort((a, b) => b.t - a.t);
+}
+
+// ---------- Qué dijo el management ----------
+function talkRead(tk) {
+  const en = [...tk.quotes.map((q) => q.text), ...tk.outlook].join(" ");
+  const cnt = (re) => (en.match(re) || []).length;
+  const pos = cnt(/\b(record|strong|accelerat\w*|momentum|exceed\w*|robust|confident|inflection|exceptional|outstanding|best|healthy|expand\w*)\b/gi);
+  const neg = cnt(/\b(headwind\w*|challeng\w*|uncertain\w*|declin\w*|pressure\w*|soft\w*|weak\w*|cautious|slow\w*|difficult|volatil\w*|tariff\w*|disappoint\w*)\b/gi);
+  const tone = pos + neg === 0 ? null : (pos - neg) / (pos + neg);
+  const g = /rais(e|ed|es|ing)\b[^.]{0,50}(outlook|guidance|forecast)|(outlook|guidance)[^.]{0,30}\brais/i.test(en) ? ["sube", "pos", "Subió el guidance"]
+    : /(lower|reduc|cut)(s|ed|ing)?\b[^.]{0,50}(outlook|guidance|forecast)/i.test(en) ? ["baja", "neg", "Bajó el guidance"]
+    : /reaffirm|reiterat|maintain(s|ed)? (its |the |our )?(full[- ]year |annual )?(outlook|guidance)/i.test(en) ? ["mantiene", "", "Ratificó el guidance"]
+    : tk.outlook.length ? ["da", "", "Dio guidance para el próximo período"] : null;
+  const TH = [["IA", /\bAI\b|artificial intelligence|generative|GPU|inference|tokens?\b/i], ["Demanda", /demand|backlog|bookings|pipeline|orders/i], ["Márgenes", /margin/i], ["Inversión y capacidad", /capital expenditure|capex|data cent|capacity|build ?out|infrastructure/i], ["Recompras y dividendos", /repurchase|buyback|dividend|returned .{0,20}shareholders/i], ["Costos y eficiencia", /cost|efficien|restructur|productivity/i], ["Macro y consumo", /macro|tariff|consumer|inflation|interest rate|economy/i], ["Productos nuevos", /launch|new product|introduc|platform|innovation/i], ["Clientes", /customer|client|users?\b|subscriber|members/i], ["Expansión internacional", /international|global|emerging markets|China|Europe/i]];
+  const themes = TH.filter(([, re]) => re.test(en)).map(([l]) => l).slice(0, 6);
+  return { tone, toneTxt: tone == null ? null : tone > 0.35 ? "Optimista" : tone < -0.2 ? "Cauto" : "Equilibrado", g, themes, date: tk.date, url: tk.url, quotes: tk.quotes, outlook: tk.outlook, outlook_es: tk.outlook_es };
+}
+function talkPros(tk, pro, con, add) {
+  const t = talkRead(tk);
+  if (t.g?.[0] === "sube") add(pro, "El management subió su guidance en el último comunicado de resultados.", "Management");
+  if (t.g?.[0] === "baja") add(con, "El management bajó su guidance en el último comunicado de resultados.", "Management");
+  if (t.toneTxt === "Cauto") add(con, "El tono del management en el último comunicado fue cauto (menciona presiones, desafíos o incertidumbre).", "Management");
+}
+function talkHtml(tk, r) {
+  if (!tk) return `<div class="talk"><h4>Qué dijo el management</h4><div class="na" style="font-size:13px">No encontré un comunicado de resultados con citas del management en la SEC en los últimos 6 meses. <a href="https://www.google.com/search?q=${encodeURIComponent((r.n || r.s) + " earnings call transcript")}" target="_blank" rel="noopener" style="color:#93c5fd">Buscar la transcripción de la última llamada ↗</a></div></div>`;
+  const t = talkRead(tk);
+  const toneCls = t.toneTxt === "Optimista" ? "pos" : t.toneTxt === "Cauto" ? "neg" : "";
+  return `<div class="talk">
+    <h4>Qué dijo el management <span class="na" style="font-weight:400">· comunicado de resultados del ${fmtDate(Date.parse(tk.date))} · <a href="${esc(tk.url)}" target="_blank" rel="noopener" style="color:#93c5fd">documento en la SEC ↗</a></span></h4>
+    <div class="talk-read">
+      ${t.toneTxt ? `<span class="pill ${toneCls}">Tono: ${t.toneTxt}</span>` : ""}
+      ${t.g ? `<span class="pill ${t.g[1]}">${t.g[2]}</span>` : `<span class="pill">Sin guidance en el comunicado</span>`}
+      ${t.themes.map((x) => `<span class="pill dim">${esc(x)}</span>`).join("")}
+    </div>
+    ${tk.quotes.map((q) => `<blockquote>“${esc(q.es || q.text)}”<cite>${esc([q.who, q.title].filter(Boolean).join(", ") || "Management")}</cite></blockquote>`).join("")}
+    ${tk.outlook.length ? `<div style="margin-top:8px"><b style="font-size:13px">Qué espera para adelante</b><ul class="tl" style="margin-top:4px">${tk.outlook.map((o, i) => `<li>${esc(tk.outlook_es?.[i] || o)}</li>`).join("")}</ul></div>` : ""}
+    <div class="na" style="font-size:12px;margin-top:8px">Citas textuales del comunicado oficial, no del reporte de ganancias. <a href="https://www.google.com/search?q=${encodeURIComponent((r.n || r.s) + " earnings call transcript")}" target="_blank" rel="noopener" style="color:#93c5fd">Transcripción completa de la llamada ↗</a></div>
+  </div>`;
+}
+
 // ---------- Tesis automática: oportunidad y riesgos ----------
-const DEAL = /contract|agreement|deal|partner|acquir|acquisition|award|order|signs|selects|expands|collaborat|supply|multi-year|billion|merger|launch|approv/i;
 function renderThesis() {
   const el = $("autoThesis"); if (!el) return;
   const r = P.r, pr = P.prof;
@@ -316,11 +399,9 @@ function renderThesis() {
   if (ok(r.epsNY) && r.epsNY > 15) add(pro, `El consenso espera que el EPS crezca ${fmt(r.epsNY, "%", 0)} el próximo año fiscal.`, "Crecimiento");
   if (ok(r.rule40) && r.rule40 >= 40 && ["software", "internet", "payments", "neocloud"].includes(r.profile)) add(pro, `Rule of 40 de ${fmt(r.rule40, "%", 0)}: crece rápido sin descuidar la caja.`, "Métricas");
   if (ok(r.omTrend) && r.omTrend > 3) add(pro, `Apalancamiento operativo: el margen operativo mejoró ${fmt(r.omTrend, "pp", 1)} en los últimos 3 ejercicios.`, "Métricas");
-  const beats = eh.filter((e) => ok(e.surprise));
-  if (beats.length >= 3 && beats.every((e) => e.surprise > 0)) add(pro, `Superó las estimaciones de ganancias en los últimos ${beats.length} trimestres (sorpresa promedio ${fmt(beats.reduce((a, e) => a + e.surprise, 0) / beats.length, "%", 1)}).`, "Ejecución");
-  // Contratos y acuerdos: SEC 8-K + noticias
-  fil.filter((f) => f.items.some((x) => ["1.01", "2.01"].includes(x))).slice(0, 5).forEach((f) => deals.push(`<a href="${esc(f.url)}" target="_blank" rel="noopener">${fmtDate(f.date)} · ${esc(f.labels.filter((l) => /Acuerdo|Compra/.test(l)).join(" y "))} (presentación a la SEC) ↗</a>`));
-  nws.filter((n) => DEAL.test(n.title)).slice(0, 5).forEach((n) => deals.push(`<a href="${esc(n.url)}" target="_blank" rel="noopener">${n.t ? fmtDate(n.t) + " · " : ""}${esc(n.title_es || n.title)} <span class="na">(${esc(n.publisher || "")})</span> ↗</a>`));
+  // Noticias clave (máx. 3): contratos, acuerdos, adquisiciones, cambio de CEO, recompras, dividendos, guidance
+  keyNews(nws, fil).forEach((k) => deals.push(`<a href="${esc(k.url)}" target="_blank" rel="noopener"><span class="tag">${esc(k.cat)}</span>${fmtDate(k.t)} · ${esc(k.title)}${k.src ? ` <span class="na">(${esc(k.src)})</span>` : ""} ↗</a>`));
+  if (pr.talk) talkPros(pr.talk, pro, con, add);
   // Management y dueños
   const p = pr.profile || {};
   if (p.ceo) mgmt.push(`CEO: ${esc(p.ceo.name)}${p.ceo.age ? `, ${p.ceo.age} años` : ""}.`);
@@ -363,18 +444,18 @@ function renderThesis() {
     : `<b>Sin ventaja clara:</b> no se destaca contra sus pares. Necesita un catalizador concreto (contratos, cambio de management, nuevo producto).`;
   const li = (arr) => arr.map((x) => `<li><span class="tag">${esc(x.tag)}</span>${esc(x.t)}</li>`).join("");
   el.innerHTML = `<div class="verdict">${verdict}</div>
+    ${talkHtml(pr.talk, r)}
     <div class="two tz">
       <div><h4 class="pos">Por qué podría ser una oportunidad</h4><ul class="tl">${li(pro) || '<li class="na">No aparecen fortalezas claras en los datos.</li>'}</ul></div>
       <div><h4 class="neg">Riesgos</h4><ul class="tl">${li(con) || '<li class="na">No aparecen riesgos destacados en los datos.</li>'}</ul></div>
     </div>
     <div class="two tz">
-      <div><h4>Contratos, acuerdos y noticias recientes</h4><ul class="tl links">${deals.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin contratos o acuerdos relevantes informados en el último año.</li>'}</ul></div>
+      <div><h4>Noticias clave</h4><ul class="tl links">${deals.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin contratos, acuerdos, cambios de management ni recompras en las noticias recientes.</li>'}</ul></div>
       <div><h4>Management y dueños</h4><ul class="tl">${mgmt.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin datos de management.</li>'}</ul>
         ${ok(an.targetMean) ? `<h4 style="margin-top:12px">Analistas</h4><ul class="tl"><li>Recomendación: ${esc({ strong_buy: "compra fuerte", buy: "compra", hold: "mantener", sell: "venta", strong_sell: "venta fuerte", underperform: "por debajo del mercado", outperform: "por encima del mercado" }[an.recKey] || an.recKey || "—")} · ${an.n || "—"} analistas</li><li>Precio objetivo: ${fmt(an.targetLow)} a ${fmt(an.targetHigh)} (promedio ${fmt(an.targetMean)})</li>${pr.earnings?.next ? `<li>Próximos resultados: ${fmtDate(pr.earnings.next)}</li>` : ""}</ul>` : ""}</div>
     </div>
-    ${nws.length ? `<h4>Últimas noticias</h4><ul class="tl links">${nws.filter((n) => !DEAL.test(n.title)).slice(0, 5).map((n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${n.t ? fmtDate(n.t) + " · " : ""}${esc(n.title_es || n.title)} <span class="na">(${esc(n.publisher || "")})</span> ↗</a></li>`).join("")}</ul>` : ""}
-    <div class="src">Fuentes: score propio, hechos relevantes 8-K de la SEC (contratos, adquisiciones y cambios de management), Yahoo Finance (insiders, analistas, noticias). El TAM no viene en ningún dato público: cargalo en "Tu tesis" para el chequeo de valuación. Es material de análisis, no una recomendación.</div>`;
-  P.autoThesis = { verdict, pro, con, deals, mgmt };
+    <div class="src">Fuentes: score propio, comunicado de resultados y hechos relevantes presentados a la SEC (8-K / 6-K), Yahoo Finance (insiders, analistas, noticias). Citas traducidas automáticamente. El TAM no viene en ningún dato público: cargalo en "Tu tesis" para el chequeo de valuación. Es material de análisis, no una recomendación.</div>`;
+  P.autoThesis = { verdict, pro, con, deals, mgmt, talk: pr.talk ? talkRead(pr.talk) : null };
 }
 
 // ---------- Chequeo por TAM ----------
@@ -508,7 +589,8 @@ function pdf() {
     ${P.autoThesis ? `<h2>Tesis automática</h2><div>${P.autoThesis.verdict.replace(/<b class="pos">/g, "<b>")}</div>
       <div class="imgs" style="margin-top:6px"><div><b>Por qué podría ser una oportunidad</b><ul>${P.autoThesis.pro.map((x) => `<li>${esc(x.t)}</li>`).join("") || "<li>—</li>"}</ul></div>
       <div><b>Riesgos</b><ul>${P.autoThesis.con.map((x) => `<li>${esc(x.t)}</li>`).join("") || "<li>—</li>"}</ul></div></div>
-      ${P.autoThesis.deals.length ? `<b>Contratos, acuerdos y noticias</b><ul>${P.autoThesis.deals.map((d) => `<li>${d.replace(/<[^>]+>/g, "").replace(" ↗", "")}</li>`).join("")}</ul>` : ""}
+      ${P.autoThesis.talk ? `<b>Qué dijo el management (${fmtDate(Date.parse(P.autoThesis.talk.date))})</b><ul>${[P.autoThesis.talk.toneTxt ? "Tono: " + P.autoThesis.talk.toneTxt : "", P.autoThesis.talk.g ? P.autoThesis.talk.g[2] : ""].filter(Boolean).map((x) => `<li>${esc(x)}</li>`).join("")}${P.autoThesis.talk.quotes.map((q) => `<li>“${esc(q.es || q.text)}” — ${esc([q.who, q.title].filter(Boolean).join(", "))}</li>`).join("")}${P.autoThesis.talk.outlook.map((o, i) => `<li>${esc(P.autoThesis.talk.outlook_es?.[i] || o)}</li>`).join("")}</ul>` : ""}
+      ${P.autoThesis.deals.length ? `<b>Noticias clave</b><ul>${P.autoThesis.deals.map((d) => `<li>${d.replace(/<[^>]+>/g, "").replace(" ↗", "")}</li>`).join("")}</ul>` : ""}
       ${P.autoThesis.mgmt.length ? `<b>Management y dueños</b><ul>${P.autoThesis.mgmt.map((d) => `<li>${d.replace(/<[^>]+>/g, "").replace(/ ↗/g, "")}</li>`).join("")}</ul>` : ""}` : ""}
     ${fv ? `<h2>Precio justo</h2><table><thead><tr><th class="l">Escenario</th><th>Precio</th><th>Distancia</th></tr></thead><tbody>${[["Pesimista", th.bear], ["Base", th.base], ["Optimista", th.bull], ["Ponderado (25/50/25)", fv], ["Compra con 20% de margen", fv * 0.8]].filter(([, v]) => ok(v)).map(([l, v]) => `<tr><td class="l">${l}</td><td>${fmt(v)}</td><td>${v >= r.px ? "+" : ""}${nf(1).format((v / r.px - 1) * 100)}%</td></tr>`).join("")}</tbody></table>` : ""}
     ${r.notes ? `<h2>Tesis</h2><div class="notes">${esc(r.notes)}</div>` : ""}
@@ -578,3 +660,4 @@ function rescore() {
   const s = q.get("s") || q.get("symbol");
   if (s) load(resolve(s) || s.toUpperCase());
 })();
+startLive(15000);

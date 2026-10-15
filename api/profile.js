@@ -27,16 +27,83 @@ async function translate(texts) {
 }
 
 let tickers = null;
-async function secFilings(symbol) {
-  if (!/^[A-Z][A-Z.\-]*$/.test(symbol)) return [];
+const secGet = (u) => fetch(u, { headers: { "User-Agent": SEC_UA } });
+
+// Texto plano de un documento HTML de la SEC, en párrafos
+function htmlParas(html) {
+  const ent = { nbsp: " ", amp: "&", quot: '"', apos: "'", lt: "<", gt: ">", rsquo: "’", lsquo: "‘", rdquo: "”", ldquo: "“", mdash: "—", ndash: "–", hellip: "…", bull: "•" };
+  return html.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<\/(p|div|tr|li|h\d|table)>|<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n))).replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&([a-z]+);/gi, (m, n) => ent[n.toLowerCase()] ?? m)
+    .split(/\n+/).map((x) => x.replace(/\s+/g, " ").trim()).filter((x) => x.length > 2);
+}
+
+// Qué dijo el management en el último comunicado de resultados: citas de CEO/CFO y outlook
+async function mgmtTalk(cik, f) {
+  const cands = [];
+  for (let i = 0; i < (f.form || []).length && cands.length < 8; i++) {
+    if (Date.parse(f.filingDate[i]) < Date.now() - 200 * 864e5) break;
+    if ((f.form[i] === "8-K" && String(f.items[i] || "").includes("2.02")) || f.form[i] === "6-K") cands.push(i);
+  }
+  for (const i of cands) {
+    try {
+      const acc = f.accessionNumber[i].replace(/-/g, ""), base = `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${acc}/`;
+      const idx = await (await secGet(base + "index.json")).json();
+      const items = (idx?.directory?.item || []).filter((x) => /\.htm/i.test(x.name) && !/^R\d+\.htm|index/i.test(x.name));
+      const files = items.map((x) => x.name);
+      const exN = (n) => Number((n.match(/(?:ex|exhibit)[-_]?99[._-]?(\d{1,2})/i) || [, 9])[1]);
+      const ex = files.filter((n) => /ex-?99|ex99|exhibit[-_]?99|dex99|press|letter|pr\.htm|earnings|results/i.test(n) && !/supplement|presentation|slides/i.test(n)).sort((a, b) => exN(a) - exN(b));
+      const big = items.filter((x) => x.name !== f.primaryDocument[i]).sort((a, b) => Number(b.size || 0) - Number(a.size || 0)).map((x) => x.name);
+      const docs = ex.length ? ex.slice(0, 2) : big.length ? big.slice(0, 1) : [f.primaryDocument[i]];
+      const doc = docs[0];
+      const paras = [];
+      for (const d of docs) { const t = await (await secGet(base + d)).text(); paras.push(...htmlParas(t.slice(0, 2_500_000))); }
+      const all = paras.join(" ");
+      if (f.form[i] === "6-K" && !/(quarter|half[- ]year|fiscal year)[^.]{0,80}(results|financial)|results for the/i.test(all.slice(0, 8000))) continue;
+      // Citas
+      const quotes = [];
+      const TITLE = /(Chief [A-Z][a-z]+(?: [A-Z][a-z]+)? Officer|CEO|CFO|Co-Founder|Founder|President|Chairman|Chairwoman)/;
+      for (const p of paras) {
+        if (quotes.length >= 4) break;
+        if (!/[“"]/.test(p) || !/\b(said|says|commented|stated|added|noted|remarked)\b/i.test(p)) continue;
+        const parts = [...p.matchAll(/[“"]([^”"]{40,})[”"]/g)].map((m) => m[1].trim());
+        if (!parts.length) continue;
+        let who = (p.match(/(?:said|says|commented|stated|added|noted)\s+([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})/) || p.match(/([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3}),\s+[^,“"]{0,80}?(?:Chief|CEO|CFO|President|Founder|Chairman)/) || [])[1] || null;
+        const title = (p.match(TITLE) || [])[1] || null;
+        if (!who && !title) continue;
+        if (who && /^(The|Our|We|In|For|This)\b/.test(who)) who = null;
+        const text = parts.join(" … ").slice(0, 900);
+        if (quotes.some((q) => q.text.slice(0, 60) === text.slice(0, 60))) continue;
+        quotes.push({ who, title, text });
+      }
+      // Outlook / guidance
+      let outlook = [];
+      const hi = paras.findIndex((p) => p.length < 70 && /\b(outlook|guidance)\b/i.test(p));
+      const sents = (arr) => arr.join(" ").split(/(?<=[.;])\s+(?=[A-Z(•])|\s*•\s*/).map((x) => x.trim()).filter(Boolean);
+      const GUIDE = /\b(expects?|anticipates?|projects?|forecasts?|outlook|guidance|targets?)\b/i;
+      const NUM = /\$|%|\bbillion|\bmillion|\bpercent/i;
+      if (hi >= 0) outlook = sents(paras.slice(hi + 1, hi + 14).filter((p) => p.length > 30)).filter((x) => GUIDE.test(x) || NUM.test(x));
+      if (!outlook.length) outlook = sents(paras).filter((x) => /\b(expects?|anticipates?)\b/i.test(x) && /(revenue|sales|earnings|EPS|margin|growth)/i.test(x) && !/forward-looking|safe harbor|could differ/i.test(x));
+      outlook = outlook.filter((x) => x.length > 40 && /\b(expect|anticipat|will|project|guid|outlook|forecast|target)/i.test(x) && x.length < 420 && !/forward-looking|safe harbor|reconciliation|non-GAAP measures? (?:is|are) not/i.test(x)).slice(0, 5);
+      const title = paras.find((p) => /results|reports|announces/i.test(p) && p.length < 220) || null;
+      if (!quotes.length && !outlook.length) continue;
+      return { date: f.filingDate[i], form: f.form[i], url: base + doc, title, quotes, outlook };
+    } catch { /* probar el siguiente */ }
+  }
+  return null;
+}
+
+async function secData(symbol) {
+  if (!/^[A-Z][A-Z.\-]*$/.test(symbol)) return { filings: [], talk: null };
   try {
     if (!tickers) {
-      const m = await (await fetch("https://www.sec.gov/files/company_tickers.json", { headers: { "User-Agent": SEC_UA } })).json();
+      const m = await (await secGet("https://www.sec.gov/files/company_tickers.json")).json();
       tickers = new Map(Object.values(m).map((x) => [x.ticker, String(x.cik_str).padStart(10, "0")]));
     }
     const cik = tickers.get(symbol.replace("-", ".")) || tickers.get(symbol);
-    if (!cik) return [];
-    const j = await (await fetch(`https://data.sec.gov/submissions/CIK${cik}.json`, { headers: { "User-Agent": SEC_UA } })).json();
+    if (!cik) return { filings: [], talk: null };
+    const j = await (await secGet(`https://data.sec.gov/submissions/CIK${cik}.json`)).json();
     const f = j?.filings?.recent || {};
     const since = Date.now() - 400 * 864e5, out = [];
     const ITEMS = { "1.01": "Acuerdo o contrato relevante", "2.01": "Compra o venta de activos", "5.02": "Cambio en directorio o management", "1.02": "Fin de un contrato relevante", "2.03": "Nueva deuda relevante", "3.02": "Venta de acciones no registrada", "8.01": "Otro hecho relevante" };
@@ -48,14 +115,15 @@ async function secFilings(symbol) {
       const acc = f.accessionNumber[i].replace(/-/g, "");
       out.push({ date: f.filingDate[i], items, labels: items.map((x) => ITEMS[x]), url: `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${acc}/${f.primaryDocument[i]}` });
     }
-    return out.slice(0, 15);
-  } catch { return []; }
+    const talk = await mgmtTalk(cik, f).catch(() => null);
+    return { filings: out.slice(0, 15), talk };
+  } catch { return { filings: [], talk: null }; }
 }
 
 async function news(symbol) {
   try {
-    const j = await yget(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=12`);
-    return (j?.news || []).filter((n) => !n.relatedTickers || n.relatedTickers.includes(symbol)).slice(0, 10)
+    const j = await yget(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(symbol)}&quotesCount=0&newsCount=30`);
+    return (j?.news || []).filter((n) => !n.relatedTickers || n.relatedTickers.includes(symbol)).slice(0, 25)
       .map((n) => ({ title: n.title, url: n.link, publisher: n.publisher, t: (n.providerPublishTime || 0) * 1000 }));
   } catch { return []; }
 }
@@ -67,7 +135,7 @@ export default async function handler(req, res) {
     const mods = "assetProfile,defaultKeyStatistics,netSharePurchaseActivity,upgradeDowngradeHistory,recommendationTrend,calendarEvents,earningsHistory,majorHoldersBreakdown,financialData";
     const [qs, nws, sec] = await Promise.all([
       yget(`https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?modules=${mods}`).then((j) => j?.quoteSummary?.result?.[0] || {}).catch(() => ({})),
-      news(symbol), secFilings(symbol),
+      news(symbol), secData(symbol),
     ]);
     const ap = qs.assetProfile || {}, ks = qs.defaultKeyStatistics || {}, ns = qs.netSharePurchaseActivity || {}, mh = qs.majorHoldersBreakdown || {}, fd = qs.financialData || {};
     const ceo = (ap.companyOfficers || []).find((o) => /chief executive|ceo/i.test(o.title || "")) || (ap.companyOfficers || [])[0] || null;
@@ -77,8 +145,11 @@ export default async function handler(req, res) {
     const rt = qs.recommendationTrend?.trend?.[0] || null;
     const eh = (qs.earningsHistory?.history || []).map((e) => ({ q: e.period, est: raw(e.epsEstimate), act: raw(e.epsActual), surprise: raw(e.surprisePercent) != null ? raw(e.surprisePercent) * 100 : null }));
     const nextEarn = (qs.calendarEvents?.earnings?.earningsDate || []).map(raw).filter(Boolean)[0] || null;
-    const [summaryEs, ...titlesEs] = await translate([ap.longBusinessSummary || "", ...nws.map((n) => n.title)]);
-    nws.forEach((n, i) => (n.title_es = titlesEs[i]));
+    const talk = sec.talk;
+    const tq = talk ? [...talk.quotes.map((q) => q.text), ...talk.outlook] : [];
+    const [summaryEs, ...restEs] = await translate([ap.longBusinessSummary || "", ...nws.map((n) => n.title), ...tq]);
+    nws.forEach((n, i) => (n.title_es = restEs[i]));
+    if (talk) { const off = nws.length; talk.quotes.forEach((q, i) => (q.es = restEs[off + i] !== q.text ? restEs[off + i] : null)); talk.outlook_es = talk.outlook.map((o, i) => { const t = restEs[off + talk.quotes.length + i]; return t !== o ? t : null; }); }
     res.setHeader("Cache-Control", "public, s-maxage=21600, stale-while-revalidate=86400");
     return res.status(200).json({
       symbol,
@@ -95,7 +166,7 @@ export default async function handler(req, res) {
       },
       analysts: { trend: rt, grades, targetMean: raw(fd.targetMeanPrice), targetHigh: raw(fd.targetHighPrice), targetLow: raw(fd.targetLowPrice), recKey: fd.recommendationKey || null, n: raw(fd.numberOfAnalystOpinions) },
       earnings: { history: eh, next: nextEarn ? nextEarn * 1000 : null },
-      news: nws, filings: sec,
+      news: nws, filings: sec.filings, talk,
       last_update: new Date().toISOString(),
     });
   } catch (e) {

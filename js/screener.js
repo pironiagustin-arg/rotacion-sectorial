@@ -1,5 +1,6 @@
 import { UNIVERSE, SECTORS, MARKETS, COUNTRIES } from "/lib/universe.js";
 import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
+import { startLive } from "/js/live.js";
 import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, authClick, loadSnapshots, loadLive, loadOverrides, saveOverride, userMult, userProfW, loadFund } from "/js/core.js";
 
 const S = {
@@ -83,14 +84,14 @@ const COLS = [
 ];
 const cell = (r, k, f, d) => `<span class="num ${r.edited?.has(k) ? "edited" : ""}">${fmt(r[k], f, d)}</span>`;
 function rowHtml(r) {
-  const chg = ok(r.chg) ? `<span class="num ${r.chg >= 0 ? "pos" : "neg"}">${r.chg >= 0 ? "+" : ""}${nf(1).format(r.chg)}%</span>` : `<span class="na">—</span>`;
+  const chg = ok(r.chg) ? `<span class="num ${r.chg >= 0 ? "pos" : "neg"}" data-live-chg="${esc(r.s)}" data-live-dec="1">${r.chg >= 0 ? "+" : ""}${nf(1).format(r.chg)}%</span>` : `<span class="na">—</span>`;
   const ret = r.sec === "fin" ? `<span class="num" title="ROE">${fmt(r.roe, "%")}</span>` : cell(r, "roic", "%");
   return `<tr class="row" data-s="${esc(r.s)}">
     <td class="l"><input type="checkbox" class="cmpchk" data-s="${esc(r.s)}" ${S.cmp.has(r.s) ? "checked" : ""} title="Agregar a comparar" aria-label="Comparar ${esc(r.s)}"></td>
     <td class="l"><span class="tk">${esc(r.ced || r.s)}</span>${r.ced && r.ced !== r.s ? ` <span class="na" style="font-size:11px">${esc(r.s)}</span>` : ""} ${r.cand ? '<span class="badge cand">Candidata</span>' : ""} ${r.hasThesis ? '<span class="badge mine">Tesis</span>' : ""}<span class="nm">${esc(r.n)} · ${esc(COUNTRIES[r.c] || r.c)}</span></td>
     <td class="l sec" title="${esc(SECTORS[r.sec] || "")} · ${esc(r.ind || "")}">${esc(PROFILES[r.profile].l)}</td>
     <td class="l">${r.lynch ? `<span class="badge" title="${esc(LYNCH_INFO[r.lynch])}">${LYNCH[r.lynch]}</span>` : '<span class="na">—</span>'}</td>
-    <td class="num">${fmt(r.px)} <span class="na" style="font-size:11px">${esc(r.cur || "")}</span></td>
+    <td class="num"><span data-live-px="${esc(r.s)}">${fmt(r.px)}</span> <span class="na" style="font-size:11px">${esc(r.cur || "")}</span></td>
     <td>${chg}</td><td class="num">${fmtCap(r.mcap)}</td>
     <td>${cell(r, "fpe", "x")}</td><td>${cell(r, "peg", "x", 2)}</td><td>${cell(r, "evEbitda", "x")}</td><td>${ret}</td>
     <td>${cell(r, "epsG", "%")}</td><td>${cell(r, "revG", "%")}</td><td>${cell(r, "fcfY", "%")}</td><td>${cell(r, "divY", "%")}</td>
@@ -334,3 +335,4 @@ async function live() {
   // Si faltan acciones del universo nuevo o la base tiene más de 24 h, completa en vivo
   if (!snap.rows.size || Date.now() - S.updated > 24 * 3600000 || snap.rows.size < UNIVERSE.length * 0.9) await live();
 })();
+startLive(15000);

@@ -34,9 +34,6 @@
   .curve div { flex:1; background:#1d4ed8; border-radius:6px 6px 0 0; position:relative; min-height:4px; }
   .curve div b { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:11.5px; font-weight:600; color:var(--text); }
   .curve-l { display:flex; gap:8px; } .curve-l span { flex:1; text-align:center; color:var(--dim); font-size:11px; margin-top:4px; }
-  .heat td { text-align:center; font-variant-numeric:tabular-nums; font-size:12.5px; padding:7px 6px; }
-  .heat td.l, .heat th.l { text-align:left; }
-  .heat th { text-align:center; position:static; }
   .seg { display:inline-flex; border:1px solid var(--border2); border-radius:10px; overflow:hidden; }
   .seg button { background:transparent; border:none; color:var(--muted); padding:6px 11px; font-size:12px; cursor:pointer; font-family:inherit; }
   .seg button.on { background:var(--accent); color:#fff; }
@@ -79,24 +76,13 @@
     <div class="card" id="breadth"><h3>Amplitud del universo CEDEAR</h3><div class="loading">Cargando…</div></div>
   </div>
 
-  <div class="sec-h"><h2>Rotación: quién está por explotar</h2><a href="/rotation.html">Ver RRG completo →</a></div>
-  <div id="signals"></div>
-
-  <div class="sec-h"><h2>Sectores e industrias vs S&P 500</h2>
-    <div class="seg" id="heatMode"><button data-m="rel" class="on">Relativo al S&P</button><button data-m="abs">Absoluto</button></div></div>
-  <div class="tablewrap"><table class="heat" id="heat"><tbody><tr><td class="loading">Cargando…</td></tr></tbody></table></div>
-
   <div class="sec-h"><h2>Rotación sectorial acumulada</h2><div class="seg" id="ranges"></div></div>
   <div class="card"><div class="chartbox"><canvas id="relChart"></canvas></div><div class="legend" id="legend"></div>
     <div class="na" style="font-size:12px;margin-top:8px">Diferencia de rendimiento acumulado de cada sector contra el S&P 500 en el período. Tocá un sector para ocultarlo.</div></div>
 
   <div class="grid2" style="margin-top:26px">
     <div class="card"><h3>Mejores candidatas del Screener <a href="/screener.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todas →</a></h3><div class="sub2">Score alto contra su industria y valuación favorable · sin Argentina</div><div id="cands" class="loading">Cargando…</div></div>
-    <div class="card"><h3>Movimientos de hoy en CEDEARs</h3><div class="sub2">Las que más suben y bajan del universo operable</div><div id="movers" class="loading">Cargando…</div></div>
-  </div>
-  <div class="grid2" style="margin-top:12px">
     <div class="card"><h3>Tu watchlist hoy <a href="/watchlist.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2" id="wlName"></div><div id="wl" class="loading">Cargando…</div></div>
-    <div class="card"><h3>Alertas de fuerza relativa</h3><div class="sub2">Cambio de la fuerza relativa a 20 ruedas contra su propia historia (z-score)</div><div id="alerts" class="loading">Cargando…</div></div>
   </div>
 </main>
 <div id="toast" class="toast"></div>

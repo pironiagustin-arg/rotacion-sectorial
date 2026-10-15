@@ -1,10 +1,11 @@
 import { UNIVERSE } from "/lib/universe.js";
 import { PROFILES, LYNCH, ok, derive, scoreAll, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
 import { $, esc, loadLocal, state, initSupabase, loadSnapshots, loadOverrides, loadFund, userMult, userProfW } from "/js/core.js";
-import { fetchSignals, signalHistory, signalCard, signalChips, notifyNew, askNotifications, SIGNAL_CSS } from "/js/signals.js";
+import { startLive } from "/js/live.js";
 
-const D = { range: "1y", chart: null, hidden: new Set(loadLocal("dash_hidden", [])), heatMode: "rel", ov: null };
+const D = { range: "1y", chart: null, hidden: new Set(loadLocal("dash_hidden", [])), ov: null };
 const pctTxt = (v, d = 2) => (ok(v) ? `<span class="${v >= 0 ? "pos" : "neg"}">${v >= 0 ? "+" : ""}${nf(d).format(v)}%</span>` : '<span class="na">—</span>');
+const liveChg = (s, v, d = 2) => `<span data-live-chg="${esc(s)}" data-live-dec="${d}" class="${v >= 0 ? "pos" : "neg"}">${ok(v) ? (v >= 0 ? "+" : "") + nf(d).format(v) + "%" : "—"}</span>`;
 const go = (s) => { location.href = "/empresa.html?s=" + encodeURIComponent(s); };
 
 function spark(vals, up) {
@@ -19,29 +20,15 @@ async function loadOverview() {
   const r = await fetch("/api/overview"); if (!r.ok) throw new Error("overview " + r.status);
   D.ov = await r.json();
   const fmtP = (m) => (m.symbol === "^TNX" ? nf(2).format(m.price) + "%" : m.symbol === "BTC-USD" ? "US$ " + nf(0).format(m.price) : nf(2).format(m.price));
+  const liveAttr = (m) => `data-live-px="${esc(m.symbol)}"${m.symbol === "^TNX" ? ' data-live-suf="%"' : m.symbol === "BTC-USD" ? ' data-live-pre="US$ " data-live-dec="0"' : ""}`;
   $("tiles").innerHTML = D.ov.market.map((m) => {
     const inv = m.symbol === "^VIX";
     return `<div class="tile" title="1 semana ${m.w1 ?? "—"}% · 1 mes ${m.m1 ?? "—"}% · en el año ${m.ytd ?? "—"}%">
       <div class="n"><span>${esc(m.name)}</span><span>${esc(m.symbol.replace("^", ""))}</span></div>
-      <div class="p num">${fmtP(m)}</div>
-      <div class="c num">${pctTxt(m.d1)} <span class="na">hoy</span> · ${pctTxt(m.ytd, 1)} <span class="na">año</span></div>
+      <div class="p num" ${liveAttr(m)}>${fmtP(m)}</div>
+      <div class="c num"><span data-live-chg="${esc(m.symbol)}" class="${m.d1 >= 0 ? "pos" : "neg"}">${ok(m.d1) ? (m.d1 >= 0 ? "+" : "") + nf(2).format(m.d1) + "%" : "—"}</span> <span class="na">hoy</span> · ${pctTxt(m.ytd, 1)} <span class="na">año</span></div>
       ${spark(m.spark, inv ? m.spark.at(-1) <= m.spark[0] : m.spark.at(-1) >= m.spark[0])}</div>`;
   }).join("");
-  renderHeat();
-}
-function heatColor(v, scale) {
-  if (!ok(v)) return "transparent";
-  const a = Math.min(1, Math.abs(v) / scale) * 0.75;
-  return v >= 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`;
-}
-function renderHeat() {
-  if (!D.ov) return;
-  const rel = D.heatMode === "rel", cols = [["d1", "Hoy", 1.5], ["w1", "1 semana", 3], ["m1", "1 mes", 5], ["m3", "3 meses", 9], ["ytd", "En el año", 15], ["y1", "12 meses", 20]];
-  const row = (x) => `<tr><td class="l"><b>${esc(x.symbol)}</b> <span class="na">${esc(x.name)}</span></td><td class="num">${nf(2).format(x.price)}</td>${cols.map(([k, , sc]) => { const v = rel ? x["rel_" + k] : x[k]; return `<td style="background:${heatColor(v, sc)}">${ok(v) ? (v >= 0 ? "+" : "") + nf(1).format(v) + "%" : "—"}</td>`; }).join("")}</tr>`;
-  const sort = (a) => [...a].sort((p, q) => (q[(rel ? "rel_" : "") + "m1"] ?? -99) - (p[(rel ? "rel_" : "") + "m1"] ?? -99));
-  $("heat").innerHTML = `<thead><tr><th class="l">${rel ? "Diferencia contra el S&P 500" : "Rendimiento"}</th><th>Precio</th>${cols.map(([, l]) => `<th>${l}</th>`).join("")}</tr></thead><tbody>
-    <tr><td colspan="8" class="l na" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.06em">Sectores</td></tr>${sort(D.ov.sectors).map(row).join("")}
-    <tr><td colspan="8" class="l na" style="font-size:11.5px;text-transform:uppercase;letter-spacing:.06em">Industrias</td></tr>${sort(D.ov.industries).map(row).join("")}</tbody>`;
 }
 
 async function loadMarket() {
@@ -67,18 +54,6 @@ async function loadMarket() {
     <div class="na" style="font-size:11.5px;margin-top:6px">${ok(sp) ? (sp < 0 ? "Curva invertida: históricamente anticipa desaceleración." : sp < 50 ? "Curva casi plana." : "Curva con pendiente positiva: escenario normal de crecimiento.") : ""}</div>`;
 }
 
-// ---------- Señales de rotación ----------
-async function loadSignals() {
-  if (!document.getElementById("sg-css")) { const st = document.createElement("style"); st.id = "sg-css"; st.textContent = SIGNAL_CSS; document.head.appendChild(st); }
-  const [list, hist] = await Promise.all([fetchSignals(), signalHistory()]);
-  const strong = list.filter((s) => ["por_explotar", "cargando"].includes(s.status)).slice(0, 8);
-  $("signals").innerHTML = (strong.length ? `<div class="sg-wrap">${strong.map((s) => signalCard(s, hist)).join("")}</div>` : `<div class="card na">Ahora no hay sectores ni industrias cargando en Improving hacia Leading.</div>`) +
-    signalChips(list, "cruzo", "Ya cruzaron a Leading:") + signalChips(list, "perdiendo", "Perdiendo fuerza:") +
-    `<div class="sg-more"><a href="#" id="notifBtn" style="color:#93c5fd">🔔 Avisarme cuando aparezca una señal fuerte</a></div>`;
-  $("notifBtn").onclick = (e) => { e.preventDefault(); askNotifications(); };
-  notifyNew(list);
-}
-
 // ---------- Rotación acumulada (gráfico) ----------
 const RANGES = [["1m", "1M"], ["3m", "3M"], ["6m", "6M"], ["1y", "1A"], ["3y", "3A"]];
 async function loadChart() {
@@ -97,11 +72,6 @@ async function loadChart() {
   });
   const last = (s) => s.rel_spread_pct.filter(ok).at(-1);
   $("legend").innerHTML = [...series].sort((a, b) => (last(b) ?? -99) - (last(a) ?? -99)).map((s) => `<span data-s="${s.symbol}" class="${D.hidden.has(s.symbol) ? "off" : ""}"><i style="background:${s.color}"></i>${esc(s.symbol)} ${esc(s.name)} <b class="${last(s) >= 0 ? "pos" : "neg"}">${ok(last(s)) ? (last(s) >= 0 ? "+" : "") + nf(1).format(last(s)) + "%" : ""}</b></span>`).join("");
-  // Alertas de fuerza relativa
-  const alerts = Object.entries(j.alerts || {}).filter(([, a]) => ok(a.z)).sort((a, b) => b[1].z - a[1].z);
-  const tag = (st) => st === "rotacion_alcista" ? '<span class="badge cand">Entra plata</span>' : st === "rotacion_bajista" ? '<span class="badge" style="background:var(--bad-bg);color:var(--bad-tx);border-color:transparent">Sale plata</span>' : '<span class="badge">Neutral</span>';
-  $("alerts").innerHTML = `<table class="mini"><tbody>${alerts.map(([s, a]) => `<tr><td class="l"><b>${esc(s)}</b> <span class="na">${esc(j.meta?.[s]?.name || "")}</span></td><td class="num">${pctTxt(a.momentum_20d, 1)} <span class="na">vs S&P en 20 ruedas</span></td><td class="num">z ${nf(2).format(a.z)}</td><td>${tag(a.status)}</td></tr>`).join("")}</tbody></table>`;
-  $("alerts").className = "";
 }
 
 // ---------- Universo: candidatas, movers, amplitud y watchlist ----------
@@ -113,10 +83,9 @@ async function loadUniverse() {
   const ext = rows.filter((r) => r.c !== "AR" && !(r.mk || "").includes("REF"));
   const line = (r, extra) => `<tr data-s="${esc(r.s)}"><td class="l"><b>${esc(r.ced || r.s)}</b> <span class="na">${esc((r.n || "").slice(0, 26))}</span></td>${extra}</tr>`;
   const cands = ext.filter((r) => r.cand && r.profile !== "crypto").sort((a, b) => b.score - a.score).slice(0, 8);
-  $("cands").className = ""; $("cands").innerHTML = cands.length ? `<table class="mini"><tbody>${cands.map((r) => line(r, `<td class="l na">${esc(PROFILES[r.profile].l)}</td><td class="na">${LYNCH[r.lynch] || ""}</td><td class="num">${pctTxt(r.chg, 1)}</td><td><span class="score ${scoreCls(r.score)}">${r.score}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Hoy no hay candidatas.</div>`;
+  $("cands").className = ""; $("cands").innerHTML = cands.length ? `<table class="mini"><tbody>${cands.map((r) => line(r, `<td class="l na">${esc(PROFILES[r.profile].l)}</td><td class="na">${LYNCH[r.lynch] || ""}</td><td class="num">${liveChg(r.s, r.chg, 1)}</td><td><span class="score ${scoreCls(r.score)}">${r.score}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Hoy no hay candidatas.</div>`;
   const withChg = ext.filter((r) => ok(r.chg) && ok(r.mcap) && r.mcap > 2e9);
   const up = [...withChg].sort((a, b) => b.chg - a.chg).slice(0, 5), dn = [...withChg].sort((a, b) => a.chg - b.chg).slice(0, 5);
-  $("movers").className = ""; $("movers").innerHTML = `<table class="mini"><tbody>${[...up, ...dn].map((r) => line(r, `<td class="l na">${esc(PROFILES[r.profile].l)}</td><td class="num">${fmtCap(r.mcap)}</td><td class="num">${pctTxt(r.chg)}</td>`)).join("")}</tbody></table>`;
   // Amplitud
   const n = withChg.length, upN = withChg.filter((r) => r.chg > 0).length;
   const near = ext.filter((r) => ok(r.d52) && r.d52 > -5).length, far = ext.filter((r) => ok(r.d52) && r.d52 < -30).length, all52 = ext.filter((r) => ok(r.d52)).length;
@@ -136,23 +105,22 @@ async function loadUniverse() {
   const syms = name ? wl.lists[name] : [];
   $("wlName").textContent = name ? `Lista "${name}" · ${syms.length} acciones` : "";
   const wrows = syms.map((s) => rows.find((r) => r.s === s || r.ced === s)).filter(Boolean);
-  $("wl").className = ""; $("wl").innerHTML = wrows.length ? `<table class="mini"><tbody>${wrows.map((r) => line(r, `<td class="num">${fmt(r.px)} <span class="na">${esc(r.cur || "")}</span></td><td class="num">${pctTxt(r.chg)}</td><td class="num">${ok(r.fairUp) ? pctTxt(r.fairUp, 0) + ' <span class="na">a tu P. justo</span>' : ""}</td><td><span class="score ${scoreCls(r.score)}">${r.score ?? "—"}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Tu watchlist está vacía. Agregá acciones desde la Watchlist o el Screener.</div>`;
+  $("wl").className = ""; $("wl").innerHTML = wrows.length ? `<table class="mini"><tbody>${wrows.map((r) => line(r, `<td class="num"><span data-live-px="${esc(r.s)}">${fmt(r.px)}</span> <span class="na">${esc(r.cur || "")}</span></td><td class="num">${liveChg(r.s, r.chg)}</td><td class="num">${ok(r.fairUp) ? pctTxt(r.fairUp, 0) + ' <span class="na">a tu P. justo</span>' : ""}</td><td><span class="score ${scoreCls(r.score)}">${r.score ?? "—"}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Tu watchlist está vacía. Agregá acciones desde la Watchlist o el Screener.</div>`;
   document.querySelectorAll(".mini tr[data-s]").forEach((tr) => (tr.onclick = () => go(tr.dataset.s)));
   return snap.updated;
 }
 
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando el mercado…";
-  const tasks = [loadOverview(), loadMarket(), loadSignals(), loadChart(), loadUniverse()];
+  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse()];
   const res = await Promise.allSettled(tasks);
   const fails = res.filter((r) => r.status === "rejected");
   fails.forEach((f) => console.warn(f.reason));
   $("dot").className = "dot on";
-  $("statusTxt").textContent = `Actualizado ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${fails.length ? ` · ${fails.length} bloques sin datos` : ""} · precios con hasta 15 min de demora`;
+  $("statusTxt").innerHTML = `Actualizado ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${fails.length ? ` · ${fails.length} bloques sin datos` : ""} · <span class="livedot"></span>precios en vivo`;
 }
 
 $("btnReload").onclick = loadAll;
-$("heatMode").onclick = (e) => { const b = e.target.closest("[data-m]"); if (!b) return; D.heatMode = b.dataset.m; document.querySelectorAll("#heatMode button").forEach((x) => x.classList.toggle("on", x === b)); renderHeat(); };
 $("ranges").onclick = (e) => { const b = e.target.closest("[data-r]"); if (!b) return; D.range = b.dataset.r; loadChart().catch(() => {}); };
 $("legend").onclick = (e) => {
   const s = e.target.closest("[data-s]"); if (!s || !D.chart) return;
@@ -162,3 +130,4 @@ $("legend").onclick = (e) => {
   s.classList.toggle("off", D.hidden.has(sym)); D.chart.update();
 };
 loadAll();
+startLive(15000);

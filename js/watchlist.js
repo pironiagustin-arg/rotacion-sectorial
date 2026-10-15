@@ -1,5 +1,6 @@
 import { UNIVERSE, SYMBOLS, BATCH_SIZE, COUNTRIES } from "/lib/universe.js";
 import { METRICS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
+import { startLive } from "/js/live.js";
 import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, userProfW, loadFund, withMeta, META } from "/js/core.js";
 
 const KEY = "watchlists_v2", COLS_KEY = "watchlist_cols_v3";
@@ -67,8 +68,8 @@ function render() {
         <td class="l"><span class="tk">${esc(r.ced || r.s)}</span> ${r.cand ? '<span class="badge cand">Candidata</span>' : ""}<span class="nm">${esc(r.n)} · ${esc(COUNTRIES[r.c] || r.c)}</span></td>
         <td class="l sec">${esc(PROFILES[r.profile].l)}</td>
         <td class="l">${r.lynch ? `<span class="badge" title="${esc(LYNCH_INFO[r.lynch])}">${LYNCH[r.lynch]}</span>` : "—"}</td>
-        <td class="num">${fmt(r.px)} <span class="na" style="font-size:11px">${esc(r.cur || "")}</span></td>
-        <td>${ok(r.chg) ? `<span class="num ${r.chg >= 0 ? "pos" : "neg"}">${r.chg >= 0 ? "+" : ""}${nf(1).format(r.chg)}%</span>` : "—"}</td>
+        <td class="num"><span data-live-px="${esc(r.s)}">${fmt(r.px)}</span> <span class="na" style="font-size:11px">${esc(r.cur || "")}</span></td>
+        <td>${ok(r.chg) ? `<span class="num ${r.chg >= 0 ? "pos" : "neg"}" data-live-chg="${esc(r.s)}" data-live-dec="1">${r.chg >= 0 ? "+" : ""}${nf(1).format(r.chg)}%</span>` : "—"}</td>
         <td class="num">${fmtCap(r.mcap)}</td>
         ${cols.map((k) => { const h = r.hist?.[k]; return `<td class="num" ${h ? `title="Promedio últimos ${h.n} años: ${fmt(h.avg, METRICS[k].f, METRICS[k].d)}"` : ""}>${fmt(r[k], METRICS[k].f, METRICS[k].d)}</td>`; }).join("")}
         <td>${ok(r.fairUp) ? `<span class="num ${r.fairUp >= 0 ? "pos" : "neg"}">${r.fairUp >= 0 ? "+" : ""}${nf(0).format(r.fairUp)}%</span>` : '<span class="na">—</span>'}</td>
@@ -141,3 +142,4 @@ function bind() {
   $("dot").className = "dot on";
   $("statusTxt").textContent = `${W.updated ? "Datos del " + new Date(W.updated).toLocaleString("es-AR") : "Datos en vivo"} · ${state.user ? "listas sincronizadas con tu cuenta" : "listas guardadas en este navegador"}`;
 })();
+startLive(15000);

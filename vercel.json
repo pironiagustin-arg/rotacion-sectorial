@@ -31,7 +31,10 @@
       "maxDuration": 30
     },
     "api/profile.js": {
-      "maxDuration": 30
+      "maxDuration": 45
+    },
+    "api/quote.js": {
+      "maxDuration": 15
     }
   }
 }
