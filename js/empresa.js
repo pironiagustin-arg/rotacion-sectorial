@@ -61,7 +61,7 @@ async function load(sym) {
 function oneLiner(r) {
   const parts = [];
   const lt = r.lynch ? `una ${LYNCH[r.lynch]}` : "una empresa";
-  parts.push(`<b>${esc(r.ced || r.s)}</b> es ${lt} del sector ${esc(SECTORS[r.sec].toLowerCase())}`);
+  parts.push(`<b>${esc(r.ced || r.s)}</b> es ${lt} de ${esc(PROFILES[r.profile].l.toLowerCase())}`);
   const v = r.verdict;
   const good = Object.values(v).filter((x) => x.lv === "good").map((x) => x.q.replace(/[¿?]/g, "").toLowerCase());
   const bad = Object.values(v).filter((x) => x.lv === "bad").map((x) => x.q.replace(/[¿?]/g, "").toLowerCase());
