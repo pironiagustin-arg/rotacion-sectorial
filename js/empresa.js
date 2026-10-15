@@ -51,7 +51,10 @@ async function load(sym) {
   await loadRows(sym);
   P.r = P.rows.find((x) => x.s === sym);
   if (!P.r) { $("root").innerHTML = `<div class="empty">No encontré datos de ${esc(sym)}. Puede que Yahoo no tenga cotización hoy.</div>`; return; }
+  P.prof = null;
   render();
+  fetch(`/api/profile?symbol=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+    .then((pr) => { if (P.sym !== sym) return; P.prof = pr || { error: true }; renderAbout(); renderThesis(); });
   const h = await fetch(`/api/company?symbol=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (P.sym !== sym) return;
   P.hist = h; renderHistory();
@@ -87,7 +90,7 @@ function peersOf(r) {
   if (Array.isArray(mine)) return { list: mine.map((s) => P.rows.find((x) => x.s === s)).filter(Boolean), custom: true };
   const okAR = (x) => r.c === "AR" || x.c !== "AR";
   let pool = P.rows.filter((x) => x.profile === r.profile && x.s !== r.s && ok(x.mcap) && okAR(x));
-  if (pool.length < 4) pool = P.rows.filter((x) => x.sec === r.sec && x.s !== r.s && ok(x.mcap) && okAR(x));
+  if (pool.length < 4 && !PROFILES[r.profile].fixed) pool = P.rows.filter((x) => x.sec === r.sec && x.s !== r.s && ok(x.mcap) && okAR(x));
   return { list: pool.sort((a, b) => b.mcap - a.mcap).slice(0, 7), custom: false };
 }
 // Columnas de la comparativa: las métricas que más pesan en el perfil de la empresa
@@ -122,6 +125,7 @@ function render() {
           <span class="chip">${esc(COUNTRIES[r.c] || r.c)}</span>
           ${r.lynch ? `<span class="chip lynch" title="${esc(LYNCH_INFO[r.lynch])}">${LYNCH[r.lynch]}${r.lynch !== r.lynchAuto ? " (tuyo)" : ""}</span>` : ""}
           ${r.cand ? `<span class="chip cand">Candidata</span>` : ""}
+          ${(r.mk || "").includes("REF") ? `<span class="chip" style="color:#fde68a">Sin CEDEAR · solo como par de comparación</span>` : ""}
           ${markets.map((m) => `<span class="chip">${esc(m)}</span>`).join("")}
         </div>
         <div class="price"><span class="p num">${fmt(r.px)} <span class="na" style="font-size:14px">${esc(r.cur || "")}</span></span>${chg}<span class="na">Market cap ${fmtCap(r.mcap)}</span>${ok(r.tgt) ? `<span class="na">Target analistas ${fmt(r.tgt)} (${r.upside >= 0 ? "+" : ""}${nf(0).format(r.upside)}%)</span>` : ""}</div>
@@ -135,6 +139,8 @@ function render() {
       <a class="btn" href="#tesis">Tu tesis ↓</a>
     </div>
   </section>
+
+  <section id="about" class="card about"><div class="skeleton">Cargando qué hace la empresa…</div></section>
 
   <h2>Resumen en 30 segundos <span class="sub">Contra ${esc(r.peerLabel)} y contra su propia historia</span></h2>
   <div class="verdicts">${Object.entries(r.verdict).map(([g, x]) => `
@@ -182,21 +188,6 @@ function render() {
     <div class="m"><div class="l"><span>${l}</span></div><div class="v num">${fmt(r[k], f)}</div><div class="med">Mediana del sector: ${fmt(r.med[k], f)}</div></div>`).join("")}
   </div>` : ""}
 
-  <h2 id="tesis">Tu tesis <span class="sub">${state.user ? "Se guarda en tu cuenta" : "Se guarda en este navegador · iniciá sesión en el Screener para sincronizar"}</span></h2>
-  <div class="card">
-    <div class="thesis">
-      <label>Tipo Lynch<select id="tLynch"><option value="">Automático (${LYNCH[r.lynchAuto] || "sin datos"})</option>${Object.entries(LYNCH).map(([k, l]) => `<option value="${k}" ${ov.lynch_type === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
-      <label>Industria para el score<select id="tProf"><option value="">Automática (${esc(PROFILES[profileOf(r)].l)})</option>${Object.entries(PROFILES).sort((a, b) => a[1].l.localeCompare(b[1].l)).map(([k, p]) => `<option value="${k}" ${ov.metrics?.profile === k ? "selected" : ""}>${esc(p.l)}</option>`).join("")}</select></label>
-      <label>Precio justo pesimista<input type="number" step="any" id="tBear" value="${th.bear ?? ""}" placeholder="${esc(r.cur || "")}"></label>
-      <label>Precio justo base<input type="number" step="any" id="tBase" value="${th.base ?? r.fair ?? ""}" placeholder="${ok(r.tgt) ? "Target analistas " + fmt(r.tgt) : esc(r.cur || "")}"></label>
-      <label>Precio justo optimista<input type="number" step="any" id="tBull" value="${th.bull ?? ""}" placeholder="${esc(r.cur || "")}"></label>
-      <div class="full fair" id="fairBox"></div>
-      <label class="full">Tesis: por qué comprarla<textarea id="tNotes" placeholder="Catalizadores, ventaja competitiva, qué tiene que pasar…">${esc(r.notes)}</textarea></label>
-      <label class="full">Reglas de venta<textarea id="tSell" style="min-height:60px" placeholder="Ej.: vender si el P/E pasa de 40x, si las ventas dejan de crecer dos trimestres, o al llegar al precio optimista">${esc(th.sell || "")}</textarea></label>
-    </div>
-    <div class="actions" style="margin-top:12px"><button class="btn primary" id="tSave">Guardar tesis</button>${r.edited.size ? `<button class="btn" id="tReset">Restaurar métricas de Yahoo</button>` : ""}</div>
-  </div>
-
   <h2>Cómo se calculó el score <span class="sub">${esc(prof.l)}${r.lynch ? " · " + LYNCH[r.lynch] : ""}</span></h2>
   <div class="card">
     <div class="na" style="font-size:13px;margin-bottom:10px">${esc(prof.why)}${r.lynch ? " " + esc(LYNCH_INFO[r.lynch]) : ""} ${ok(r.gscore.Historia) ? `Además, un ${nf(0).format(25 * (r.lynch === "stalwart" ? 1.3 : r.lynch === "cyclical" ? 1.4 : 1))}% del score compara contra su propia historia (${r.histKeys.map((k) => METRICS[k].l).join(", ")}).` : "No hay historia suficiente para comparar contra sí misma."}</div>
@@ -207,8 +198,36 @@ function render() {
     ${(r.auto || []).length ? `<div style="margin-top:14px"><b style="font-size:13.5px">Ajustes automáticos para ${esc(r.ced || r.s)}</b><div class="list" style="margin-top:4px">${r.auto.map((x) => `<div><span style="color:#93c5fd">⚙</span>${esc(x.t)} <span class="na">(${x.k.map((k) => METRICS[k]?.l || k).join(", ")})</span></div>`).join("")}</div></div>` : ""}
     <div class="na" style="font-size:12px;margin-top:6px">Destildá una métrica para que no cuente en el score de ${esc(r.ced || r.s)} (por ejemplo, si el dato de Yahoo está distorsionado por un evento puntual). Para cambiar los pesos de toda la industria, usá "Cómo puntúa" en el Screener.</div>
     <div class="src">Pares: ${r.peerN} empresas de ${esc(r.peerLabel)} (si una métrica tiene menos de 5 datos en la industria, se usa el sector). Historia: estados anuales de Yahoo Finance${histN ? `, ${r.fx.years[0]}–${r.fx.years.at(-1)}` : ""}. Datos de mercado: Yahoo Finance${P.updated ? " · " + new Date(P.updated).toLocaleString("es-AR") : ""}.</div>
+  </div>
+
+  <h2 id="tesisAuto">Tesis: por qué podría ser una oportunidad <span class="sub">Armada automáticamente con métricas, contratos, management, analistas y noticias</span></h2>
+  <div id="autoThesis" class="card"><div class="skeleton">Buscando contratos, management y noticias…</div></div>
+
+  <h2 id="tesis">Tu tesis <span class="sub">${state.user ? "Se guarda en tu cuenta" : "Se guarda en este navegador · iniciá sesión en el Screener para sincronizar"}</span></h2>
+  <div class="card">
+    <div class="thesis">
+      <label>Tipo Lynch<select id="tLynch"><option value="">Automático (${LYNCH[r.lynchAuto] || "sin datos"})</option>${Object.entries(LYNCH).map(([k, l]) => `<option value="${k}" ${ov.lynch_type === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+      <label>Industria para el score<select id="tProf"><option value="">Automática (${esc(PROFILES[profileOf(r)].l)})</option>${Object.entries(PROFILES).sort((a, b) => a[1].l.localeCompare(b[1].l)).map(([k, p]) => `<option value="${k}" ${ov.metrics?.profile === k ? "selected" : ""}>${esc(p.l)}</option>`).join("")}</select></label>
+      <label>Precio justo pesimista<input type="number" step="any" id="tBear" value="${th.bear ?? ""}" placeholder="${esc(r.cur || "")}"></label>
+      <label>Precio justo base<input type="number" step="any" id="tBase" value="${th.base ?? r.fair ?? ""}" placeholder="${ok(r.tgt) ? "Target analistas " + fmt(r.tgt) : esc(r.cur || "")}"></label>
+      <label>Precio justo optimista<input type="number" step="any" id="tBull" value="${th.bull ?? ""}" placeholder="${esc(r.cur || "")}"></label>
+      <div class="full fair" id="fairBox"></div>
+      <label class="full">Tesis: por qué comprarla<textarea id="tNotes" placeholder="Catalizadores, ventaja competitiva, qué tiene que pasar…">${esc(r.notes)}</textarea></label>
+      <div class="full tam">
+        <b>Chequeo por TAM</b> <span class="na">· Valuación = TAM a 5 años × market share × margen neto × múltiplo ÷ (1 + retorno exigido)^5. Complementa el precio justo, no lo reemplaza.</span>
+        <div class="tamg">
+          <label>TAM a 5 años (US$ B)<input type="number" step="any" id="tTam" value="${th.tam ?? ""}" placeholder="Mercado capturable"></label>
+          <label>Market share (%)<input type="number" step="any" id="tShare" value="${th.share ?? ""}"></label>
+          <label>Margen neto (%)<input type="number" step="any" id="tMargin" value="${th.margin ?? (ok(r.nm) ? Math.round(r.nm) : "")}"></label>
+          <label>Múltiplo P/E terminal<input type="number" step="any" id="tMult" value="${th.mult ?? ""}" placeholder="${ok(r.med.pe) ? "Mediana pares " + nf(0).format(r.med.pe) : ""}"></label>
+          <label>Retorno exigido (%)<input type="number" step="any" id="tRate" value="${th.rate ?? 12}"></label>
+        </div><div id="tamBox" class="na" style="margin-top:8px"></div>
+      </div>
+      <label class="full">Reglas de venta<textarea id="tSell" style="min-height:60px" placeholder="Ej.: vender si el P/E pasa de 40x, si las ventas dejan de crecer dos trimestres, o al llegar al precio optimista">${esc(th.sell || "")}</textarea></label>
+    </div>
+    <div class="actions" style="margin-top:12px"><button class="btn primary" id="tSave">Guardar tesis</button>${r.edited.size ? `<button class="btn" id="tReset">Restaurar métricas de Yahoo</button>` : ""}</div>
   </div>`;
-  updateFair(); bindPage();
+  updateFair(); updateTam(); bindPage(); renderAbout(); renderThesis();
   if (P.hist) renderHistory();
 }
 
@@ -227,6 +246,121 @@ function metricBox(r, k, m, tot) {
     <div class="med">Mediana pares: ${fmt(r.med[k], m.f, m.d)}${r.edited.has(k) ? ` · Yahoo: ${fmt(P.rawMap.get(r.s)?.[k], m.f, m.d)}` : ""}</div>
     ${h ? `<div class="med">Promedio últimos ${h.n} años: ${fmt(h.avg, m.f, m.d)} <span style="color:${better ? COL.good : COL.bad}">(${h.diff >= 0 ? "+" : ""}${nf(0).format(h.diff)}%)</span></div>${spark(h, m)}` : ""}
     <div class="q">${esc(m.q)}</div></div>`;
+}
+
+// ---------- Presentación: qué hace ----------
+const fmtDate = (t) => new Date(t).toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
+function renderAbout() {
+  const el = $("about"); if (!el) return;
+  const pr = P.prof, r = P.r;
+  if (!pr) return;
+  const p = pr.profile || {};
+  if (pr.error || !p.summary) { el.innerHTML = `<b>Qué hace</b><div class="na" style="margin-top:6px">No hay descripción disponible para ${esc(r.ced || r.s)}.</div>`; return; }
+  const L = r.fx?.latest || {}, fy = r.fx?.fy || {};
+  const facts = [
+    ok(L.revUsd) ? ["Ventas anuales", fmtBig(L.revUsd)] : null,
+    ok(r.om) ? ["Margen operativo", fmt(r.om, "%")] : null,
+    ok(r.revG) ? ["Crecimiento de ventas", fmt(r.revG, "%")] : null,
+    p.employees ? ["Empleados", nf(0).format(p.employees)] : null,
+    p.city || p.country ? ["Sede", [p.city, p.country].filter(Boolean).join(", ")] : null,
+    p.ceo ? ["CEO", `${p.ceo.name}${p.ceo.age ? ` (${p.ceo.age} años)` : ""}`] : null,
+  ].filter(Boolean);
+  const long = p.summary.length > 700;
+  el.innerHTML = `<div class="about-h"><b>Qué hace ${esc(r.n)}</b>${p.website ? `<a href="${esc(p.website)}" target="_blank" rel="noopener">${esc(p.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""))} ↗</a>` : ""}</div>
+    <p class="about-t ${long ? "clamp" : ""}" id="aboutT">${esc(p.summary)}</p>${long ? `<button class="linkbtn" id="aboutMore">Leer completo</button>` : ""}
+    <div class="about-f">${facts.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
+    <div class="src">${esc(p.industry || "")} · Descripción de Yahoo Finance traducida automáticamente.</div>`;
+  if ($("aboutMore")) $("aboutMore").onclick = () => { $("aboutT").classList.toggle("clamp"); $("aboutMore").textContent = $("aboutT").classList.contains("clamp") ? "Leer completo" : "Ver menos"; };
+}
+
+// ---------- Tesis automática: oportunidad y riesgos ----------
+const DEAL = /contract|agreement|deal|partner|acquir|acquisition|award|order|signs|selects|expands|collaborat|supply|multi-year|billion|merger|launch|approv/i;
+function renderThesis() {
+  const el = $("autoThesis"); if (!el) return;
+  const r = P.r, pr = P.prof;
+  if (!pr) return;
+  const o = pr.owners || {}, an = pr.analysts || {}, eh = pr.earnings?.history || [], fil = pr.filings || [], nws = pr.news || [];
+  const prof = PROFILES[r.profile], g = r.gscore;
+  const pro = [], con = [], deals = [], mgmt = [];
+  const add = (arr, t, tag) => arr.push({ t, tag });
+
+  // Métricas
+  r.why.filter((w) => !/historia/i.test(w.t)).slice(0, 3).forEach((w) => add(pro, w.t, "Métricas"));
+  r.why.filter((w) => /historia|piso del ciclo/i.test(w.t)).slice(0, 2).forEach((w) => add(pro, w.t, "Valuación"));
+  if (ok(r.backlog) && r.backlog >= 1) add(pro, `Tiene contratos firmados por ${fmtBig(r.fx.latest.rpoUsd)} pendientes de facturar: ${fmt(r.backlog, "x", 1)} sus ventas anuales. Da visibilidad de ingresos para los próximos años.`, "Contratos");
+  if (ok(r.epsNY) && r.epsNY > 15) add(pro, `El consenso espera que el EPS crezca ${fmt(r.epsNY, "%", 0)} el próximo año fiscal.`, "Crecimiento");
+  if (ok(r.rule40) && r.rule40 >= 40 && ["software", "internet", "payments", "neocloud"].includes(r.profile)) add(pro, `Rule of 40 de ${fmt(r.rule40, "%", 0)}: crece rápido sin descuidar la caja.`, "Métricas");
+  if (ok(r.omTrend) && r.omTrend > 3) add(pro, `Apalancamiento operativo: el margen operativo mejoró ${fmt(r.omTrend, "pp", 1)} en los últimos 3 ejercicios.`, "Métricas");
+  const beats = eh.filter((e) => ok(e.surprise));
+  if (beats.length >= 3 && beats.every((e) => e.surprise > 0)) add(pro, `Superó las estimaciones de ganancias en los últimos ${beats.length} trimestres (sorpresa promedio ${fmt(beats.reduce((a, e) => a + e.surprise, 0) / beats.length, "%", 1)}).`, "Ejecución");
+  // Contratos y acuerdos: SEC 8-K + noticias
+  fil.filter((f) => f.items.some((x) => ["1.01", "2.01"].includes(x))).slice(0, 5).forEach((f) => deals.push(`<a href="${esc(f.url)}" target="_blank" rel="noopener">${fmtDate(f.date)} · ${esc(f.labels.filter((l) => /Acuerdo|Compra/.test(l)).join(" y "))} (presentación a la SEC) ↗</a>`));
+  nws.filter((n) => DEAL.test(n.title)).slice(0, 5).forEach((n) => deals.push(`<a href="${esc(n.url)}" target="_blank" rel="noopener">${n.t ? fmtDate(n.t) + " · " : ""}${esc(n.title_es || n.title)} <span class="na">(${esc(n.publisher || "")})</span> ↗</a>`));
+  // Management y dueños
+  const p = pr.profile || {};
+  if (p.ceo) mgmt.push(`CEO: ${esc(p.ceo.name)}${p.ceo.age ? `, ${p.ceo.age} años` : ""}.`);
+  if (ok(o.insiders)) { const ins = o.insiders * 100; mgmt.push(`Los directivos y fundadores tienen ${fmt(ins, "%", 1)} de las acciones${ins >= 10 ? ": están alineados con el accionista." : "."}`); if (ins >= 10) add(pro, `Management con piel en el juego: los insiders tienen ${fmt(ins, "%", 0)} de la empresa.`, "Management"); }
+  if (ok(o.insiderNet6m) && (o.insiderBuys6m || o.insiderSells6m)) {
+    const buy = o.insiderNet6m > 0;
+    mgmt.push(`Últimos 6 meses: ${o.insiderBuys6m || 0} compras y ${o.insiderSells6m || 0} ventas de insiders (neto ${buy ? "comprador" : "vendedor"}).`);
+    if (buy && (o.insiderBuys6m || 0) >= 2) add(pro, `Los insiders compraron acciones en los últimos 6 meses (${o.insiderBuys6m} operaciones): señal de confianza.`, "Management");
+  }
+  const mchg = fil.filter((f) => f.items.includes("5.02"));
+  if (mchg.length) mgmt.push(`Cambios en directorio o management en el último año: ${mchg.slice(0, 3).map((f) => `<a href="${esc(f.url)}" target="_blank" rel="noopener">${fmtDate(f.date)} ↗</a>`).join(", ")}.`);
+  // Analistas
+  const ups = (an.grades || []).filter((x) => x.action === "up").length, downs = (an.grades || []).filter((x) => x.action === "down").length;
+  if (ok(an.targetMean) && ok(r.px)) { const up = (an.targetMean / r.px - 1) * 100; if (up >= 15) add(pro, `Los ${an.n || ""} analistas que la cubren ven un precio objetivo promedio de ${fmt(an.targetMean)} (${fmt(up, "%", 0)} arriba del precio actual).`, "Analistas"); if (up < -5) add(con, `El precio ya supera el objetivo promedio de los analistas (${fmt(an.targetMean)}).`, "Analistas"); }
+  if (ups >= 2 && ups > downs) add(pro, `${ups} mejoras de recomendación en los últimos 4 meses.`, "Analistas");
+  if (downs >= 2 && downs > ups) add(con, `${downs} bajas de recomendación en los últimos 4 meses.`, "Analistas");
+  // Riesgos
+  r.alerts.filter((a) => !/historia|pico del ciclo/i.test(a.t)).slice(0, 4).forEach((a) => add(con, a.t, "Métricas"));
+  r.alerts.filter((a) => /historia|pico del ciclo/i.test(a.t)).slice(0, 2).forEach((a) => add(con, a.t, "Valuación"));
+  if (ok(o.shortFloat) && o.shortFloat > 0.08) add(con, `${fmt(o.shortFloat * 100, "%", 1)} de las acciones en circulación están vendidas en corto: hay inversores apostando a la baja (y potencial short squeeze).`, "Mercado");
+  if (ok(o.insiderNet6m) && o.insiderNet6m < 0 && (o.insiderSells6m || 0) >= 5) add(con, `Los insiders vendieron en ${o.insiderSells6m} ocasiones en los últimos 6 meses.`, "Management");
+  if (ok(r.beta) && r.beta > 1.6) add(con, `Muy volátil: beta de ${fmt(r.beta, "n", 2)} (se mueve ${fmt(r.beta, "n", 1)} veces lo que el mercado).`, "Mercado");
+  if (ok(g["Valuación"]) && g["Valuación"] < 30) add(con, `Cara contra sus pares (valuación peor que el ${100 - g["Valuación"]}% de ${r.peerLabel}): poco margen de error.`, "Valuación");
+  if (r.c === "CN" || r.c === "HK") add(con, "Riesgo China: regulación, tensiones comerciales con EE.UU. y estructura VIE de los ADRs.", "País");
+  if (r.c === "AR") add(con, "Riesgo Argentina: macro, tipo de cambio y controles.", "País");
+  if (r.c === "BR") add(con, "Riesgo Brasil: tasas altas, real volátil e intervención política en estatales.", "País");
+  if (r.kpi?.conc && Number(r.kpi.conc) >= 30) add(con, `Concentración de clientes: el principal cliente representa ${r.kpi.conc}% de las ventas.`, "Clientes");
+  if (pr.earnings?.next && pr.earnings.next - Date.now() < 21 * 864e5 && pr.earnings.next > Date.now()) add(con, `Presenta resultados el ${fmtDate(pr.earnings.next)}: espera volatilidad alrededor de esa fecha.`, "Calendario");
+  if (r.profile === "neocloud") add(con, "Modelo intensivo en capital: necesita financiar compras masivas de GPUs y data centers con deuda o emisión de acciones, y depende de pocos clientes grandes.", "Modelo de negocio");
+  // Veredicto
+  const val = g["Valuación"], cal = g["Calidad"], cre = g["Crecimiento"];
+  const verdict = !ok(r.score) ? "Sin datos suficientes para un veredicto."
+    : r.score >= 70 && val >= 55 ? `<b class="pos">Oportunidad:</b> buena empresa contra sus pares y a precio razonable. Validá la tesis con los contratos y el management de abajo.`
+    : r.score >= 70 ? `<b>Calidad alta pero no barata:</b> buena empresa contra sus pares; conviene esperar un mejor precio o confirmar que el crecimiento justifica el múltiplo.`
+    : cre >= 70 && val < 45 ? `<b>Historia de crecimiento:</b> crece más que sus pares pero se paga caro. La tesis depende de que el crecimiento se sostenga.`
+    : val >= 70 && cal < 45 ? `<b>Barata por algo:</b> cotiza barata pero la calidad del negocio está floja. Posible trampa de valor si no hay un catalizador.`
+    : `<b>Sin ventaja clara:</b> no se destaca contra sus pares. Necesita un catalizador concreto (contratos, cambio de management, nuevo producto).`;
+  const li = (arr) => arr.map((x) => `<li><span class="tag">${esc(x.tag)}</span>${esc(x.t)}</li>`).join("");
+  el.innerHTML = `<div class="verdict">${verdict}</div>
+    <div class="two tz">
+      <div><h4 class="pos">Por qué podría ser una oportunidad</h4><ul class="tl">${li(pro) || '<li class="na">No aparecen fortalezas claras en los datos.</li>'}</ul></div>
+      <div><h4 class="neg">Riesgos</h4><ul class="tl">${li(con) || '<li class="na">No aparecen riesgos destacados en los datos.</li>'}</ul></div>
+    </div>
+    <div class="two tz">
+      <div><h4>Contratos, acuerdos y noticias recientes</h4><ul class="tl links">${deals.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin contratos o acuerdos relevantes informados en el último año.</li>'}</ul></div>
+      <div><h4>Management y dueños</h4><ul class="tl">${mgmt.map((d) => `<li>${d}</li>`).join("") || '<li class="na">Sin datos de management.</li>'}</ul>
+        ${ok(an.targetMean) ? `<h4 style="margin-top:12px">Analistas</h4><ul class="tl"><li>Recomendación: ${esc({ strong_buy: "compra fuerte", buy: "compra", hold: "mantener", sell: "venta", strong_sell: "venta fuerte", underperform: "por debajo del mercado", outperform: "por encima del mercado" }[an.recKey] || an.recKey || "—")} · ${an.n || "—"} analistas</li><li>Precio objetivo: ${fmt(an.targetLow)} a ${fmt(an.targetHigh)} (promedio ${fmt(an.targetMean)})</li>${pr.earnings?.next ? `<li>Próximos resultados: ${fmtDate(pr.earnings.next)}</li>` : ""}</ul>` : ""}</div>
+    </div>
+    ${nws.length ? `<h4>Últimas noticias</h4><ul class="tl links">${nws.filter((n) => !DEAL.test(n.title)).slice(0, 5).map((n) => `<li><a href="${esc(n.url)}" target="_blank" rel="noopener">${n.t ? fmtDate(n.t) + " · " : ""}${esc(n.title_es || n.title)} <span class="na">(${esc(n.publisher || "")})</span> ↗</a></li>`).join("")}</ul>` : ""}
+    <div class="src">Fuentes: score propio, hechos relevantes 8-K de la SEC (contratos, adquisiciones y cambios de management), Yahoo Finance (insiders, analistas, noticias). El TAM no viene en ningún dato público: cargalo en "Tu tesis" para el chequeo de valuación. Es material de análisis, no una recomendación.</div>`;
+  P.autoThesis = { verdict, pro, con, deals, mgmt };
+}
+
+// ---------- Chequeo por TAM ----------
+function tamVals() {
+  const n = (id) => { const v = $(id)?.value; return v === "" || v == null ? null : Number(v); };
+  return { tam: n("tTam"), share: n("tShare"), margin: n("tMargin"), mult: n("tMult"), rate: n("tRate") };
+}
+function updateTam() {
+  const r = P.r, t = tamVals(), box = $("tamBox"); if (!box) return;
+  if (![t.tam, t.share, t.margin, t.mult].every(ok)) { box.textContent = "Completá TAM, share, margen y múltiplo para ver la valuación implícita."; return; }
+  const value = (t.tam * 1e9 * (t.share / 100) * (t.margin / 100) * t.mult) / Math.pow(1 + (t.rate ?? 12) / 100, 5);
+  const shares = ok(r.mcap) && ok(r.px) && r.cur === "USD" ? r.mcap / r.px : null;
+  const per = shares ? value / shares : null;
+  box.innerHTML = `Valor de la empresa hoy según el TAM: <b>${fmtBig(value)}</b> vs market cap ${fmtCap(r.mcap)} (${value >= r.mcap ? "+" : ""}${nf(0).format((value / r.mcap - 1) * 100)}%)${per ? ` · <b>${fmt(per)} por acción</b>` : ""}.`;
 }
 
 function thesisVals() {
@@ -342,6 +476,12 @@ function pdf() {
       ${GROUPS.filter((g) => r.gscore[g] != null).slice(0, 4).map((g) => `<div><div class="l">${g}</div><div class="v ${cls(r.gscore[g])}">${r.gscore[g]}</div></div>`).join("")}
     </div>
     <h2>En una frase</h2><div>${oneLiner(r).replace(/<b class="pos">/g, "<b>")}</div>
+    ${P.prof?.profile?.summary ? `<h2>Qué hace</h2><div style="line-height:1.5">${esc(P.prof.profile.summary.slice(0, 1200))}${P.prof.profile.summary.length > 1200 ? "…" : ""}</div>` : ""}
+    ${P.autoThesis ? `<h2>Tesis automática</h2><div>${P.autoThesis.verdict.replace(/<b class="pos">/g, "<b>")}</div>
+      <div class="imgs" style="margin-top:6px"><div><b>Por qué podría ser una oportunidad</b><ul>${P.autoThesis.pro.map((x) => `<li>${esc(x.t)}</li>`).join("") || "<li>—</li>"}</ul></div>
+      <div><b>Riesgos</b><ul>${P.autoThesis.con.map((x) => `<li>${esc(x.t)}</li>`).join("") || "<li>—</li>"}</ul></div></div>
+      ${P.autoThesis.deals.length ? `<b>Contratos, acuerdos y noticias</b><ul>${P.autoThesis.deals.map((d) => `<li>${d.replace(/<[^>]+>/g, "").replace(" ↗", "")}</li>`).join("")}</ul>` : ""}
+      ${P.autoThesis.mgmt.length ? `<b>Management y dueños</b><ul>${P.autoThesis.mgmt.map((d) => `<li>${d.replace(/<[^>]+>/g, "").replace(/ ↗/g, "")}</li>`).join("")}</ul>` : ""}` : ""}
     ${fv ? `<h2>Precio justo</h2><table><thead><tr><th class="l">Escenario</th><th>Precio</th><th>Distancia</th></tr></thead><tbody>${[["Pesimista", th.bear], ["Base", th.base], ["Optimista", th.bull], ["Ponderado (25/50/25)", fv], ["Compra con 20% de margen", fv * 0.8]].filter(([, v]) => ok(v)).map(([l, v]) => `<tr><td class="l">${l}</td><td>${fmt(v)}</td><td>${v >= r.px ? "+" : ""}${nf(1).format((v / r.px - 1) * 100)}%</td></tr>`).join("")}</tbody></table>` : ""}
     ${r.notes ? `<h2>Tesis</h2><div class="notes">${esc(r.notes)}</div>` : ""}
     ${th.sell ? `<h2>Reglas de venta</h2><div class="notes">${esc(th.sell)}</div>` : ""}
@@ -363,9 +503,10 @@ function bindPage() {
   $("bPdf").onclick = pdf;
   $("bCmp").onclick = () => { const c = new Set(loadLocal("scr_cmp", [])); c.has(r.s) ? c.delete(r.s) : c.add(r.s); saveLocal("scr_cmp", [...c]); $("bCmp").textContent = c.has(r.s) ? "✓ En comparar" : "+ Comparar"; toast(c.has(r.s) ? "Agregada a comparar en el Screener" : "Quitada de comparar"); };
   ["tBear", "tBase", "tBull"].forEach((id) => ($(id).oninput = updateFair));
+  ["tTam", "tShare", "tMargin", "tMult", "tRate"].forEach((id) => ($(id).oninput = updateTam));
   $("tSave").onclick = async () => {
     const t = thesisVals(), fv = fairValue(t);
-    const ok2 = await saveOverride(r.s, { fair_value: fv, lynch_type: $("tLynch").value || null, notes: $("tNotes").value || null, metrics: { thesis: { ...t, sell: $("tSell").value || null }, profile: $("tProf").value || null } });
+    const ok2 = await saveOverride(r.s, { fair_value: fv, lynch_type: $("tLynch").value || null, notes: $("tNotes").value || null, metrics: { thesis: { ...t, ...tamVals(), sell: $("tSell").value || null }, profile: $("tProf").value || null } });
     if (ok2) { toast("Tesis guardada"); rescore(); }
   };
   if ($("tReset")) $("tReset").onclick = async () => { const o = state.ov.get(r.s); await saveOverride(r.s, { metrics: Object.fromEntries(Object.keys(o?.metrics || {}).filter((k) => k !== "thesis").map((k) => [k, null])) }); rescore(); };

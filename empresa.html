@@ -93,6 +93,23 @@
   .fair .big { font-size:22px; font-weight:700; }
   .how td, .how th { font-size:12.5px; }
   tr.med td { font-size:12px; }
+  .about { margin-top:12px; }
+  .about-h { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:15px; }
+  .about-h a { color:#93c5fd; font-size:12.5px; text-decoration:none; }
+  .about-t { color:var(--muted); font-size:14px; line-height:1.65; margin:8px 0 4px; }
+  .about-t.clamp { display:-webkit-box; -webkit-line-clamp:5; -webkit-box-orient:vertical; overflow:hidden; }
+  .linkbtn { background:none; border:none; color:#93c5fd; cursor:pointer; padding:0; font-size:12.5px; font-family:inherit; }
+  .about-f { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:8px; margin-top:12px; }
+  .about-f div { background:var(--panel2); border-radius:10px; padding:8px 11px; display:grid; gap:2px; }
+  .about-f span { color:var(--dim); font-size:11.5px; } .about-f b { font-size:14px; font-weight:600; }
+  .verdict { font-size:14.5px; line-height:1.6; padding:12px 14px; background:var(--panel2); border-radius:12px; margin-bottom:12px; }
+  .tz { gap:22px; margin-bottom:10px; } .tz h4, #autoThesis h4 { margin:6px 0 6px; font-size:13.5px; font-weight:600; }
+  .tl { margin:0; padding-left:18px; display:grid; gap:6px; font-size:13.5px; line-height:1.5; }
+  .tl .tag { display:inline-block; font-size:10.5px; color:#93c5fd; background:var(--accent-bg); border-radius:99px; padding:1px 7px; margin-right:6px; vertical-align:1px; }
+  .tl.links a { color:var(--text); text-decoration:none; } .tl.links a:hover { color:#93c5fd; }
+  .tam { background:var(--panel2); border-radius:12px; padding:12px 14px; font-size:13px; }
+  .tamg { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; margin-top:8px; }
+  .tamg label { color:var(--dim); font-size:11.5px; display:grid; gap:4px; }
   .x { background:none; border:none; color:var(--dim); font-size:18px; cursor:pointer; line-height:1; padding:0 4px; }
   .x:hover { color:var(--bad); }
   .kpis { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px; margin-top:12px; }

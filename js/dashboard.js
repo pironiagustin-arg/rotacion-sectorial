@@ -110,7 +110,7 @@ async function loadUniverse() {
   const [, snap] = await Promise.all([loadOverrides(), loadSnapshots(), loadFund()]);
   const rows = [...snap.rows.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
   scoreAll(rows, { userMult: userMult(), profW: userProfW() });
-  const ext = rows.filter((r) => r.c !== "AR");
+  const ext = rows.filter((r) => r.c !== "AR" && !(r.mk || "").includes("REF"));
   const line = (r, extra) => `<tr data-s="${esc(r.s)}"><td class="l"><b>${esc(r.ced || r.s)}</b> <span class="na">${esc((r.n || "").slice(0, 26))}</span></td>${extra}</tr>`;
   const cands = ext.filter((r) => r.cand && r.profile !== "crypto").sort((a, b) => b.score - a.score).slice(0, 8);
   $("cands").className = ""; $("cands").innerHTML = cands.length ? `<table class="mini"><tbody>${cands.map((r) => line(r, `<td class="l na">${esc(PROFILES[r.profile].l)}</td><td class="na">${LYNCH[r.lynch] || ""}</td><td class="num">${pctTxt(r.chg, 1)}</td><td><span class="score ${scoreCls(r.score)}">${r.score}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Hoy no hay candidatas.</div>`;

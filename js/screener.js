@@ -19,6 +19,7 @@ function rebuild() {
 function filtered() {
   const f = S.f, q = f.q.trim().toLowerCase();
   return S.rows.filter((r) => {
+    if ((r.mk || "").includes("REF")) return false;
     if (q && !r.s.toLowerCase().includes(q) && !(r.ced || "").toLowerCase().includes(q) && !(r.n || "").toLowerCase().includes(q)) return false;
     if (f.markets.size && ![...f.markets].some((m) => (r.mk || "").split(" ").includes(m))) return false;
     if (f.sectors.size && !f.sectors.has(r.sec)) return false;

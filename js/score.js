@@ -55,7 +55,7 @@ export const PROFILES = {
   software:   { l: "Software", why: "Se mira crecimiento con rentabilidad (Rule of 40), múltiplo de ventas y dilución por pago en acciones.",
     w: { rule40: 14, evRev: 10, revG: 14, gm: 10, fcfM: 10, sbc: 6, om: 8, peg: 8, backlog: 8, ndEbitda: 6, roic: 6, dil: 8, evRevG: 8, fcfConv: 4 }, hist: ["evRev", "fpe", "gm", "om"],
     kpi: [K("arr", "ARR (US$ M)", "Ingresos recurrentes anualizados"), K("nrr", "Retención neta NRR (%)", "Más de 120% es excelente"), K("big", "Clientes > US$ 100k", "")] },
-  neocloud:   { l: "Neocloud / infraestructura IA", why: "Negocio en construcción: pesan el crecimiento, el backlog contratado, el múltiplo de ventas y la capacidad de financiar el capex.",
+  neocloud:   { fixed: true, l: "Neocloud / infraestructura IA", why: "Negocio en construcción: pesan el crecimiento, el backlog contratado, el múltiplo de ventas y la capacidad de financiar el capex.",
     w: { revG: 18, backlog: 16, evRev: 14, ndEbitda: 12, gm: 10, om: 8, cr: 8, runway: 6, intCov: 8, dil: 6 }, hist: ["evRev", "gm"],
     kpi: [K("arr", "ARR (US$ M)", "Ingresos recurrentes anualizados"), K("mw", "Capacidad contratada (MW)", ""), K("conc", "Concentración top cliente (%)", "Más de 50% es riesgo alto")] },
   semis:      { l: "Semiconductores", why: "Industria cíclica de alta tecnología: márgenes brutos, retorno sobre capital, I+D y PEG.",
@@ -188,7 +188,7 @@ const IND = [
   [/^Beverages|^Tobacco|^Confectioners|^Packaged Foods|^Food Distribution|^Grocery/, "staples"],
   [/^Farm Products/, "agro"],
 ];
-const SYMBOL_PROFILE = { CRWV: "neocloud", NBIS: "neocloud", IREN: "neocloud", MSTR: "crypto", BMNR: "crypto", HUT: "crypto", RIOT: "crypto", COIN: "capmarkets", PAM: "utility", CRESY: "agro", "LEDE.BA": "staples" };
+const SYMBOL_PROFILE = { CRWV: "neocloud", NBIS: "neocloud", IREN: "neocloud", APLD: "neocloud", MSTR: "crypto", BMNR: "crypto", HUT: "crypto", RIOT: "crypto", COIN: "capmarkets", PAM: "utility", CRESY: "agro", "LEDE.BA": "staples" };
 const SECTOR_DEFAULT = { tech: "growth", comm: "growth", health: "growth", discr: "growth", staples: "staples", ind: "industrial", energy: "commodity", mat: "commodity", fin: "financial", re: "reit", util: "utility" };
 
 export function profileOf(r) {
@@ -390,17 +390,19 @@ export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = 
   for (const r of rows) {
     const g = r.c === "AR" ? G.all : G.ext;
     const prof = g.prof.get(r.profile + (peer === "sector-country" ? "|" + r.c : "")), sect = g.sec.get(groupKey(r));
-    r.peerN = prof.length >= 6 ? prof.length : sect.length;
-    r.peerLabel = prof.length >= 6 ? PROFILES[r.profile].l : peer === "sector-country" ? `${SECTORS[r.sec]} · ${COUNTRIES[r.c] || r.c}` : SECTORS[r.sec];
+    // Industrias con pares fijos (neocloud: NBIS, CRWV, IREN, APLD) se comparan solo entre sí aunque sean pocas
+    const fixed = !!PROFILES[r.profile].fixed;
+    r.peerN = prof.length >= 6 || fixed ? prof.length : sect.length;
+    r.peerLabel = prof.length >= 6 || fixed ? PROFILES[r.profile].l : peer === "sector-country" ? `${SECTORS[r.sec]} · ${COUNTRIES[r.c] || r.c}` : SECTORS[r.sec];
     r.pct = {}; r.med = {}; r.hist = {};
     for (const k of Object.keys(METRICS)) {
       // Pares: misma industria si hay al menos 5 con dato; si no, el sector
       let peers = prof, vals = prof.map((p) => cmpVal(p, k)).filter(ok);
-      if (vals.length < 5) { peers = sect; vals = sect.map((p) => cmpVal(p, k)).filter(ok); }
+      if (vals.length < 5 && !fixed) { peers = sect; vals = sect.map((p) => cmpVal(p, k)).filter(ok); }
       r.med[k] = median(vals);
       const v = cmpVal(r, k);
       if (v == null) { if (METRICS[k].pos && ok(r[k]) && r[k] <= 0 && k !== "payout") r.pct[k] = 0; if (k === "peg" && r.peg == null && ok(r.fpe) && (r.fpe <= 0 || (ok(r.epsG) && r.epsG <= 0))) r.pct[k] = 0; continue; }
-      if (vals.length < 4) continue;
+      if (vals.length < (fixed ? 3 : 4)) continue;
       let below = 0, eq = 0;
       for (const x of vals) { if (x < v) below++; else if (x === v) eq++; }
       let p = ((below + eq / 2) / vals.length) * 100;
