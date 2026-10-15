@@ -57,7 +57,7 @@ export async function renderEarnings(el, syms, label = (s) => s, all = null) {
     <div class="na" style="font-size:11.5px;margin-top:6px">${up.length ? `${up.length} empresas reportan en los próximos 30 días · * fecha estimada · tocá un ticker para ver su ficha (ahí está lo que dijo el management después de reportar)` : "Ninguna reporta en los próximos 30 días."}</div>`;
 }
 function bind(el, syms, label, all) {
-  el.querySelectorAll(".cal-seg [data-m]").forEach((b) => (b.onclick = () => { el.dataset.mode = b.dataset.m; renderEarnings(el, syms, label, all); }));
+  el.onclick = (e) => { const b = e.target.closest(".cal-seg [data-m]"); if (!b || b.dataset.m === el.dataset.mode) return; el.dataset.mode = b.dataset.m; renderEarnings(el, syms, label, all); };
 }
 export const EARN_CSS = `
 .cal{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
