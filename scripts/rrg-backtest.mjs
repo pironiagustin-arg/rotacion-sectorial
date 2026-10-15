@@ -167,6 +167,9 @@ async function main() {
     ["semanal_cruce", "RRG semanal cruza de Improving a Leading", (r) => r.wcross],
     ["semanal_cruce_tend", "RRG semanal cruza a Leading + 6 meses positivo", (r) => r.wcross && r.rs126 > 0],
     ["cruzo", "RRG diario ya cruzó a Leading (comprar en el cruce)", (r) => r.st === "cruzo"],
+    ["solo_xl", "Por explotar solo en sectores XL", (r, sym) => r.st === "por_explotar" && sym.startsWith("XL")],
+    ["ind_estricta", "Industrias con señal muy clara (score 75+, volumen +20%, acumulación 1,2x, semanal OK)", (r, sym) => r.st === "por_explotar" && !sym.startsWith("XL") && r.score >= 75 && r.relVol >= 1.2 && r.accum >= 1.2 && (r.wq === "improving" || r.wq === "leading")],
+    ["xl_mas_estricta", "Sectores XL + industrias muy claras (la regla nueva)", (r, sym) => r.st === "por_explotar" && (sym.startsWith("XL") || (r.score >= 75 && r.relVol >= 1.2 && r.accum >= 1.2 && (r.wq === "improving" || r.wq === "leading")))],
   ];
   // ---------- Resumen de señales ----------
   const base = Object.fromEntries(H.map((h) => [h, r1(avg(allRel[h]))]));

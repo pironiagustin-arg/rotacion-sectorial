@@ -47,7 +47,8 @@ const today = day(Date.now() - 3 * 3600e3);
 if (!db.backfilled) {
   const bt = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "rrg_backtest.json"), "utf8"));
   const since = day(Date.now() - 370 * 864e5);
-  for (const e of bt.events.filter((e) => e.date >= since)) {
+  const clear = (e) => e.sym.startsWith("XL") || (e.score >= 75 && (e.relVol ?? 0) >= 1.2 && (e.accum ?? 0) >= 1.2 && (e.wq === "improving" || e.wq === "leading"));
+  for (const e of bt.events.filter((e) => e.date >= since && clear(e))) {
     if (db.signals.some((s) => s.sym === e.sym && s.date === e.date)) continue;
     db.signals.push({ date: e.date, sym: e.sym, name: e.name, group: e.group, score: e.score, leaders: (e.top || []).map((t) => t.s), source: "backtest" });
   }

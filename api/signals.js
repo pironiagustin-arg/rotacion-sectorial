@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     const custom = String(req.query?.symbols || "").split(",").map((s) => s.trim().toUpperCase()).filter((s) => /^[A-Z0-9.\-^]{1,12}$/.test(s)).slice(0, 40);
     const names = custom.length ? {} : { ...SECTOR_ETFS, ...INDUSTRY_ETFS };
     const syms = custom.length ? [...new Set(custom)] : Object.keys(names);
-    const list = await computeSignals(syms, names, String(req.query?.benchmark || "SPY").toUpperCase());
+    const list = await computeSignals(syms, names, String(req.query?.benchmark || "SPY").toUpperCase(), { strict: custom.length ? new Set() : new Set(Object.keys(INDUSTRY_ETFS)) });
     for (const s of list) s.group = SECTOR_ETFS[s.symbol] ? "sector" : INDUSTRY_ETFS[s.symbol] ? "industria" : "accion";
     let saved = null;
     if (req.query?.save && !custom.length) {

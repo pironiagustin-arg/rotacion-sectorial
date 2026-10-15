@@ -77,6 +77,7 @@ export function signalCard(s, hist = {}, opts = {}) {
     <div class="sg-body">${miniRRG(s.tail, st.c)}
       <div class="sg-f"><div class="sg-score">Fuerza de la señal <b>${s.score ?? "—"}</b>/100</div>
         ${facts.map((f) => `<div>${esc(f)}</div>`).join("")}
+        ${s.strictNote ? `<div class="sg-d" style="color:#fbbf24">${esc(s.strictNote)}</div>` : ""}
         <div class="sg-d">${k ? `En este estado hace ${k.n} ${k.n === 1 ? "día" : "días"}` : `${s.days} ruedas en ${s.quadrant}`}${s.chg != null ? ` · hoy ${s.chg >= 0 ? "+" : ""}${nf(2).format(s.chg)}%` : ""}</div>
         ${link ? `<a href="${link}" class="sg-l">Ver →</a>` : ""}</div></div>
     ${s.group && s.group !== "accion" && (s.status === "por_explotar" || s.status === "cargando") ? `<div class="sg-lead" data-leaders="${esc(s.symbol)}"><span class="sg-lt">Acciones a mirar: líderes del sector a 6 meses</span><span class="sg-d">Buscando…</span></div>` : ""}</div>`;
@@ -133,7 +134,7 @@ export async function askNotifications() {
 export async function mountPanel(el, { symbols = null, title, link } = {}) {
   if (!document.getElementById("sg-css")) { const st = document.createElement("style"); st.id = "sg-css"; st.textContent = SIGNAL_CSS + `.toast{position:fixed;bottom:20px;right:20px;background:#16213a;border:1px solid #2b3a5c;color:#e2e8f0;padding:10px 14px;border-radius:10px;display:none;z-index:60;font-family:Inter,sans-serif;font-size:13px}.toast.show{display:block}`; document.head.appendChild(st); }
   el.innerHTML = `<div class="sg-top"><div><h3>${esc(title || "Señales de rotación")}</h3><div class="sub">Improving con volumen que se acerca a Leading · RRG diario de 1 año, confirmado con el semanal</div></div>
-    <div style="display:flex;gap:8px"><button class="sg-btn" id="sgNotif">🔔 Avisarme</button><button class="sg-btn" id="sgAll">Ver todos</button></div></div><div id="sgList" class="sg-empty">Calculando señales…</div>${symbols ? "" : `<div class="sg-live"><div class="sg-lh">Cómo vienen las últimas alertas <a href="/backtest.html#rrg">ver todas →</a></div><div id="sgLive" class="sg-empty">Cargando…</div></div>`}`;
+    <div style="display:flex;gap:8px"><button class="sg-btn" id="sgNotif">🔔 Avisarme</button><button class="sg-btn" id="sgAll">Ver todos</button></div></div><div id="sgList" class="sg-empty">Calculando señales…</div>${symbols ? "" : `<div class="sg-live"><div class="sg-lh">Seguimiento de las alertas abiertas <a href="/backtest.html#rrg">ver también las cerradas →</a></div><div id="sgLive" class="sg-empty">Cargando…</div></div>`}`;
   if (!symbols) { if (!document.getElementById("rl-css")) { const st = document.createElement("style"); st.id = "rl-css"; st.textContent = RL_CSS + ".sg-live{margin-top:16px;padding-top:12px;border-top:1px solid #1e2a44}.sg-lh{font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:8px;display:flex;justify-content:space-between}.sg-lh a{font-size:12px;font-weight:400;color:#93c5fd;text-decoration:none}"; document.head.appendChild(st); } renderRrgLive(el.querySelector("#sgLive"), { compact: true }); }
   el.querySelector("#sgNotif").onclick = askNotifications;
   let showAll = false, list = [], hist = {};

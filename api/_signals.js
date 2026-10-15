@@ -84,7 +84,9 @@ export function analyze(trail, wtrail, px, bpx) {
   };
 }
 
-export async function computeSignals(symbols, names = {}, benchmark = "SPY") {
+// Industrias (no XL): solo se da alerta "Por explotar" si la señal es muy clara; si no, queda en "Cargando"
+export const STRICT_OK = (a) => a.score >= 75 && (a.relVol ?? 0) >= 1.2 && (a.accum ?? 0) >= 1.2 && (a.weekly === "improving" || a.weekly === "leading");
+export async function computeSignals(symbols, names = {}, benchmark = "SPY", { strict = new Set() } = {}) {
   const all = [benchmark, ...symbols];
   const pull = (qs) => Promise.all(all.map((s) => chartOHLCV(s, qs).catch(() => null)));
   const [D, W] = await Promise.all([pull("range=1y&interval=1d"), pull("range=3y&interval=1wk")]);
@@ -101,10 +103,11 @@ export async function computeSignals(symbols, names = {}, benchmark = "SPY") {
     if (w && bW) { const wp = alignTo(bW, w); wtrail = rrg(wp.map((p) => p?.c ?? null), bW.pts.map((p) => p.c), bW.pts.map((p) => p.t)); }
     const a = analyze(trail, wtrail, px, bD.pts);
     if (!a) return;
+    if (strict.has(s) && a.status === "por_explotar" && !STRICT_OK(a)) { a.status = "cargando"; a.strictNote = "Industria: falta una señal más clara para alerta"; }
     const last = d.pts.at(-1), prev = d.pts.at(-2);
     out.push({ symbol: s, name: names[s] || d.meta.shortName || s, price: round(last?.c, 2), chg: prev ? round((last.c / prev.c - 1) * 100, 2) : null, ...a });
   });
   const order = { por_explotar: 0, cruzo: 1, cargando: 2, temprano: 3, perdiendo: 4, estancado: 5 };
-  out.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || b.score - a.score);
+  out.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || (strict.has(a.symbol) ? 1 : 0) - (strict.has(b.symbol) ? 1 : 0) || b.score - a.score);
   return out;
 }

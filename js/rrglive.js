@@ -1,50 +1,71 @@
-// Seguimiento en vivo de las alertas "Por explotar": cómo reaccionaron el sector y sus 3 líderes contra el S&P 500
+// Seguimiento en vivo de las alertas "Por explotar": cómo reaccionaron el sector y sus 3 líderes contra el S&P 500.
+// Separado en alertas abiertas (menos de 60 ruedas) y cerradas, con un resumen honesto arriba.
 const nf = (d) => new Intl.NumberFormat("es-AR", { minimumFractionDigits: d, maximumFractionDigits: d });
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const pc = (v, d = 1) => (v == null ? '<span style="color:#64748b">—</span>' : `<span style="color:${v >= 0 ? "#4ade80" : "#f87171"}">${v >= 0 ? "+" : ""}${nf(d).format(v)}%</span>`);
-const fd = (s) => new Date(s + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "2-digit" });
+const pc = (v, d = 1) => (v == null ? '<span class="rl-dim">—</span>' : `<span class="${v >= 0 ? "rl-up" : "rl-dn"}">${v >= 0 ? "+" : ""}${nf(d).format(v)}%</span>`);
+const fd = (s) => new Date(s + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 const QN = { leading: "Leading", improving: "Improving", weakening: "Weakening", lagging: "Lagging" };
 const avg = (a) => { const v = a.filter((x) => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+const last = (a) => (a ? [...a].reverse().find((x) => x != null) ?? null : null);
+const HOLD = 60;
 
 function spark(a, b) {
   const all = [...(a || []), ...(b || [])].filter((x) => x != null); if (all.length < 2) return "";
-  const mn = Math.min(0, ...all), mx = Math.max(0, ...all), W = 110, H = 30, n = Math.max(a?.length || 0, b?.length || 0, 2);
-  const X = (i) => (i / (Math.max(n - 1, 1))) * W, Y = (v) => H - 2 - ((v - mn) / (mx - mn || 1)) * (H - 4);
-  const line = (arr, c, dash) => arr ? `<polyline points="${arr.map((v, i) => (v == null ? null : `${X(i).toFixed(1)},${Y(v).toFixed(1)}`)).filter(Boolean).join(" ")}" fill="none" stroke="${c}" stroke-width="1.5" ${dash ? 'stroke-dasharray="3 2"' : ""}/>` : "";
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#334155" stroke-dasharray="2 2"/>${line(a, "#60a5fa")}${line(b, "#4ade80", true)}</svg>`;
+  const mn = Math.min(0, ...all), mx = Math.max(0, ...all), W = 120, H = 32, n = HOLD + 1;
+  const X = (i) => (i / (n - 1)) * W, Y = (v) => H - 2 - ((v - mn) / (mx - mn || 1)) * (H - 4);
+  const line = (arr, c, dash) => arr ? `<polyline points="${arr.map((v, i) => (v == null ? null : `${X(i).toFixed(1)},${Y(v).toFixed(1)}`)).filter(Boolean).join(" ")}" fill="none" stroke="${c}" stroke-width="1.6" ${dash ? 'stroke-dasharray="3 2"' : ""}/>` : "";
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><rect x="0" y="0" width="${W}" height="${H}" fill="none"/><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#334155" stroke-dasharray="2 2"/>${line(a, "#60a5fa")}${line(b, "#4ade80", true)}</svg>`;
 }
+
+function row(s) {
+  const now = last(s.etf), lead = last(s.lead), open = s.days < HOLD;
+  const best = s.etf ? Math.max(...s.etf.filter((x) => x != null)) : null, worst = s.etf ? Math.min(...s.etf.filter((x) => x != null)) : null;
+  const ref = lead ?? now;
+  const st = s.days === 0 ? ["Recién", "rl-new"] : open ? (ref >= 0 ? ["Va ganando", "rl-win"] : ["Va perdiendo", "rl-lose"]) : (ref >= 0 ? ["Ganó", "rl-win"] : ["Perdió", "rl-lose"]);
+  return `<tr>
+    <td class="l"><div class="rl-sym"><b>${esc(s.sym)}</b><span>${esc(s.name || "")}</span></div><div class="rl-dt">${fd(s.date)}${s.sym.startsWith("XL") ? "" : ' · <span title="Industria con señal muy clara">industria</span>'}</div></td>
+    <td><div class="rl-prog"><i style="width:${Math.min(100, (s.days / HOLD) * 100)}%"></i></div><div class="rl-dt">${s.days} de ${HOLD} ruedas</div></td>
+    <td>${pc(now)}<div class="rl-dt">máx ${pc(best, 0)} · mín ${pc(worst, 0)}</div></td>
+    <td>${s.leaders.length ? `${pc(lead)}<div class="rl-dt">${s.leaders.map((l) => `<a href="/empresa.html?s=${encodeURIComponent(l)}">${esc(l)}</a> ${pc(s.each?.[l], 0)}`).join(" · ")}</div>` : '<span class="rl-dim">sin acciones en el universo</span>'}</td>
+    <td>${spark(s.etf, s.lead)}</td>
+    <td class="l"><span class="rl-st ${st[1]}">${st[0]}</span>${s.now?.quadrant ? `<div class="rl-dt">hoy en ${QN[s.now.quadrant]}</div>` : ""}</td></tr>`;
+}
+const table = (list) => `<div class="rl-wrap"><table class="rl"><thead><tr><th class="l">Alerta</th><th>Avance</th><th>Sector vs S&P 500</th><th>3 líderes vs S&P 500</th><th>Recorrido</th><th class="l">Estado</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table></div>`;
 
 export async function renderRrgLive(el, { compact = false } = {}) {
   const d = await fetch("/data/rrg_live.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  if (!d?.signals?.length) { el.innerHTML = `<div style="color:#94a3b8;font-size:13px">Todavía no hay alertas registradas.</div>`; return; }
-  const S = d.signals;
-  const closed = S.filter((s) => s.days >= 20);
-  const at = (arr, k) => arr.map((s) => s.etf?.[k]).filter((x) => x != null);
-  const atL = (arr, k) => arr.map((s) => s.lead?.[k]).filter((x) => x != null);
-  const hit = (v) => (v.length ? Math.round((v.filter((x) => x > 0).length / v.length) * 100) : null);
-  const H = [1, 5, 10, 20, 60];
-  const sum = H.map((k) => ({ k, s: avg(at(S, k)), sh: hit(at(S, k)), n: at(S, k).length, l: avg(atL(S, k)), lh: hit(atL(S, k)) }));
-  const rows = (compact ? S.slice(0, 6) : S);
-  el.innerHTML = `
-    <div class="rl-sum">${sum.map((x) => `<div><div class="rl-k">${x.k === 1 ? "Al día siguiente" : `A ${x.k} ruedas`} <span>(${x.n})</span></div><div class="rl-v">${pc(x.s)}</div><div class="rl-s">sector vs SPY · ${x.sh ?? "—"}% suben</div><div class="rl-v2">${pc(x.l)} <span>líderes · ${x.lh ?? "—"}%</span></div></div>`).join("")}</div>
-    <div class="rl-wrap"><table class="rl"><thead><tr><th class="l">Alerta</th><th class="l">Sector</th><th>Ruedas</th>${H.map((k) => `<th>D+${k}</th>`).join("")}<th class="l">Líderes a 6 meses (vs SPY hoy)</th><th>Recorrido</th><th class="l">Hoy</th></tr></thead><tbody>
-    ${rows.map((s) => `<tr><td class="l">${fd(s.date)}${s.source === "live" ? ' <span class="rl-new">en vivo</span>' : ""}</td><td class="l"><b>${esc(s.sym)}</b> <span class="rl-n">${esc(s.name || "")}</span></td><td>${s.days}</td>
-      ${H.map((k) => `<td>${s.etf?.[k] != null ? pc(s.etf[k]) : '<span style="color:#475569">·</span>'}</td>`).join("")}
-      <td class="l">${s.leaders.length ? s.leaders.map((l) => `<a href="/empresa.html?s=${encodeURIComponent(l)}">${esc(l)}</a> ${pc(s.each?.[l], 0)}`).join(" · ") : '<span class="rl-n">sin acciones del sector en el universo</span>'}</td>
-      <td>${spark(s.etf, s.lead)}</td><td class="l">${s.now?.quadrant ? `<span class="rl-q rl-${s.now.quadrant}">${QN[s.now.quadrant]}</span>` : ""}</td></tr>`).join("")}
-    </tbody></table></div>
-    <div class="rl-foot">Rendimiento contra el S&P 500 desde el cierre del día de la alerta. Azul = sector (ETF); verde punteado = promedio de sus 3 líderes a 6 meses. Se actualiza todos los días hábiles después del cierre${d.updated ? ` · última actualización ${new Date(d.updated).toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}. Las alertas previas al ${fd(S.filter((s) => s.source === "live").at(-1)?.date || new Date().toISOString().slice(0, 10))} se reconstruyeron con la misma fórmula.</div>`;
+  if (!d?.signals?.length) { el.innerHTML = `<div class="rl-dim" style="font-size:13px">Todavía no hay alertas registradas.</div>`; return; }
+  const S = d.signals, open = S.filter((s) => s.days < HOLD), closed = S.filter((s) => s.days >= HOLD);
+  const ref = (s) => last(s.lead) ?? last(s.etf);
+  const wonC = closed.filter((s) => last(s.etf) > 0).length, wonCL = closed.filter((s) => (last(s.lead) ?? -1) > 0).length, nCL = closed.filter((s) => s.lead).length;
+  const openUp = open.filter((s) => s.days > 0 && ref(s) >= 0).length, openN = open.filter((s) => s.days > 0).length;
+  const card = (t, v, sub) => `<div><div class="rl-k">${t}</div><div class="rl-v">${v}</div><div class="rl-s">${sub}</div></div>`;
+  const summary = `<div class="rl-sum">
+    ${card("Alertas abiertas", `${open.length}`, openN ? `${openUp} de ${openN} van ganándole al S&P 500` : "recién emitidas")}
+    ${card("Abiertas: sector hoy", pc(avg(open.filter((s) => s.days > 0).map((s) => last(s.etf)))), `líderes ${pc(avg(open.filter((s) => s.days > 0).map((s) => last(s.lead))))} · promedio vs S&P 500`)}
+    ${closed.length ? card(`Cerradas (${closed.length}): sector a 60 ruedas`, pc(avg(closed.map((s) => last(s.etf)))), `${wonC} de ${closed.length} le ganaron al S&P 500`) : ""}
+    ${closed.length ? card("Cerradas: 3 líderes a 60 ruedas", pc(avg(closed.map((s) => last(s.lead)))), nCL ? `${wonCL} de ${nCL} le ganaron al S&P 500` : "") : ""}
+  </div>`;
+  const foot = `<div class="rl-foot">Contra el S&P 500, desde el cierre del día de la alerta. Línea azul: sector; verde punteada: promedio de sus 3 líderes a 6 meses. Se considera cerrada a las ${HOLD} ruedas (3 meses). Solo alertas de sectores XL y de industrias con señal muy clara. Se actualiza cada día hábil después del cierre${d.updated ? ` (última: ${new Date(d.updated).toLocaleString("es-AR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })})` : ""}.</div>`;
+  if (compact) { el.innerHTML = summary + (open.length ? table(open) : `<div class="rl-dim" style="font-size:13px">No hay alertas abiertas.</div>`) + foot; return; }
+  el.innerHTML = summary + `<h4 class="rl-h">Abiertas</h4>` + (open.length ? table(open) : `<div class="rl-dim">No hay alertas abiertas.</div>`) + (closed.length ? `<h4 class="rl-h">Cerradas (60 ruedas cumplidas)</h4>` + table(closed) : "") + foot;
 }
 export const RL_CSS = `
-.rl-sum{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:12px}
-.rl-sum>div{background:#16213a;border:1px solid #1e2a44;border-radius:10px;padding:9px 11px;font-family:Inter,sans-serif}
-.rl-k{font-size:11.5px;color:#94a3b8}.rl-k span{color:#64748b}.rl-v{font-size:19px;font-weight:600;margin-top:2px}.rl-s{font-size:11px;color:#64748b}.rl-v2{font-size:13px;margin-top:4px}.rl-v2 span{font-size:11px;color:#64748b}
+.rl-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;margin-bottom:12px}
+.rl-sum>div{background:#16213a;border:1px solid #1e2a44;border-radius:10px;padding:10px 12px;font-family:Inter,sans-serif}
+.rl-k{font-size:11.5px;color:#94a3b8}.rl-v{font-size:20px;font-weight:600;margin-top:2px;color:#e2e8f0}.rl-s{font-size:11.5px;color:#64748b;margin-top:2px}
+.rl-up{color:#4ade80}.rl-dn{color:#f87171}.rl-dim{color:#64748b}
+.rl-h{font-size:13px;font-weight:600;color:#cbd5e1;margin:14px 0 6px;font-family:Inter,sans-serif}
 .rl-wrap{overflow-x:auto;border:1px solid #1e2a44;border-radius:12px}
-table.rl{width:100%;border-collapse:collapse;font-size:12.5px;font-family:Inter,sans-serif;color:#e2e8f0}
-table.rl th{font-weight:500;color:#94a3b8;font-size:11.5px;padding:8px;text-align:right;border-bottom:1px solid #1e2a44;white-space:nowrap}
-table.rl td{padding:7px 8px;text-align:right;border-bottom:1px solid #16213a;white-space:nowrap;font-variant-numeric:tabular-nums}
-table.rl .l{text-align:left}.rl-n{color:#64748b}.rl a{color:#e2e8f0;text-decoration:none;font-weight:600}.rl a:hover{color:#93c5fd}
-.rl-new{font-size:10.5px;background:#14532d;color:#86efac;border-radius:99px;padding:1px 6px}
-.rl-q{font-size:11px;border-radius:99px;padding:2px 8px}.rl-leading{background:#14532d;color:#86efac}.rl-improving{background:#172554;color:#93c5fd}.rl-weakening{background:#713f12;color:#fde68a}.rl-lagging{background:#7f1d1d;color:#fca5a5}
-.rl-foot{font-size:11.5px;color:#64748b;margin-top:8px;line-height:1.5}
-@media (max-width:800px){.rl-sum{grid-template-columns:repeat(2,1fr)}}`;
+table.rl{width:100%;border-collapse:collapse;font-size:13px;font-family:Inter,sans-serif;color:#e2e8f0}
+table.rl th{font-weight:500;color:#94a3b8;font-size:11.5px;padding:9px 10px;text-align:right;border-bottom:1px solid #1e2a44;white-space:nowrap}
+table.rl td{padding:9px 10px;text-align:right;border-bottom:1px solid #16213a;vertical-align:middle;font-variant-numeric:tabular-nums}
+table.rl tr:last-child td{border-bottom:none}
+table.rl .l{text-align:left}
+.rl-sym{display:flex;gap:6px;align-items:baseline}.rl-sym span{color:#94a3b8;font-size:12px}
+.rl-dt{font-size:11.5px;color:#64748b;margin-top:2px;white-space:nowrap}
+.rl a{color:#cbd5e1;text-decoration:none;font-weight:600}.rl a:hover{color:#93c5fd}
+.rl-prog{width:90px;height:5px;background:#1e2a44;border-radius:3px;overflow:hidden;margin-left:auto}.rl-prog i{display:block;height:100%;background:#3b82f6}
+.rl-st{font-size:11.5px;border-radius:99px;padding:2px 9px;font-weight:600;white-space:nowrap}
+.rl-win{background:#14532d;color:#86efac}.rl-lose{background:#7f1d1d;color:#fca5a5}.rl-new{background:#172554;color:#93c5fd}
+.rl-foot{font-size:11.5px;color:#64748b;margin-top:8px;line-height:1.5}`;
