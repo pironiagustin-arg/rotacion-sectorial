@@ -53,6 +53,13 @@
   .ccl3 b { font-size:13.5px; display:block; } .ccl3 small { font-size:12px; }
   .ccl3 .rk { font-size:10.5px; color:var(--dim); }
   .cclh { font-size:12px; color:var(--muted); margin-top:12px; }
+  .cx-main { display:flex; justify-content:space-between; align-items:flex-end; gap:10px; }
+  .cx-main .p { font-size:24px; font-weight:700; } .cx-chg { display:flex; gap:10px; font-size:12px; color:var(--muted); margin-top:2px; }
+  .cx-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:7px 0; border-top:1px solid var(--border); }
+  .cx-row .tk { display:flex; align-items:center; gap:8px; }
+  .fg { display:flex; align-items:center; gap:12px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .fg .n { font-size:26px; font-weight:700; width:44px; text-align:center; }
+  .fg .m { flex:1; } .fg .meter { margin:6px 0 2px; }
   .loading { color:var(--dim); font-size:13px; padding:8px 0; }
 </style>
 </head>
@@ -91,9 +98,10 @@
     <div class="card"><h3>Tu watchlist hoy <a href="/watchlist.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2" id="wlName"></div><div id="wl" class="loading">Cargando…</div></div>
   </div>
   <div class="card" style="margin-top:12px"><h3>Calendario de resultados <span class="na" style="font-weight:400;font-size:12px">próximos 30 días</span></h3><div class="sub2">Cuándo reportan tus acciones (watchlist y cartera) o todo el universo</div><div id="earn" class="loading">Cargando…</div></div>
-  <div class="grid2" style="margin-top:12px">
+  <div class="grid3" style="margin-top:12px">
     <div class="card"><h3>Dólar y CEDEARs <a href="/cedears.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todos →</a></h3><div class="sub2">CCL implícito: dónde conviene comprar hoy</div><div id="dolar" class="loading">Cargando…</div></div>
     <div class="card"><h3>Tu cartera hoy <a href="/cartera.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2">Valor, resultado del día y contra el S&P 500</div><div id="pf" class="loading">Cargando…</div></div>
+    <div class="card"><h3>Cripto <span class="na" style="font-weight:400;font-size:12px">24/7</span></h3><div class="sub2">Bitcoin, Ethereum, Solana y el miedo del mercado cripto</div><div id="crypto" class="loading">Cargando…</div></div>
   </div>
 </main>
 <div id="toast" class="toast"></div>

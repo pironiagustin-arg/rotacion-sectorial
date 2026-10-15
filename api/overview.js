@@ -6,7 +6,7 @@ import { SECTOR_ETFS, INDUSTRY_ETFS } from "./_signals.js";
 
 const MARKET = [
   ["SPY", "S&P 500"], ["QQQ", "Nasdaq 100"], ["DIA", "Dow Jones"], ["IWM", "Russell 2000"], ["^VIX", "VIX"],
-  ["^TNX", "Tasa 10 años EE.UU."], ["DX-Y.NYB", "Dólar (DXY)"], ["GC=F", "Oro"], ["CL=F", "Petróleo WTI"], ["BTC-USD", "Bitcoin"],
+  ["^TNX", "Tasa 10 años EE.UU."], ["DX-Y.NYB", "Dólar (DXY)"], ["GC=F", "Oro"], ["CL=F", "Petróleo WTI"],
   ["EEM", "Emergentes"], ["EWZ", "Brasil"],
 ];
 

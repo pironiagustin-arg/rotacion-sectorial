@@ -128,6 +128,32 @@ async function loadDolar() {
     <div class="cclh">Más caros: conviene evitarlos o esperar</div><div class="ccl3">${liq.slice(-3).reverse().map(card).join("")}</div>`;
 }
 
+// ---------- Cripto ----------
+async function loadCrypto() {
+  const [q, ch, fg, gl] = await Promise.all([
+    fetch("/api/overview?s=BTC-USD,ETH-USD,SOL-USD").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch("/api/overview?view=chart&sym=BTC-USD&range=1y&interval=1d").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch("https://api.alternative.me/fng/?limit=31").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch("https://api.coingecko.com/api/v3/global").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  ]);
+  const Q = q?.q || {}, b = Q["BTC-USD"]; if (!b) throw new Error("cripto");
+  const pts = (ch?.pts || []).map((p) => p[1]);
+  const back = (n) => (pts.length > n ? (pts.at(-1) / pts[pts.length - 1 - n] - 1) * 100 : null);
+  const usd = (v, d = 0) => "US$ " + nf(d).format(v);
+  const F = fg?.data || [], now = F[0] ? Number(F[0].value) : null, w = F[7] ? Number(F[7].value) : null, m = F[30] ? Number(F[30].value) : null;
+  const lbl = (v) => (v == null ? "" : v < 25 ? "Miedo extremo" : v < 45 ? "Miedo" : v <= 55 ? "Neutral" : v < 75 ? "Codicia" : "Codicia extrema");
+  const dom = gl?.data?.market_cap_percentage?.btc, mcap = gl?.data?.total_market_cap?.usd, mchg = gl?.data?.market_cap_change_percentage_24h_usd;
+  const row = (sym, name, x) => x ? `<div class="cx-row"><span class="tk">${logo(sym.replace("-", ""), sym.replace("-USD", ""), 20)}<b>${name}</b></span><span class="num"><span data-live-px="${sym}" data-live-pre="US$ " data-live-dec="${x.px > 1000 ? 0 : 2}">${usd(x.px, x.px > 1000 ? 0 : 2)}</span> <span data-live-chg="${sym}" class="${x.chg >= 0 ? "pos" : "neg"}">${x.chg >= 0 ? "+" : ""}${nf(2).format(x.chg)}%</span></span></div>` : "";
+  $("crypto").className = "";
+  $("crypto").innerHTML = `<div class="cx-main"><div><div class="na" style="font-size:12px">Bitcoin</div><div class="p num" data-live-px="BTC-USD" data-live-pre="US$ " data-live-dec="0">${usd(b.px)}</div>
+      <div class="cx-chg"><span>24 h ${pctTxt(b.chg)}</span><span>7 d ${pctTxt(back(7), 1)}</span><span>30 d ${pctTxt(back(30), 1)}</span><span>1 año ${pctTxt(back(pts.length - 1), 0)}</span></div></div>
+      <div style="width:130px">${spark(pts.slice(-90), back(90) >= 0)}</div></div>
+    ${row("ETH-USD", "Ethereum", Q["ETH-USD"])}${row("SOL-USD", "Solana", Q["SOL-USD"])}
+    ${ok(dom) ? `<div class="cx-row"><span class="na">Dominancia de BTC · mercado total</span><span class="num">${nf(1).format(dom)}% · US$ ${nf(2).format(mcap / 1e12)} B ${pctTxt(mchg, 1)}</span></div>` : ""}
+    ${now != null ? `<div class="fg"><div class="n num" style="color:${now < 45 ? "#f87171" : now > 55 ? "#4ade80" : "#e2e8f0"}">${now}</div><div class="m"><b>${lbl(now)}</b> <span class="na" style="font-size:12px">· Fear & Greed cripto</span>
+      <div class="meter"><i style="left:calc(${now}% - 2px)"></i></div><div class="na" style="font-size:11.5px">Hace una semana ${w ?? "—"} · hace un mes ${m ?? "—"}${now < 25 ? " · históricamente, zona de compra" : now > 75 ? " · euforia: cuidado" : ""}</div></div></div>` : ""}`;
+}
+
 // ---------- Tu cartera hoy ----------
 async function loadPf() {
   const pf = getPortfolio();
@@ -156,7 +182,7 @@ async function loadPf() {
 
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando el mercado…";
-  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]); renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s, all, (s) => D.mcap?.get(s)); loadPf().catch(() => {}); return u; }), loadDolar()];
+  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]); renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s, all, (s) => D.mcap?.get(s)); loadPf().catch(() => {}); return u; }), loadDolar(), loadCrypto()];
   const res = await Promise.allSettled(tasks);
   const fails = res.filter((r) => r.status === "rejected");
   fails.forEach((f) => console.warn(f.reason));
