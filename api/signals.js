@@ -7,7 +7,7 @@ import { UA } from "./_lib.js";
 
 // Acciones del universo que pertenecen a cada ETF (sector de BYMA o industria de Yahoo)
 const SECTOR_OF = { XLK: "tech", XLF: "fin", XLV: "health", XLY: "discr", XLP: "staples", XLE: "energy", XLI: "ind", XLB: "mat", XLU: "util", XLRE: "re", XLC: "comm" };
-const IND_RE = { SMH: /Semiconductor/, IGV: /Software/, CIBR: /Software—Infrastructure|Security/, XBI: /Biotechnology/, IHI: /Medical (Devices|Instruments)/, KRE: /Banks—Regional/, IAI: /Capital Markets|Financial Data/, ITA: /Aerospace/, XHB: /Residential Construction|Building Products|Home Improvement/, XRT: /Retail/, XOP: /Oil & Gas E&P/, GDX: /Gold/, COPX: /Copper/, URA: /Uranium/, TAN: /Solar/, JETS: /Airlines/ };
+const IND_RE = { SMH: /Semiconductor/, IGV: /Software/, CIBR: /Software - Infrastructure|Security/, XBI: /Biotechnology/, IHI: /Medical (Devices|Instruments)/, KRE: /Banks - Regional/, IAI: /Capital Markets|Financial Data/, ITA: /Aerospace/, XHB: /Residential Construction|Building Products|Home Improvement/, XRT: /^(?!REIT).*Retail/, XOP: /Oil & Gas E&P/, GDX: /Gold/, COPX: /Copper/, URA: /Uranium/, TAN: /Solar/, JETS: /Airlines/ };
 async function closes6m(sym) {
   const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=6mo&interval=1d`, { headers: { "User-Agent": UA } });
   if (!r.ok) return null;

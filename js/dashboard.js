@@ -92,6 +92,7 @@ async function loadUniverse() {
   const withChg = ext.filter((r) => ok(r.chg) && ok(r.mcap) && r.mcap > 2e9);
   const up = [...withChg].sort((a, b) => b.chg - a.chg).slice(0, 5), dn = [...withChg].sort((a, b) => a.chg - b.chg).slice(0, 5);
   // Amplitud
+  const spyChg = (await fetch("/api/overview?s=SPY").then((r) => (r.ok ? r.json() : null)).catch(() => null))?.q?.SPY?.chg;
   const n = withChg.length, upN = withChg.filter((r) => r.chg > 0).length;
   const near = ext.filter((r) => ok(r.d52) && r.d52 > -5).length, far = ext.filter((r) => ok(r.d52) && r.d52 < -30).length, all52 = ext.filter((r) => ok(r.d52)).length;
   const medScore = ext.map((r) => r.score).filter(ok).sort((a, b) => a - b);
@@ -100,7 +101,7 @@ async function loadUniverse() {
       <div><div class="v num">${n ? nf(0).format((upN / n) * 100) : "—"}%</div><div class="l">Suben hoy</div><div class="bar2"><b style="width:${n ? (upN / n) * 100 : 0}%"></b></div></div>
       <div><div class="v num">${all52 ? nf(0).format((near / all52) * 100) : "—"}%</div><div class="l">A menos de 5% de su máximo de 52 semanas</div></div>
       <div><div class="v num">${all52 ? nf(0).format((far / all52) * 100) : "—"}%</div><div class="l">Más de 30% debajo de su máximo</div></div>
-      <div><div class="v num">${nf(0).format(ext.filter((r) => r.cand).length)}</div><div class="l">Candidatas del Screener</div></div>
+      <div><div class="v num">${ok(spyChg) && n ? nf(0).format((withChg.filter((r) => r.chg > spyChg).length / n) * 100) + "%" : "—"}</div><div class="l">Le ganan hoy al S&P 500${ok(spyChg) ? ` (${spyChg >= 0 ? "+" : ""}${nf(2).format(spyChg)}%)` : ""}</div></div>
     </div>`;
   // Watchlist
   let wl = loadLocal("watchlists_v2", null);

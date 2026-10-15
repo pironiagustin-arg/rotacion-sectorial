@@ -249,7 +249,7 @@ async function main() {
     bySym: Object.fromEntries(Object.entries(bySym).map(([s, evs]) => [s, { name: etfs[s], ...sum(evs) }])),
     rules: ruleRes, allMembers, momentum,
     variants: variants.map(({ ev, ...v }) => v), best: best.id,
-    events: pickEvents.map(({ members, i, ...e }) => ({ ...e, top: [...(members || [])].filter((m) => m.rs120 != null).sort((a, b) => b.rs120 - a.rs120).slice(0, 3).map((m) => ({ s: m.s, f60: r1(m.f60, 1) })) })).reverse(),
+    events: pickEvents.map(({ members, i, ...e }) => ({ ...e, top: [...(members || [])].filter((m) => m.rs120 != null).sort((a, b) => b.rs120 - a.rs120).slice(0, 3).map((m) => ({ s: m.s, f60: r1(m.f60, 1) })) })).sort((a, b) => b.date.localeCompare(a.date)),
   };
   fs.writeFileSync(path.join(ROOT, "data", "rrg_backtest.json"), JSON.stringify(out));
   console.log("ok");

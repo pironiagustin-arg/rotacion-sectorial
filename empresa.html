@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
+  .p .ext { font-size:14px; font-weight:500; }
   :root {
     --bg:#0b1220; --panel:#111a2e; --panel2:#16213a; --border:#1e2a44; --border2:#2b3a5c;
     --text:#e2e8f0; --muted:#94a3b8; --dim:#64748b; --accent:#3b82f6; --accent-bg:#172554;
@@ -107,6 +108,8 @@
   .tl { margin:0; padding-left:18px; display:grid; gap:6px; font-size:13.5px; line-height:1.5; }
   .byma { display:flex; flex-wrap:wrap; gap:6px; align-items:baseline; font-size:13px; margin-top:10px; padding:8px 12px; background:var(--panel2); border-radius:10px; }
   .byma:empty { display:none; } .byma .lab { color:var(--muted); font-size:12px; } .byma .sep { color:var(--dim); }
+  details.fold > summary { list-style:none; cursor:pointer; } details.fold > summary::-webkit-details-marker { display:none; }
+  details.fold > summary h2::before { content:"▸ "; color:var(--dim); } details.fold[open] > summary h2::before { content:"▾ "; }
   .talk { background:var(--panel2); border-radius:12px; padding:12px 14px; margin-bottom:12px; }
   .talk h4 { margin:0 0 8px !important; }
   .talk-read { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }

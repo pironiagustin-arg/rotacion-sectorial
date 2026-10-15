@@ -94,7 +94,7 @@ function rowHtml(r) {
     <td class="num"><span data-live-px="${esc(r.s)}">${fmt(r.px)}</span> <span class="na" style="font-size:11px">${esc(r.cur || "")}</span></td>
     <td>${chg}</td><td class="num">${fmtCap(r.mcap)}</td>
     <td>${cell(r, "fpe", "x")}</td><td>${cell(r, "peg", "x", 2)}</td><td>${cell(r, "evEbitda", "x")}</td><td>${ret}</td>
-    <td>${cell(r, "epsG", "%")}</td><td>${cell(r, "revG", "%")}</td><td>${cell(r, "fcfY", "%")}</td><td>${cell(r, "divY", "%")}</td>
+    <td>${cell(r, "epsG", "%")}</td><td>${cell(r, "revG", "%")}</td><td>${r.sec === "fin" && !["payments", "crypto"].includes(r.profile) ? '<span class="na">—</span>' : cell(r, "fcfY", "%")}</td><td>${cell(r, "divY", "%")}</td>
     <td>${ok(r.fairUp) ? `<span class="num ${r.fairUp >= 0 ? "pos" : "neg"}">${r.fairUp >= 0 ? "+" : ""}${nf(0).format(r.fairUp)}%</span>` : '<span class="na">—</span>'}</td>
     <td><span class="score ${scoreCls(r.score)}">${ok(r.score) ? r.score : "—"}</span></td></tr>`;
 }

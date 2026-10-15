@@ -211,13 +211,13 @@ function render() {
     ${custom ? `<button class="btn" id="peerReset">Volver a los automáticos</button>` : ""}
   </div>
 
-  ${others.length ? `<h2>Otras métricas <span class="sub">No pesan en el score de ${esc(prof.l.toLowerCase())}, pero sirven de referencia</span></h2>
+  ${others.length ? `<details class="fold"><summary><h2>Otras métricas <span class="sub">No pesan en el score de ${esc(prof.l.toLowerCase())}, pero sirven de referencia · tocá para ver</span></h2></summary>
   <div class="mgrid">${others.map((k) => metricBox(r, k, METRICS[k], tot)).join("")}
-    ${[["pe", "P/E (últimos 12 meses)", "x"], ["nm", "Margen neto", "%"], ...(r.sec === "fin" ? [] : [["capexInt", "Capex / ventas", "%"]]), ["beta", "Beta (volatilidad vs mercado)", "n"], ["d52", "Distancia al máximo de 52 semanas", "%"]].filter(([k]) => !r.weights[k] && ok(r[k])).map(([k, l, f]) => `
+    ${[["nm", "Margen neto", "%"], ...(r.sec === "fin" ? [] : [["capexInt", "Capex / ventas", "%"]]), ["beta", "Beta (volatilidad vs mercado)", "n"], ["d52", "Distancia al máximo de 52 semanas", "%"]].filter(([k]) => !r.weights[k] && !others.includes(k) && ok(r[k])).map(([k, l, f]) => `
     <div class="m"><div class="l"><span>${l}</span></div><div class="v num">${fmt(r[k], f)}</div><div class="med">Mediana del sector: ${fmt(r.med[k], f)}</div></div>`).join("")}
-  </div>` : ""}
+  </div></details>` : ""}
 
-  <h2>Cómo se calculó el score <span class="sub">${esc(prof.l)}${r.lynch ? " · " + LYNCH[r.lynch] : ""}</span></h2>
+  <details class="fold"><summary><h2>Cómo se calculó el score <span class="sub">${esc(prof.l)}${r.lynch ? " · " + LYNCH[r.lynch] : ""} · pesos, percentiles y ajustes · tocá para ver</span></h2></summary>
   <div class="card">
     <div class="na" style="font-size:13px;margin-bottom:10px">${esc(prof.why)}${r.lynch ? " " + esc(LYNCH_INFO[r.lynch]) : ""} ${ok(r.gscore.Historia) ? `Además, un ${nf(0).format(25 * (r.lynch === "stalwart" ? 1.3 : r.lynch === "cyclical" ? 1.4 : 1))}% del score compara contra su propia historia (${r.histKeys.map((k) => METRICS[k].l).join(", ")}).` : "No hay historia suficiente para comparar contra sí misma."}</div>
     <div class="tablewrap" style="border:none"><table class="how"><thead><tr><th class="l">Métrica</th><th class="l">Bloque</th><th>Peso</th><th>Valor</th><th>Mediana pares</th><th>Percentil vs pares</th><th>Prom. ${histN || ""} años</th><th>Vs su historia</th><th title="Destildá para que esta métrica no cuente en el score de esta empresa">Cuenta</th></tr></thead><tbody>
@@ -227,7 +227,7 @@ function render() {
     ${(r.auto || []).length ? `<div style="margin-top:14px"><b style="font-size:13.5px">Ajustes automáticos para ${esc(r.ced || r.s)}</b><div class="list" style="margin-top:4px">${r.auto.map((x) => `<div><span style="color:#93c5fd">⚙</span>${esc(x.t)} <span class="na">(${x.k.map((k) => METRICS[k]?.l || k).join(", ")})</span></div>`).join("")}</div></div>` : ""}
     <div class="na" style="font-size:12px;margin-top:6px">Destildá una métrica para que no cuente en el score de ${esc(r.ced || r.s)} (por ejemplo, si el dato de Yahoo está distorsionado por un evento puntual). Para cambiar los pesos de toda la industria, usá "Cómo puntúa" en el Screener.</div>
     <div class="src">Pares: ${r.peerN} empresas de ${esc(r.peerLabel)} (si una métrica tiene menos de 5 datos en la industria, se usa el sector). Historia: estados anuales de Yahoo Finance${histN ? `, ${r.fx.years[0]}–${r.fx.years.at(-1)}` : ""}. Datos de mercado: Yahoo Finance${P.updated ? " · " + new Date(P.updated).toLocaleString("es-AR") : ""}.</div>
-  </div>
+  </div></details>
 
   <h2 id="tesisAuto">Tesis: por qué podría ser una oportunidad <span class="sub">Armada automáticamente con métricas, contratos, management, analistas y noticias</span></h2>
   <div id="autoThesis" class="card"><div class="skeleton">Buscando contratos, management y noticias…</div></div>
@@ -362,7 +362,7 @@ function keyNews(nws, fil, r) {
     out.push({ cat: cat[0], t: n.t, title: es || n.title, en: es ? null : n.title, url: n.url, src: n.publisher });
   }
   out.sort((a, b) => NEWS_CATS.findIndex((c) => c[0] === a.cat) - NEWS_CATS.findIndex((c) => c[0] === b.cat) || b.t - a.t);
-  const picked = out.slice(0, 3);
+  const picked = []; for (const x of out) { if (picked.length >= 3) break; if (picked.filter((p) => p.cat === x.cat).length < 2) picked.push(x); }
   const SEC = { "1.01": "Contrato", "2.01": "Adquisición", "5.02": "Management" };
   for (const f of fil) {
     if (picked.length >= 3) break;
@@ -425,9 +425,9 @@ function renderThesis() {
   if (p.ceo) mgmt.push(`CEO: ${esc(p.ceo.name)}${p.ceo.age ? `, ${p.ceo.age} años` : ""}.`);
   if (ok(o.insiders)) { const ins = o.insiders * 100; mgmt.push(`Los directivos y fundadores tienen ${fmt(ins, "%", 1)} de las acciones${ins >= 10 ? ": están alineados con el accionista." : "."}`); if (ins >= 10) add(pro, `Management con piel en el juego: los insiders tienen ${fmt(ins, "%", 0)} de la empresa.`, "Management"); }
   if (ok(o.insiderNet6m) && (o.insiderBuys6m || o.insiderSells6m)) {
-    const buy = o.insiderNet6m > 0;
-    mgmt.push(`Últimos 6 meses: ${o.insiderBuys6m || 0} compras y ${o.insiderSells6m || 0} ventas de insiders (neto ${buy ? "comprador" : "vendedor"}).`);
-    if (buy && (o.insiderBuys6m || 0) >= 2) add(pro, `Los insiders compraron acciones en los últimos 6 meses (${o.insiderBuys6m} operaciones): señal de confianza.`, "Management");
+    const buy = o.insiderNet6m > 0, nb = o.insiderBuys6m || 0, ns = o.insiderSells6m || 0;
+    mgmt.push(`Últimos 6 meses: ${nb} compras y ${ns} ventas de insiders${nb && ns ? ` (en cantidad de acciones, neto ${buy ? "comprador" : "vendedor"}; las "compras" suelen incluir ejercicio de opciones)` : ""}.`);
+    if (buy && nb >= 2 && nb > ns) add(pro, `Los insiders compraron acciones en los últimos 6 meses (${o.insiderBuys6m} operaciones): señal de confianza.`, "Management");
   }
   const mchg = fil.filter((f) => f.items.includes("5.02"));
   if (mchg.length) mgmt.push(`Cambios en directorio o management en el último año: ${mchg.slice(0, 3).map((f) => `<a href="${esc(f.url)}" target="_blank" rel="noopener">${fmtDate(f.date)} ↗</a>`).join(", ")}.`);

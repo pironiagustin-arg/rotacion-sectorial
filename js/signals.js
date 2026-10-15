@@ -82,7 +82,7 @@ export function signalCard(s, hist = {}, opts = {}) {
 }
 
 export const SIGNAL_CSS = `
-.sg-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.sg-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}
 .sg{background:#111a2e;border:1px solid #1e2a44;border-top:3px solid #2b3a5c;border-radius:14px;padding:12px 14px;font-family:Inter,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#e2e8f0}
 .sg-h{display:flex;justify-content:space-between;gap:8px;align-items:flex-start;font-size:14px}
 .sg-n{color:#94a3b8;font-size:12.5px}

@@ -14,7 +14,8 @@
   .sec-h h2 { margin:0; font-size:17px; font-weight:600; }
   .sec-h .sub { color:var(--dim); font-size:12.5px; }
   .sec-h a { color:#93c5fd; font-size:12.5px; text-decoration:none; }
-  .tiles { display:grid; grid-template-columns:repeat(auto-fill,minmax(178px,1fr)); gap:10px; }
+  .tiles { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+  @media (max-width:1000px) { .tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .tile { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:11px 13px; }
   .tile .n { color:var(--muted); font-size:12px; display:flex; justify-content:space-between; }
   .tile .p { font-size:19px; font-weight:600; margin-top:2px; }
