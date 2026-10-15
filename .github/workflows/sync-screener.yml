@@ -38,12 +38,14 @@ jobs:
       - name: Candidatas del día (seguimiento del score)
         env:
           SITE: ${{ secrets.SITE_URL }}
-        run: node scripts/compute.mjs picks
+        run: |
+          node scripts/compute.mjs picks
+          node scripts/rrg-live.mjs || echo "::warning::seguimiento de alertas RRG falló"
       - name: Guardar resultados en el repo
         run: |
           git config user.name "sync-bot"
           git config user.email "sync-bot@users.noreply.github.com"
           git add data/
           git diff --cached --quiet && { echo "Sin cambios"; exit 0; }
-          git commit -m "Datos: candidatas del día"
+          git commit -m "Datos: candidatas del día y seguimiento de alertas RRG"
           for i in 1 2 3; do git pull --rebase -q && git push -q && break; sleep 5; done

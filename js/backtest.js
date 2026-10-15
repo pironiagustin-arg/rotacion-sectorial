@@ -1,5 +1,7 @@
 import { nf, ok } from "/js/score.js";
 import { $, esc } from "/js/core.js";
+import { renderRrgLive, RL_CSS } from "/js/rrglive.js";
+{ const st = document.createElement("style"); st.textContent = RL_CSS; document.head.appendChild(st); }
 
 const pct = (v, d = 1) => (ok(v) ? `<span class="${v >= 0 ? "pos" : "neg"}">${v >= 0 ? "+" : ""}${nf(d).format(v)}%</span>` : '<span class="na">—</span>');
 const fd = (s) => new Date(s + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" });
@@ -65,6 +67,7 @@ $("ptabs").onclick = (e) => { const b = e.target.closest("[data-i]"); if (!b) re
 
 // ---------- Señales RRG ----------
 async function rrgView() {
+  setTimeout(() => { const b = document.getElementById("rrgLive"); if (b) renderRrgLive(b); }, 0);
   const el = $("vRrg");
   const d = await fetch("/data/rrg_backtest.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (!d) { el.innerHTML = `<div class="empty">El backtest de señales todavía no se generó.</div>`; return; }
@@ -73,6 +76,7 @@ async function rrgView() {
   el.innerHTML = `<div class="top"><div><h1>¿Funcionan las señales del RRG?</h1><div class="status"><span class="dot on"></span><span>${fd(d.from)} a ${fd(d.to)} · 11 sectores SPDR y 16 ETFs de industria · recalculado ${new Date(d.generated).toLocaleDateString("es-AR")}</span></div></div></div>
     <div class="verdict"><b>Conclusión:</b> la señal <b>"Por explotar" sola no le gana al S&P 500</b>: el sector cruza a Leading en el ${Math.round((a.crossed / a.n) * 100)}% de los casos (en ~${a.daysToCross} ruedas), pero después rinde ${pp(a.rel[60])} contra el SPY a 60 ruedas, con ${a.hit[60]}% de aciertos. El RRG diario se da vuelta rápido (dura ~${a.daysHeld} ruedas en Leading).
       Lo que sí funcionó: <b>${esc(best.label.toLowerCase())}</b> cuando el sector da la señal: ${pp(best.sig.f60)} contra el propio sector en 60 ruedas, ${best.sig.hit60}% de aciertos (en fechas sin señal la misma regla da ${pp(best.ctl.f60)} y ${best.ctl.hit60}%).</div>
+    <div class="card"><h3>Seguimiento en vivo: cómo reaccionan las alertas</h3><div class="sub2">Cada alerta "Por explotar" queda registrada y se mide día a día contra el S&P 500, junto con sus 3 líderes del sector.</div><div id="rrgLive">Cargando…</div></div>
     <div class="big3">
       <div><div class="v">${a.n}</div><div class="l">Señales "Por explotar" desde ${d.from.slice(0, 4)}</div></div>
       <div><div class="v">${Math.round((a.crossed / a.n) * 100)}%</div><div class="l">Llegaron a Leading ("explotó") · mediana ${a.daysToCross} ruedas</div></div>
@@ -96,7 +100,7 @@ async function rrgView() {
     <div class="card" style="margin-top:12px"><h3>Últimas señales y qué pasó</h3><div class="tablewrap"><table class="rt"><thead><tr><th class="l">Fecha</th><th class="l">Sector</th><th>¿Explotó?</th><th>Sector vs SPY 60r</th><th class="l">3 líderes a 6 meses → resultado 60r vs sector</th></tr></thead><tbody>
       ${d.events.slice(0, 25).map((e) => `<tr><td class="l">${fd(e.date)}</td><td class="l"><b>${esc(e.sym)}</b> <span class="na">${esc(e.name)}</span></td><td class="num">${e.cross != null ? `Sí, en ${e.cross} r.` : '<span class="neg">No</span>'}</td><td class="num">${pp(e.rel[60])}</td><td class="l">${(e.top || []).map((t) => `${esc(t.s)} ${pp(t.f60, 0)}`).join(" · ") || "—"}</td></tr>`).join("")}
       </tbody></table></div></div>
-    <div class="caveat">Simulación día a día con la misma fórmula que usa la app (sin mirar el futuro). Rendimientos sin costos ni impuestos, en dólares. Las acciones son las del universo actual (sesgo de supervivencia a favor). Rendimientos pasados no garantizan los futuros.</div>`;
+    <div class="caveat" data-x>Simulación día a día con la misma fórmula que usa la app (sin mirar el futuro). Rendimientos sin costos ni impuestos, en dólares. Las acciones son las del universo actual (sesgo de supervivencia a favor). Rendimientos pasados no garantizan los futuros.</div>`;
 }
 $("btTabs").onclick = (e) => { const b = e.target.closest("[data-v]"); if (!b) return; document.querySelectorAll("#btTabs .tab").forEach((x) => x.classList.toggle("on", x === b)); $("vScore").style.display = b.dataset.v === "score" ? "" : "none"; $("vRrg").style.display = b.dataset.v === "rrg" ? "" : "none"; if (b.dataset.v === "rrg" && !$("vRrg").innerHTML) rrgView(); };
 if (location.hash === "#rrg") $("btTabs").querySelector('[data-v="rrg"]').click();
