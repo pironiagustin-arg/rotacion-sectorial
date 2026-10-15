@@ -176,7 +176,7 @@ function render() {
 function refreshAll() { rebuild(); renderFilters(); render(); }
 
 // ================== PDF ==================
-function pdfFoot() { return `<div class="foot">Fuente: Yahoo Finance · datos al ${S.updated ? new Date(S.updated).toLocaleDateString("es-AR") : today()} · Universo: acciones operables desde Argentina (CEDEARs y acciones locales en BYMA). Score = percentiles contra el sector, ponderados según el tipo de negocio y el tipo Lynch. Material de análisis propio, no constituye recomendación de inversión.</div>`; }
+function pdfFoot() { return `<div class="foot">Fuente: Yahoo Finance · datos al ${S.updated ? new Date(S.updated).toLocaleDateString("es-AR") : today()} · Universo: acciones operables desde Argentina (CEDEARs y acciones locales en BYMA). Score = 60% percentil contra su industria + 40% nota absoluta, ponderados según el tipo de negocio y el tipo Lynch. Material de análisis propio, no constituye recomendación de inversión.</div>`; }
 const cls = (s) => (!ok(s) ? "" : s >= 70 ? "g" : s >= 45 ? "m2" : "b");
 function pdfTable(rows, n = 40) {
   return `<table><thead><tr><th class="l">Acción (BYMA)</th><th class="l">Sector</th><th class="l">Tipo</th><th>Mkt cap</th><th>P/E fwd</th><th>PEG</th><th>EV/EBITDA</th><th>ROIC/ROE</th><th>Crec. EPS</th><th>Crec. ventas</th><th>Div.</th><th>Score</th></tr></thead><tbody>${
@@ -217,7 +217,7 @@ function pdfView() {
 function openHow() {
   const m = $("modal"), mult = userMult();
   m.innerHTML = `<div class="dh"><h2 style="font-size:17px;margin:0">Cómo se calcula el score</h2><button class="x" id="wClose" aria-label="Cerrar">×</button></div>
-    <p class="na" style="font-size:13px;line-height:1.6">Cada métrica se convierte en un percentil (0 a 100) contra las empresas de su mismo sector. Qué métricas cuentan y cuánto pesan depende de <b>qué tipo de negocio es</b> y de su <b>tipo Lynch</b>.</p>
+    <p class="na" style="font-size:13px;line-height:1.6">Cada métrica se puntúa de 0 a 100 combinando dos cosas: 60% su percentil contra las empresas de su misma industria y 40% una nota absoluta de salud (por ejemplo, un ROIC de 22% o más es excelente en cualquier industria). Así un gran negocio no queda mal solo por compararse con otros grandes negocios. Escala: 75+ excelente, 65-74 bueno, 45-64 neutral, menos de 45 débil. Qué métricas cuentan y cuánto pesan depende de <b>qué tipo de negocio es</b> y de su <b>tipo Lynch</b>.</p>
     <p class="na" style="font-size:13px;line-height:1.6">Además, el 25% del score compara cada métrica con el promedio de los últimos ejercicios de la propia empresa (bloque <b>Historia</b>). En Stalwarts y cíclicas pesa más.</p>
     <div class="wgroup">Editar los pesos de una industria</div>
     <div style="display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap"><select id="pwSel">${Object.entries(PROFILES).sort((a, b) => a[1].l.localeCompare(b[1].l)).map(([k, p]) => `<option value="${k}">${esc(p.l)}${userProfW()[k] ? " (editado)" : ""}</option>`).join("")}</select><span class="na" style="font-size:12px">Mové los pesos, sumá o sacá métricas y guardá. Se aplica a todas las empresas de esa industria.</span></div>

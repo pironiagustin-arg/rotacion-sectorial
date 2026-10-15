@@ -77,7 +77,8 @@ export function signalCard(s, hist = {}, opts = {}) {
       <div class="sg-f"><div class="sg-score">Fuerza de la señal <b>${s.score ?? "—"}</b>/100</div>
         ${facts.map((f) => `<div>${esc(f)}</div>`).join("")}
         <div class="sg-d">${k ? `En este estado hace ${k.n} ${k.n === 1 ? "día" : "días"}` : `${s.days} ruedas en ${s.quadrant}`}${s.chg != null ? ` · hoy ${s.chg >= 0 ? "+" : ""}${nf(2).format(s.chg)}%` : ""}</div>
-        ${link ? `<a href="${link}" class="sg-l">Ver →</a>` : ""}</div></div></div>`;
+        ${link ? `<a href="${link}" class="sg-l">Ver →</a>` : ""}</div></div>
+    ${s.group && s.group !== "accion" && (s.status === "por_explotar" || s.status === "cargando") ? `<div class="sg-lead" data-leaders="${esc(s.symbol)}"><span class="sg-lt">Acciones a mirar: líderes del sector a 6 meses</span><span class="sg-d">Buscando…</span></div>` : ""}</div>`;
 }
 
 export const SIGNAL_CSS = `
@@ -100,7 +101,13 @@ export const SIGNAL_CSS = `
 .sg-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px;font-family:Inter,sans-serif}
 .sg-cl{font-size:12px;font-weight:600;margin-right:4px}
 .sg-chip{font-size:12px;color:#94a3b8;background:#16213a;border:1px solid #1e2a44;border-radius:99px;padding:3px 10px}
-.sg-chip b{color:#e2e8f0}`;
+.sg-chip b{color:#e2e8f0}
+.sg-lead{margin-top:10px;padding-top:9px;border-top:1px solid #1e2a44;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sg-lt{width:100%;font-size:11.5px;color:#94a3b8}
+.sg-lead a{font-size:12px;color:#e2e8f0;text-decoration:none;background:#16213a;border:1px solid #2b3a5c;border-radius:8px;padding:3px 8px}
+.sg-lead a:hover{border-color:#3b82f6}.sg-lead a span{color:#86efac;margin-left:4px}
+.sg-note{font-size:12px;color:#94a3b8;background:#16213a;border:1px solid #1e2a44;border-radius:10px;padding:8px 12px;margin-bottom:10px;line-height:1.5}
+.sg-note a{color:#93c5fd}`;
 
 // Avisos del navegador cuando aparece una señal fuerte nueva
 const SEEN = "rrg_signal_seen";
@@ -128,13 +135,24 @@ export async function mountPanel(el, { symbols = null, title, link } = {}) {
     <div style="display:flex;gap:8px"><button class="sg-btn" id="sgNotif">🔔 Avisarme</button><button class="sg-btn" id="sgAll">Ver todos</button></div></div><div id="sgList" class="sg-empty">Calculando señales…</div>`;
   el.querySelector("#sgNotif").onclick = askNotifications;
   let showAll = false, list = [], hist = {};
+  // Líderes del sector para las señales fuertes (se cachean)
+  const LEAD = {};
+  const fillLeaders = () => el.querySelectorAll("[data-leaders]").forEach(async (box) => {
+    try {
+      const sym = box.dataset.leaders;
+      const r = await (LEAD[sym] ||= fetch(`/api/signals?leaders=${encodeURIComponent(sym)}`).then((x) => x.json()));
+      const L = (r.leaders || []).slice(0, 3);
+      box.querySelector(".sg-d").outerHTML = L.length ? L.map((x) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}" title="${esc(x.n)} · ${x.ret >= 0 ? "+" : ""}${x.ret}% en 6 meses">${esc(x.ced || x.s)}<span>${x.rs >= 0 ? "+" : ""}${nf(0).format(x.rs)}% vs sector</span></a>`).join("") : `<span class="sg-d">Sin acciones del sector en el universo.</span>`;
+    } catch { box.querySelector(".sg-d").textContent = "No se pudieron calcular."; }
+  });
   const draw = () => {
     const box = el.querySelector("#sgList");
     // Tarjetas: lo que está cargando en Improving (lo que pediste ver). Los que ya cruzaron o pierden fuerza van en una línea.
     const cards = list.filter((s) => (showAll ? ["por_explotar", "cargando", "temprano", "estancado"] : ["por_explotar", "cargando"]).includes(s.status));
     const chips = signalChips(list, "cruzo", "Ya cruzaron a Leading:") + signalChips(list, "perdiendo", "Perdiendo fuerza:");
     box.className = "";
-    box.innerHTML = (cards.length ? `<div class="sg-wrap">${cards.map((s) => signalCard(s, hist, { link })).join("")}</div>` : `<div class="sg-empty">${list.length ? "Ahora no hay ninguno cargando en Improving hacia Leading." + (showAll ? "" : " Tocá 'Ver todos' para ver los que recién arrancan.") : "Sin datos."}</div>`) + chips;
+    setTimeout(fillLeaders, 0);
+    box.innerHTML = (symbols ? "" : `<div class="sg-note"><b>Cómo usar la señal (backtest 2018-2026):</b> sola, la señal del sector no le ganó al S&P 500. Lo que funcionó fue comprar las <b>3 acciones del sector con más fuerza relativa a 6 meses</b> cuando el sector da "Por explotar" y mantenerlas unas 60 ruedas: ~+4% contra el SPY por operación, 63% de aciertos. <a href="/backtest.html#rrg">Ver el backtest →</a></div>`) + (cards.length ? `<div class="sg-wrap">${cards.map((s) => signalCard(s, hist, { link })).join("")}</div>` : `<div class="sg-empty">${list.length ? "Ahora no hay ninguno cargando en Improving hacia Leading." + (showAll ? "" : " Tocá 'Ver todos' para ver los que recién arrancan.") : "Sin datos."}</div>`) + chips;
   };
   el.querySelector("#sgAll").onclick = () => { showAll = !showAll; el.querySelector("#sgAll").textContent = showAll ? "Ver solo las fuertes" : "Ver todos"; draw(); };
   try {
@@ -142,6 +160,7 @@ export async function mountPanel(el, { symbols = null, title, link } = {}) {
     if (Array.isArray(syms) && !syms.length) { el.querySelector("#sgList").textContent = "Agregá acciones al RRG para ver sus señales."; return; }
     [list, hist] = await Promise.all([fetchSignals(syms), syms ? Promise.resolve({}) : signalHistory()]);
     draw(); notifyNew(list, syms ? " (acciones)" : "");
+
   } catch (e) { el.querySelector("#sgList").textContent = "No se pudieron calcular las señales: " + e.message; }
   return { reload: () => mountPanel(el, { symbols, title, link }) };
 }

@@ -98,9 +98,10 @@ async function chartView(req, res) {
   const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=${iv}`, { headers: { "User-Agent": UA } });
   if (!r.ok) return res.status(r.status).json({ error: "Yahoo " + r.status });
   const x = (await r.json())?.chart?.result?.[0];
-  const ts = x?.timestamp || [], c = x?.indicators?.adjclose?.[0]?.adjclose || x?.indicators?.quote?.[0]?.close || [];
+  const ts = x?.timestamp || [], c = x?.indicators?.adjclose?.[0]?.adjclose || x?.indicators?.quote?.[0]?.close || [], v = x?.indicators?.quote?.[0]?.volume || [];
   res.setHeader("Cache-Control", "public, s-maxage=43200");
-  return res.status(200).json({ sym, pts: ts.map((t, i) => [t * 1000, c[i] != null ? round(c[i], 4) : null]).filter((p) => p[1] != null) });
+  const vol = req.query.vol === "1";
+  return res.status(200).json({ sym, pts: ts.map((t, i) => (vol ? [t * 1000, c[i] != null ? round(c[i], 4) : null, v[i] ?? 0] : [t * 1000, c[i] != null ? round(c[i], 4) : null])).filter((p) => p[1] != null) });
 }
 
 export default async function handler(req, res) {

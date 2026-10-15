@@ -36,7 +36,7 @@ const mean = (a) => { const v = a.filter((x) => x != null && isFinite(x)); retur
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const quad = (p) => (p.x >= 100 ? (p.y >= 100 ? "leading" : "weakening") : p.y >= 100 ? "improving" : "lagging");
 
-function analyze(trail, wtrail, px, bpx) {
+export function analyze(trail, wtrail, px, bpx) {
   if (!trail || trail.length < 12) return null;
   const n = trail.length, p = trail[n - 1], p5 = trail[n - 6];
   const q = quad(p);

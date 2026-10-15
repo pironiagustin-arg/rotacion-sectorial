@@ -62,3 +62,41 @@ $("ptabs").onclick = (e) => { const b = e.target.closest("[data-i]"); if (!b) re
   $("caveat").innerHTML = `<b>Cómo leerlo:</b> el score histórico usa solo los balances anuales (P/E, márgenes, ROIC, deuda, crecimiento pasado, etc.) que ya estaban publicados en cada fecha; no incluye estimaciones de analistas ni precio objetivo, que no tienen historia gratuita. Se usan las empresas del universo actual (las que quebraron o salieron de BYMA no están, lo que mejora un poco los resultados) y el rendimiento es en moneda de origen, con dividendos. Rendimientos pasados no garantizan los futuros.`;
   live();
 })();
+
+// ---------- Señales RRG ----------
+async function rrgView() {
+  const el = $("vRrg");
+  const d = await fetch("/data/rrg_backtest.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!d) { el.innerHTML = `<div class="empty">El backtest de señales todavía no se generó.</div>`; return; }
+  const a = d.all, best = d.rules[0], v0 = d.variants.find((v) => v.id === "actual");
+  const pp = (v, dd = 1) => pct(v, dd);
+  el.innerHTML = `<div class="top"><div><h1>¿Funcionan las señales del RRG?</h1><div class="status"><span class="dot on"></span><span>${fd(d.from)} a ${fd(d.to)} · 11 sectores SPDR y 16 ETFs de industria · recalculado ${new Date(d.generated).toLocaleDateString("es-AR")}</span></div></div></div>
+    <div class="verdict"><b>Conclusión:</b> la señal <b>"Por explotar" sola no le gana al S&P 500</b>: el sector cruza a Leading en el ${Math.round((a.crossed / a.n) * 100)}% de los casos (en ~${a.daysToCross} ruedas), pero después rinde ${pp(a.rel[60])} contra el SPY a 60 ruedas, con ${a.hit[60]}% de aciertos. El RRG diario se da vuelta rápido (dura ~${a.daysHeld} ruedas en Leading).
+      Lo que sí funcionó: <b>${esc(best.label.toLowerCase())}</b> cuando el sector da la señal: ${pp(best.sig.f60)} contra el propio sector en 60 ruedas, ${best.sig.hit60}% de aciertos (en fechas sin señal la misma regla da ${pp(best.ctl.f60)} y ${best.ctl.hit60}%).</div>
+    <div class="big3">
+      <div><div class="v">${a.n}</div><div class="l">Señales "Por explotar" desde ${d.from.slice(0, 4)}</div></div>
+      <div><div class="v">${Math.round((a.crossed / a.n) * 100)}%</div><div class="l">Llegaron a Leading ("explotó") · mediana ${a.daysToCross} ruedas</div></div>
+      <div><div class="v">${pp(d.crossed.rel[60])}</div><div class="l">Sector vs SPY a 60 ruedas cuando sí explotó</div></div>
+      <div><div class="v">${pp(d.notCrossed.rel[60])}</div><div class="l">Sector vs SPY cuando no llegó a explotar</div></div>
+    </div>
+    <div class="card"><h3>Estrategia sugerida</h3><div class="sub2" style="font-size:13.5px;color:var(--text)">
+      1. Cuando un sector o industria aparece como <b>Por explotar</b> en el RRG, no compres el ETF: mirá sus acciones.<br>
+      2. Elegí las <b>3 con más fuerza relativa contra el sector en los últimos 6 meses</b> (el RRG ya te las muestra en cada señal).<br>
+      3. Mantené unas <b>60 ruedas (3 meses)</b>. En el backtest: ${pp(best.sig.f60)} contra el sector, ${pp((best.sig.f60 ?? 0) + (a.rel[60] ?? 0))} contra el SPY, ${best.sig.hit60}% de las veces le ganaron al sector.<br>
+      4. Sumá el filtro del score: evitá las de score débil y las que el management dio un guidance a la baja.</div></div>
+    <div class="card" style="margin-top:12px"><h3>¿Qué acciones del sector rinden más después de la señal?</h3><div class="sub2">Rendimiento promedio de las 3 elegidas por cada regla, contra el ETF del sector. "Sin señal" = la misma regla en cualquier fecha (control).</div>
+      <div class="tablewrap"><table class="rt"><thead><tr><th class="l">Regla</th><th>40 ruedas</th><th>60 ruedas</th><th>Aciertos 60r</th><th>Sin señal 60r</th><th>Aciertos sin señal</th></tr></thead><tbody>
+      ${d.rules.map((r, i) => `<tr${i === 0 ? ' style="background:var(--panel2)"' : ""}><td class="l">${i === 0 ? "★ " : ""}${esc(r.label)}</td><td class="num">${pp(r.sig.f40)}</td><td class="num">${pp(r.sig.f60)}</td><td class="num">${r.sig.hit60}%</td><td class="num">${pp(r.ctl.f60)}</td><td class="num">${r.ctl.hit60}%</td></tr>`).join("")}
+      </tbody></table></div><div class="na" style="font-size:12px;margin-top:6px">Promedio de todas las acciones del sector tras la señal: ${pp(d.allMembers.f60)} a 60 ruedas (mediana ${pp(d.allMembers.med40)} a 40): elegir bien adentro del sector importa más que la señal.</div></div>
+    <div class="card" style="margin-top:12px"><h3>Variantes de la señal que probé</h3><div class="sub2">Rendimiento del ETF del sector contra el SPY después de cada tipo de señal.</div>
+      <div class="tablewrap"><table class="rt"><thead><tr><th class="l">Señal</th><th>Casos</th><th>20 ruedas</th><th>40 ruedas</th><th>60 ruedas</th><th>Aciertos 40r</th></tr></thead><tbody>
+      ${d.variants.map((v) => `<tr><td class="l">${esc(v.label)}</td><td class="num">${v.n}</td><td class="num">${pp(v.rel[20])}</td><td class="num">${pp(v.rel[40])}</td><td class="num">${pp(v.rel[60])}</td><td class="num">${v.hit[40] ?? "—"}%</td></tr>`).join("")}
+      <tr><td class="l">Rotación por momentum: los 3 sectores con más fuerza a 3 meses, cambio mensual</td><td class="num">${d.momentum.m3.n}</td><td class="num">${pp(d.momentum.m3.rel21)} <span class="na">(1 mes)</span></td><td colspan="2" class="num na">${pp(d.momentum.m3.annual)} por año</td><td class="num">${d.momentum.m3.hit}%</td></tr>
+      </tbody></table></div></div>
+    <div class="card" style="margin-top:12px"><h3>Últimas señales y qué pasó</h3><div class="tablewrap"><table class="rt"><thead><tr><th class="l">Fecha</th><th class="l">Sector</th><th>¿Explotó?</th><th>Sector vs SPY 60r</th><th class="l">3 líderes a 6 meses → resultado 60r vs sector</th></tr></thead><tbody>
+      ${d.events.slice(0, 25).map((e) => `<tr><td class="l">${fd(e.date)}</td><td class="l"><b>${esc(e.sym)}</b> <span class="na">${esc(e.name)}</span></td><td class="num">${e.cross != null ? `Sí, en ${e.cross} r.` : '<span class="neg">No</span>'}</td><td class="num">${pp(e.rel[60])}</td><td class="l">${(e.top || []).map((t) => `${esc(t.s)} ${pp(t.f60, 0)}`).join(" · ") || "—"}</td></tr>`).join("")}
+      </tbody></table></div></div>
+    <div class="caveat">Simulación día a día con la misma fórmula que usa la app (sin mirar el futuro). Rendimientos sin costos ni impuestos, en dólares. Las acciones son las del universo actual (sesgo de supervivencia a favor). Rendimientos pasados no garantizan los futuros.</div>`;
+}
+$("btTabs").onclick = (e) => { const b = e.target.closest("[data-v]"); if (!b) return; document.querySelectorAll("#btTabs .tab").forEach((x) => x.classList.toggle("on", x === b)); $("vScore").style.display = b.dataset.v === "score" ? "" : "none"; $("vRrg").style.display = b.dataset.v === "rrg" ? "" : "none"; if (b.dataset.v === "rrg" && !$("vRrg").innerHTML) rrgView(); };
+if (location.hash === "#rrg") $("btTabs").querySelector('[data-v="rrg"]').click();

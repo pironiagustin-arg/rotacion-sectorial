@@ -33,6 +33,7 @@ jobs:
         run: |
           node scripts/compute.mjs backtest || echo "::warning::backtest falló, se conserva el anterior"
           node scripts/compute.mjs funds
+          node scripts/rrg-backtest.mjs || echo "::warning::backtest RRG falló, se conserva el anterior"
       - name: Guardar resultados en el repo
         run: |
           git config user.name "sync-bot"

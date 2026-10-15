@@ -238,7 +238,9 @@ export function classifyLynch(r) {
   if (r.sec !== "fin" && ok(r.pb) && r.pb > 0 && r.pb < 0.8) return "asset";
   if (CYCLICAL_PROFILES.has(r.profile) || r.profile === "semis" && /Equipment/.test(r.ind || "")) return "cyclical";
   if (r.c === "AR") return null;
-  const g = ok(r.epsG) ? r.epsG : r.revG;
+  // Crecimiento combinado: consenso de EPS y ventas (un año puntual de EPS deprimido o inflado no cambia el tipo)
+  const gs = [r.epsLT, r.epsNY, r.revG].filter((x) => ok(x) && x > -50 && x < 200);
+  const g = gs.length ? gs.reduce((a, b) => a + b, 0) / gs.length : null;
   if (!ok(g)) return null;
   return g < 7 ? "slow" : g < 18 ? "stalwart" : "fast";
 }
@@ -374,6 +376,29 @@ export function histOf(r, k) {
   return { avg: a, cur, n: vals.length, years: r.fx.years, series: s, p: Math.round((better / vals.length) * 100), diff, flip, better: ok(diff) ? (dir > 0 ? diff > 0 : diff < 0) : null };
 }
 
+// Nota absoluta por métrica: [valor malo, valor bueno] (lineal entre ambos). Se mezcla con el percentil contra pares
+// para que un negocio excelente no quede "malo" solo por estar en una industria de negocios excelentes.
+const ABS = {
+  peg: [2.5, 0.8], fpe: [40, 12], pe: [45, 12], pb: [8, 1], evEbitda: [28, 8], evRev: [12, 1.5], pffo: [28, 10], fcfY: [0, 7], evRevG: [1.5, 0.2],
+  roic: [2, 22], roa: [0.3, 1.6], fcfConv: [40, 110], omTrend: [-4, 4], dil: [5, -2], roe: [4, 22], gm: [15, 65], om: [0, 30], fcfM: [0, 25], eff: [70, 50], sbc: [15, 1],
+  epsG: [-5, 25], revG: [-5, 25], revStab: [20, 3], rule40: [10, 45], backlog: [0.3, 3],
+  ndEbitda: [4.5, 0], cr: [0.7, 2], intCov: [2, 15], runway: [0.5, 4], payout: [100, 35], divG: [-3, 10], shY: [0, 6], divY: [0, 4],
+};
+const ABS_PROFILE = {
+  bank: { pb: [2.5, 0.8], roe: [6, 16] }, insurance: { pb: [3, 1], roe: [6, 16] }, capmarkets: { pb: [5, 1.2] },
+  reit: { ndEbitda: [9, 4], payout: null, divY: [2, 6] }, utility: { ndEbitda: [7, 3.5], divY: [1.5, 4.5], gm: null }, midstream: { ndEbitda: [6, 3], divY: [3, 8] },
+  staples: { gm: [20, 50] }, retail: { gm: [15, 40], om: [0, 12] }, restaurants: { om: [3, 20] }, airlines: { om: [0, 12], gm: null }, autos: { om: [0, 12] },
+  semis: { gm: [30, 65] }, software: { gm: [50, 80] }, neocloud: { gm: [30, 70], ndEbitda: [8, 2] }, biotech: { om: [-40, 20] },
+};
+const ABS_W = 0.4;
+function absScore(r, k) {
+  const pr = ABS_PROFILE[r.profile];
+  const t = pr && k in pr ? pr[k] : ABS[k];
+  if (!t || !ok(r[k])) return null;
+  const [bad, good] = t, v = r[k];
+  return Math.round(Math.max(0, Math.min(1, (v - bad) / (good - bad))) * 100);
+}
+
 export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = {}) {
   const groupKey = (r) => (peer === "sector-country" ? r.sec + "|" + r.c : r.sec);
   // Las acciones argentinas no entran como pares de las del resto del mundo (inflación en pesos distorsiona crecimiento y márgenes)
@@ -394,7 +419,7 @@ export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = 
     const fixed = !!PROFILES[r.profile].fixed;
     r.peerN = prof.length >= 6 || fixed ? prof.length : sect.length;
     r.peerLabel = prof.length >= 6 || fixed ? PROFILES[r.profile].l : peer === "sector-country" ? `${SECTORS[r.sec]} · ${COUNTRIES[r.c] || r.c}` : SECTORS[r.sec];
-    r.pct = {}; r.med = {}; r.hist = {};
+    r.pct = {}; r.med = {}; r.hist = {}; r.abs = {};
     for (const k of Object.keys(METRICS)) {
       // Pares: misma industria si hay al menos 5 con dato; si no, el sector
       let peers = prof, vals = prof.map((p) => cmpVal(p, k)).filter(ok);
@@ -408,6 +433,7 @@ export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = 
       let p = ((below + eq / 2) / vals.length) * 100;
       if (METRICS[k].dir < 0) p = 100 - p;
       r.pct[k] = Math.round(p);
+      const a = absScore(r, k); if (a != null) r.abs[k] = a;
       const h = histOf(r, k); if (h) r.hist[k] = h;
     }
     for (const k of ["nm", "upside", "d52", "beta", "capexInt"]) r.med[k] = median(sect.map((p) => p[k]));
@@ -417,7 +443,8 @@ export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = 
     for (const [k, w] of Object.entries(r.weights)) {
       tot += w; const g = METRICS[k].g; gs[g] = gs[g] || { s: 0, w: 0 };
       if (r.pct[k] == null) continue;
-      sw += w; ss += w * r.pct[k]; gs[g].s += w * r.pct[k]; gs[g].w += w;
+      const mix = r.abs[k] != null ? r.pct[k] * (1 - ABS_W) + r.abs[k] * ABS_W : r.pct[k];
+      sw += w; ss += w * mix; gs[g].s += w * mix; gs[g].w += w;
     }
     r.coverage = tot ? sw / tot : 0;
     const peerScore = r.coverage >= 0.5 ? ss / sw : null;
@@ -472,7 +499,7 @@ export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = 
 }
 
 function verdict(r) {
-  const lv = (s) => (!ok(s) ? null : s >= 70 ? "good" : s >= 45 ? "mid" : "bad");
+  const lv = (s) => (!ok(s) ? null : s >= 65 ? "good" : s >= 45 ? "mid" : "bad");
   const g = r.gscore;
   const v = {
     Calidad: { q: "¿Es buen negocio?", s: g["Calidad"], t: { good: "Sí: rentabilidad por encima de sus pares.", mid: "Normal para su industria.", bad: "Rentabilidad por debajo de sus pares." } },
@@ -512,4 +539,5 @@ export function fmtBig(v, cur) {
   if (a >= 1e6) return s + nf(0).format(v / 1e6) + " M";
   return s + nf(0).format(v);
 }
-export const scoreCls = (s) => (!ok(s) ? "s-na" : s >= 70 ? "s-good" : s >= 45 ? "s-mid" : "s-bad");
+export const scoreCls = (s) => (!ok(s) ? "s-na" : s >= 65 ? "s-good" : s >= 45 ? "s-mid" : "s-bad");
+export const scoreLabel = (s) => (!ok(s) ? "Sin datos" : s >= 75 ? "Excelente" : s >= 65 ? "Bueno" : s >= 45 ? "Neutral" : "Débil");

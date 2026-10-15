@@ -1,5 +1,5 @@
 import { UNIVERSE, SECTORS, COUNTRIES, MARKETS, SYMBOLS, BATCH_SIZE } from "/lib/universe.js";
-import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt, fmtCap, fmtBig, nf, scoreCls, profileOf, relevant } from "/js/score.js";
+import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt, fmtCap, fmtBig, nf, scoreCls, scoreLabel, profileOf, relevant } from "/js/score.js";
 import { startLive } from "/js/live.js";
 import { talkRead } from "/js/talk.js";
 import { fetchArs, arsOf, ratioOf, devTxt } from "/js/ars.js";
@@ -158,7 +158,7 @@ function render() {
         </div>
         <div class="price"><span class="p num"><span data-live-px="${esc(r.s)}" data-live-ext>${fmt(r.px)}</span> <span class="na" style="font-size:14px">${esc(r.cur || "")}</span></span><span class="na" style="font-size:12px"><span class="livedot"></span>en vivo</span>${chg}<span class="na">Market cap ${fmtCap(r.mcap)}</span>${ok(r.tgt) ? `<span class="na">Target analistas ${fmt(r.tgt)} (${r.upside >= 0 ? "+" : ""}${nf(0).format(r.upside)}%)</span>` : ""}</div>
       </div>
-      <div class="ring ${scoreCls(r.score)}" title="Score contra ${r.peerN} empresas de ${esc(r.peerLabel)}"><div class="v">${ok(r.score) ? r.score : "—"}</div><div class="l">Score / 100</div></div>
+      <div class="ring ${scoreCls(r.score)}" title="Score contra ${r.peerN} empresas de ${esc(r.peerLabel)}"><div class="v">${ok(r.score) ? r.score : "—"}</div><div class="l">${scoreLabel(r.score)}</div></div>
     </div>
     <div id="byma" class="byma"></div>
     <div class="oneliner">${oneLiner(r)}</div>
