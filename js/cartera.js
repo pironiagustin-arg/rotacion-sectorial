@@ -27,13 +27,20 @@ $("tickers").innerHTML = UNIVERSE.filter((u) => u[5]).map((u) => `<option value=
 $("fD").value = today(); $("fD").max = today();
 let hintSeq = 0;
 async function prefill() {
-  const u = resolve($("fT").value), d = $("fD").value; K.hist = null;
+  const u = resolve($("fT").value), d = $("fD").value, date = d; K.hist = null;
   if (!u || !d) return;
   const seq = ++hintSeq;
   $("fHint").textContent = `Buscando el precio de ${u[5] || u[0]} del ${d}…`;
   const h = await fetch(`/api/overview?view=hist&ced=${encodeURIComponent(u[5] || "")}&sym=${encodeURIComponent(u[0])}&date=${d}`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   if (seq !== hintSeq) return;
   K.hist = h;
+  if (h && !h.ars && h.us && h.ccl && u[5]) {
+    // BYMA no tiene historia de ese día (p. ej. cambio de ratio): se estima con el precio en EE.UU. y el CCL de ese día
+    const [a, q] = await Promise.all([fetchArs(), fetch("/api/overview?s=" + encodeURIComponent(u[0])).then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
+    const x = a?.cedears?.[u[5]], ccl = a?.implied?.[u[5]]?.ccl, usNow = q?.q?.[u[0]]?.px;
+    if (x?.ars && ccl && usNow) { const ratio = (ccl * usNow) / x.ars; h.ars = (h.us * h.ccl) / ratio; h.arsDate = date + " (estimado)"; }
+    if (seq !== hintSeq) return;
+  }
   if (!h?.ars) { $("fHint").textContent = "No encontré el precio de ese día en BYMA: cargalo a mano."; return; }
   const p = $("fC").value === "ARS" ? h.ars : h.ccl ? h.ars / h.ccl : null;
   if (p && !$("fP").dataset.touched) $("fP").value = p < 100 ? p.toFixed(2) : Math.round(p);
