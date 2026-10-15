@@ -28,7 +28,7 @@ async function tick() {
   if (!syms.length) return;
   const q = {};
   for (let i = 0; i < syms.length; i += 150) {
-    try { const r = await fetch("/api/quote?s=" + encodeURIComponent(syms.slice(i, i + 150).join(","))); if (r.ok) Object.assign(q, (await r.json()).q); } catch {}
+    try { const r = await fetch("/api/overview?s=" + encodeURIComponent(syms.slice(i, i + 150).join(","))); if (r.ok) Object.assign(q, (await r.json()).q); } catch {}
   }
   for (const el of els) {
     const s = el.dataset.livePx || el.dataset.liveChg, x = q[s]; if (!x) continue;

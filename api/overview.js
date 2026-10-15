@@ -1,6 +1,7 @@
 // GET /api/overview -> foto del mercado para el Dashboard:
 // índices y activos clave (precio, variación 1D/1S/1M/YTD y mini serie de 3 meses) + rendimiento de sectores e industrias.
 import { UA, round } from "./_lib.js";
+import { quotes } from "./_screen.js";
 import { SECTOR_ETFS, INDUSTRY_ETFS } from "./_signals.js";
 
 const MARKET = [
@@ -27,7 +28,26 @@ function perf(pts) {
   return { price: round(last.c, 2), d1: ch(pts.at(-2)), w1: ch(at(7)), m1: ch(at(30)), m3: ch(at(91)), ytd: ch(ytd0), y1: ch(pts[0]), spark: pts.slice(-63).map((p) => round(p.c, 2)), t: last.t };
 }
 
+// GET /api/overview?s=AAPL,MSFT -> precios en vivo (Yahoo v7, tiempo real en EE.UU.), con pre y post mercado.
+async function liveQuotes(req, res) {
+  const syms = [...new Set(String(req.query?.s || "").split(",").map((x) => x.trim().toUpperCase()).filter((x) => /^[A-Z0-9.\-^=]{1,15}$/.test(x)))].slice(0, 200);
+  if (!syms.length) return res.status(400).json({ error: "Sin símbolos" });
+  try {
+    const q = await quotes(syms), out = {};
+    for (const [s, x] of q) {
+      const st = x.marketState || "";
+      const ext = st.startsWith("PRE") ? { p: x.preMarketPrice, c: x.preMarketChangePercent, l: "pre" } : /POST|CLOSED/.test(st) && x.postMarketPrice ? { p: x.postMarketPrice, c: x.postMarketChangePercent, l: "post" } : null;
+      out[s] = { px: x.regularMarketPrice ?? null, chg: x.regularMarketChangePercent ?? null, t: (x.regularMarketTime || 0) * 1000, st, ext: ext && ext.p ? ext : null };
+    }
+    res.setHeader("Cache-Control", "public, s-maxage=8, stale-while-revalidate=20");
+    return res.status(200).json({ q: out, at: Date.now() });
+  } catch (e) {
+    return res.status(502).json({ error: String(e.message || e) });
+  }
+}
+
 export default async function handler(req, res) {
+  if (req.query?.s) return liveQuotes(req, res);
   try {
     const groups = [
       ...MARKET.map(([s, n]) => ({ s, n, g: "market" })),
