@@ -22,7 +22,7 @@ function bigChart(s) {
   const all = series.flatMap(([, a]) => a).filter((x) => x != null); if (all.length < 2) return '<div class="rl-dim">Todavía no hay recorrido.</div>';
   const mn = Math.min(0, ...all), mx = Math.max(0, ...all), W = 720, H = 220, L = 44, B = 22, n = HOLD + 1;
   const X = (i) => L + (i / (n - 1)) * (W - L - 10), Y = (v) => 8 + (1 - (v - mn) / (mx - mn || 1)) * (H - B - 8);
-  const ticks = [mn, (mn + mx) / 2, mx, 0].filter((v, i, a) => a.indexOf(v) === i);
+  const ticks = [0, mn, mx, (mn + mx) / 2].reduce((acc, v) => (acc.every((t) => Math.abs(t - v) > (mx - mn) * 0.12) ? [...acc, v] : acc), []);
   return `<div class="rl-big"><svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Evolución de ${esc(s.sym)} contra el S&P 500">
     ${ticks.map((v) => `<line x1="${L}" x2="${W - 10}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v === 0 ? "#64748b" : "#1e2a44"}" ${v === 0 ? 'stroke-dasharray="4 3"' : ""}/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end" font-size="11" fill="#64748b">${v >= 0 ? "+" : ""}${nf(0).format(v)}%</text>`).join("")}
     ${[0, 20, 40, 60].map((d) => `<text x="${X(d)}" y="${H - 4}" text-anchor="middle" font-size="11" fill="#64748b">${d === 0 ? "alerta" : "+" + d + " r."}</text>`).join("")}
