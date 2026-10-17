@@ -25,14 +25,12 @@ async function loadOverview() {
   D.ov = await r.json();
   const fmtP = (m) => (m.symbol === "^TNX" ? nf(2).format(m.price) + "%" : m.symbol === "BTC-USD" ? "US$ " + nf(0).format(m.price) : nf(2).format(m.price));
   const liveAttr = (m) => `data-live-px="${esc(m.symbol)}"${m.symbol === "^TNX" ? ' data-live-suf="%"' : m.symbol === "BTC-USD" ? ' data-live-pre="US$ " data-live-dec="0"' : ""}`;
-  $("tiles").innerHTML = D.ov.market.map((m) => {
-    const inv = m.symbol === "^VIX";
-    return `<div class="tile" title="1 semana ${m.w1 ?? "—"}% · 1 mes ${m.m1 ?? "—"}% · en el año ${m.ytd ?? "—"}%">
-      <div class="n"><span>${esc(m.name)}</span><span>${esc(m.symbol.replace("^", ""))}</span></div>
-      <div class="p num" ${liveAttr(m)}>${fmtP(m)}</div>
-      <div class="c num"><span data-live-chg="${esc(m.symbol)}" class="${m.d1 >= 0 ? "pos" : "neg"}">${ok(m.d1) ? (m.d1 >= 0 ? "+" : "") + nf(2).format(m.d1) + "%" : "—"}</span> <span class="na">hoy</span> · ${pctTxt(m.ytd, 1)} <span class="na">año</span></div>
-      ${spark(m.spark, inv ? m.spark.at(-1) <= m.spark[0] : m.spark.at(-1) >= m.spark[0])}</div>`;
-  }).join("");
+  const crypto = (sym) => /-USD$/.test(sym);
+  const fmtP2 = (m) => (m.symbol === "^TNX" ? nf(2).format(m.price) + "%" : crypto(m.symbol) ? "US$ " + nf(0).format(m.price) : nf(2).format(m.price));
+  const attr = (m) => `data-live-px="${esc(m.symbol)}"${m.symbol === "^TNX" ? ' data-live-suf="%"' : crypto(m.symbol) ? ' data-live-pre="US$ " data-live-dec="0"' : ""}`;
+  const item = (m) => `<span class="tk-i" title="1 semana ${m.w1 ?? "—"}% · 1 mes ${m.m1 ?? "—"}% · en el año ${m.ytd ?? "—"}%"><span class="n">${esc(m.name)}</span><b ${attr(m)}>${fmtP2(m)}</b><span class="c ${m.d1 >= 0 ? "pos" : "neg"}" data-live-chg="${esc(m.symbol)}">${ok(m.d1) ? (m.d1 >= 0 ? "+" : "") + nf(2).format(m.d1) + "%" : "—"}</span></span>`;
+  const row = D.ov.market.map(item).join("");
+  $("tapeIn").innerHTML = row + row;
 }
 
 async function loadMarket() {
@@ -86,9 +84,9 @@ async function loadUniverse() {
   scoreAll(rows, { userMult: userMult(), profW: userProfW() });
   D.mcap = new Map(rows.map((r) => [r.s, r.mcap]));
   const ext = rows.filter((r) => r.c !== "AR" && !(r.mk || "").includes("REF"));
-  const line = (r, extra) => `<tr data-s="${esc(r.s)}"><td class="l"><b>${esc(r.ced || r.s)}</b> <span class="na">${esc((r.n || "").slice(0, 26))}</span></td>${extra}</tr>`;
-  const cands = ext.filter((r) => r.cand && r.profile !== "crypto").sort((a, b) => b.score - a.score).slice(0, 8);
-  $("cands").className = ""; $("cands").innerHTML = cands.length ? `<table class="mini"><tbody>${cands.map((r) => line(r, `<td class="l na">${esc(PROFILES[r.profile].l)}</td><td class="na">${LYNCH[r.lynch] || ""}</td><td class="num">${liveChg(r.s, r.chg, 1)}</td><td><span class="score ${scoreCls(r.score)}">${r.score}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Hoy no hay candidatas.</div>`;
+  const line = (r, extra) => `<tr data-s="${esc(r.s)}"><td class="l"><b>${esc(r.ced || r.s)}</b> <span class="na">${esc((r.n || "").slice(0, 18))}</span></td>${extra}</tr>`;
+  const cands = ext.filter((r) => r.cand && r.profile !== "crypto").sort((a, b) => b.score - a.score).slice(0, 7);
+  $("cands").className = ""; $("cands").innerHTML = cands.length ? `<table class="mini"><tbody>${cands.map((r) => line(r, `<td class="l na" style="font-size:11.5px">${esc(PROFILES[r.profile].l)}</td><td class="num">${liveChg(r.s, r.chg, 1)}</td><td><span class="score ${scoreCls(r.score)}">${r.score}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Hoy no hay candidatas.</div>`;
   const withChg = ext.filter((r) => ok(r.chg) && ok(r.mcap) && r.mcap > 2e9);
   const up = [...withChg].sort((a, b) => b.chg - a.chg).slice(0, 5), dn = [...withChg].sort((a, b) => a.chg - b.chg).slice(0, 5);
   // Amplitud
@@ -111,7 +109,7 @@ async function loadUniverse() {
   const syms = name ? wl.lists[name] : [];
   $("wlName").textContent = name ? `Lista "${name}" · ${syms.length} acciones` : "";
   const wrows = syms.map((s) => rows.find((r) => r.s === s || r.ced === s)).filter(Boolean);
-  $("wl").className = ""; $("wl").innerHTML = wrows.length ? `<table class="mini"><tbody>${wrows.map((r) => line(r, `<td class="num"><span data-live-px="${esc(r.s)}">${fmt(r.px)}</span> <span class="na">${esc(r.cur || "")}</span></td><td class="num">${liveChg(r.s, r.chg)}</td><td class="num">${ok(r.fairUp) ? pctTxt(r.fairUp, 0) + ' <span class="na">a tu P. justo</span>' : ""}</td><td><span class="score ${scoreCls(r.score)}">${r.score ?? "—"}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Tu watchlist está vacía. Agregá acciones desde la Watchlist o el Screener.</div>`;
+  $("wl").className = ""; $("wl").innerHTML = wrows.length ? `<table class="mini"><tbody>${wrows.map((r) => line(r, `<td class="num"><span data-live-px="${esc(r.s)}">${fmt(r.px)}</span> <span class="na">${esc(r.cur || "")}</span></td><td class="num">${liveChg(r.s, r.chg)}</td><td><span class="score ${scoreCls(r.score)}">${r.score ?? "—"}</span></td>`)).join("")}</tbody></table>` : `<div class="na">Tu watchlist está vacía. Agregá acciones desde la Watchlist o el Screener.</div>`;
   document.querySelectorAll(".mini tr[data-s]").forEach((tr) => (tr.onclick = () => go(tr.dataset.s)));
   return snap.updated;
 }
@@ -127,6 +125,62 @@ async function loadDolar() {
   $("dolar").innerHTML = `<div class="breadth"><div><div class="v num">${money(d.medCcl)}</div><div class="l">CCL implícito (mediana CEDEARs)</div></div><div><div class="v num">${money(dl.bolsa?.venta)}</div><div class="l">MEP</div></div><div><div class="v num">${money(dl.oficial?.venta)}</div><div class="l">Oficial${ok(dl.oficial?.venta) && ok(d.medCcl) ? ` · brecha ${nf(1).format((d.medCcl / dl.oficial.venta - 1) * 100)}%` : ""}</div></div><div><div class="v num">${money(dl.blue?.venta)}</div><div class="l">Blue</div></div></div>
     <div class="cclh">Más baratos: comprás la acción con un dólar más bajo</div><div class="ccl3">${liq.slice(0, 3).map(card).join("")}</div>
     <div class="cclh">Más caros: conviene evitarlos o esperar</div><div class="ccl3">${liq.slice(-3).reverse().map(card).join("")}</div>`;
+}
+
+// ---------- Macro: Fed y calendario económico ----------
+const ES = [[/^Core PCE Price Index YoY/i, "PCE núcleo anual"], [/^Core PCE Price Index MoM/i, "PCE núcleo mensual"], [/^PCE Price Index YoY/i, "PCE anual"], [/^PCE Price Index MoM/i, "PCE mensual"],
+  [/^Core Inflation Rate YoY/i, "CPI núcleo anual"], [/^Core Inflation Rate MoM/i, "CPI núcleo mensual"], [/^Inflation Rate YoY/i, "CPI anual (inflación)"], [/^Inflation Rate MoM/i, "CPI mensual"],
+  [/^Non Farm Payrolls/i, "Empleo no agrícola (NFP)"], [/^Unemployment Rate/i, "Desempleo"], [/^Fed Interest Rate Decision/i, "Decisión de tasa de la Fed"], [/^GDP Growth Rate/i, "PBI trimestral"],
+  [/^Retail Sales MoM/i, "Ventas minoristas"], [/^PPI MoM/i, "Precios mayoristas (PPI)"], [/^ISM Manufacturing PMI/i, "ISM manufacturero"], [/^ISM Services PMI/i, "ISM servicios"],
+  [/^Michigan Consumer Sentiment/i, "Confianza del consumidor (Michigan)"], [/^JOLTs/i, "Vacantes laborales (JOLTS)"], [/^Existing Home Sales/i, "Venta de casas usadas"], [/^Housing Starts/i, "Inicio de viviendas"],
+  [/^Building Permits/i, "Permisos de construcción"], [/^Durable Goods/i, "Bienes durables"], [/^Personal Income/i, "Ingreso personal"], [/^Personal Spending/i, "Gasto personal"], [/^Initial Jobless Claims/i, "Pedidos de subsidio por desempleo"], [/^ADP/i, "Empleo privado ADP"]];
+const esName = (t) => (ES.find(([re]) => re.test(t))?.[1]) || t;
+// Dirección: +1 si un dato más alto empuja a la Fed a subir (halcón); -1 si lo contrario (desempleo); 0 neutro
+const hawkDir = (t) => (/unemployment|jobless/i.test(t) ? -1 : /inflation|pce|ppi|payroll|retail|gdp|ism|durable|jolts|adp|spending|income/i.test(t) ? 1 : 0);
+const KEY = /inflation rate|pce|payroll|unemployment rate|interest rate decision|gdp/i;
+async function loadMacro() {
+  const r = await fetch("/api/overview?view=macro"); if (!r.ok) throw new Error("macro");
+  const M = await r.json(), F = M.fed || {}, mt = F.meetings || [], now = Date.now();
+  const fd = (t) => new Date(t).toLocaleDateString("es-AR", { weekday: "short", day: "2-digit", month: "short" });
+  const fdd = (s) => new Date(s + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "2-digit" });
+  const val = (v, e) => (v == null ? "—" : `${nf(Math.abs(v) < 10 && v % 1 ? (String(v).split(".")[1]?.length > 1 ? 2 : 1) : 0).format(v)}${e.unit === "%" ? "%" : e.scale ? " " + e.scale : ""}`);
+  // ---- Calendario
+  const ev = M.events.sort((a, b) => a.t - b.t);
+  const past = ev.filter((e) => e.t < now && e.actual != null).slice(-8), next = ev.filter((e) => e.t >= now - 3600e3).slice(0, 10);
+  const read = (e) => {
+    if (e.actual == null || e.forecast == null) return "";
+    const d = e.actual - e.forecast, h = hawkDir(e.title);
+    if (Math.abs(d) < 1e-9) return `<span class="tag" style="background:var(--panel2);color:var(--muted)">En línea</span>`;
+    const up = d > 0, hawk = h === 0 ? null : (up ? h > 0 : h < 0);
+    return `<span class="tag" style="background:${hawk == null ? "var(--panel2)" : hawk ? "var(--bad-bg)" : "var(--good-bg)"};color:${hawk == null ? "var(--muted)" : hawk ? "var(--bad-tx)" : "var(--good-tx)"}">${up ? "Arriba" : "Abajo"} del estimado${hawk == null ? "" : hawk ? " · halcón" : " · paloma"}</span>`;
+  };
+  const rowE = (e, isNext) => `<tr class="${isNext && KEY.test(e.title) ? "next" : ""}"><td class="l na">${fd(e.t)}</td><td class="l"><b style="font-weight:${KEY.test(e.title) ? 600 : 500}">${esc(esName(e.title))}</b> <span class="na">${esc(e.period)}</span></td><td class="num"><b>${val(e.actual, e)}</b></td><td class="num na">${val(e.forecast, e)}</td><td class="num na">${val(e.previous, e)}</td><td class="l">${read(e)}</td></tr>`;
+  $("econ").className = "";
+  $("econ").innerHTML = `<div class="tablewrap" style="border:none"><table class="econ"><thead><tr><th class="l">Fecha</th><th class="l">Dato</th><th>Resultado</th><th>Estimado</th><th>Previo</th><th class="l">Lectura</th></tr></thead><tbody>
+    <tr><td colspan="6" class="l na" style="font-size:11px;text-transform:uppercase;letter-spacing:.06em">Próximos</td></tr>${next.map((e) => rowE(e, true)).join("") || '<tr><td colspan="6" class="na">Sin datos importantes en las próximas semanas.</td></tr>'}
+    <tr><td colspan="6" class="l na" style="font-size:11px;text-transform:uppercase;letter-spacing:.06em">Últimos resultados</td></tr>${past.reverse().map((e) => rowE(e)).join("")}</tbody></table></div>
+    <div class="na" style="font-size:11.5px;margin-top:6px">"Halcón" = presiona a la Fed a subir tasas (suele pesar en tecnología, small caps y bonos largos). "Paloma" = lo contrario. Fuente: TradingView.</div>`;
+  // ---- Fed
+  const n0 = mt[0];
+  if (!n0) { $("fed").innerHTML = `<h3>Fed: qué descuenta el mercado</h3><div class="na">Sin datos de futuros de fed funds.</div>`; return; }
+  const bar = (m) => `<div class="pbar"><i style="width:${m.pCut}%;background:#22c55e"></i><i style="width:${m.pHold}%;background:#64748b"></i><i style="width:${m.pHike}%;background:#ef4444"></i></div>`;
+  const lastC = mt.at(-1), steps = Math.round((lastC.cumulative || 0) / 25);
+  const lastOf = (re) => [...ev].reverse().find((e) => re.test(e.title) && e.actual != null);
+  const cpi = lastOf(/^Inflation Rate YoY/i), core = lastOf(/^Core Inflation Rate YoY/i), nfp = lastOf(/^Non Farm Payrolls/i), un = lastOf(/^Unemployment Rate/i);
+  const nextKey = next.find((e) => /inflation rate yoy|pce|payroll|interest rate decision/i.test(e.title));
+  const dir = n0.pHike >= 50 ? "suba" : n0.pCut >= 50 ? "baja" : "pausa";
+  const txt = [];
+  txt.push(`<b>Próxima reunión (${fdd(n0.date)}):</b> ${n0.pHold >= 50 ? `lo más probable es que la Fed <b>mantenga la tasa</b> (${n0.pHold}%)` : `el mercado espera una <b>${dir}</b> (${Math.max(n0.pHike, n0.pCut)}%)`}${n0.pHike >= 10 && n0.pHold >= 50 ? `, con ${n0.pHike}% de chances de suba` : ""}${n0.pCut >= 10 && n0.pHold >= 50 ? `, con ${n0.pCut}% de chances de baja` : ""}.`);
+  txt.push(`<b>Camino de tasas:</b> hasta ${fdd(lastC.date)} los futuros descuentan ${lastC.cumulative >= 0 ? "+" : ""}${nf(0).format(lastC.cumulative)} pb${Math.abs(steps) >= 1 ? ` (unas ${Math.abs(steps)} ${steps > 0 ? "subas" : "bajas"} de 0,25)` : " (sin cambios relevantes)"}${mt.find((m) => m.pHike >= 50) ? `; la primera suba con más de 50% es el ${fdd(mt.find((m) => m.pHike >= 50).date)}` : mt.find((m) => m.pCut >= 50) ? `; la primera baja con más de 50% es el ${fdd(mt.find((m) => m.pCut >= 50).date)}` : ""}.`);
+  if (cpi) txt.push(`<b>Por qué:</b> la inflación (CPI) está en ${nf(1).format(cpi.actual)}%${cpi.forecast != null ? `, ${cpi.actual > cpi.forecast ? "arriba" : cpi.actual < cpi.forecast ? "abajo" : "en línea con"} ${cpi.actual === cpi.forecast ? "lo esperado" : "de lo esperado"} (${nf(1).format(cpi.forecast)}%)` : ""}${cpi.previous != null ? ` y ${cpi.actual > cpi.previous ? "subiendo" : cpi.actual < cpi.previous ? "bajando" : "estable"} contra el mes anterior` : ""}${core ? `; la núcleo, ${nf(1).format(core.actual)}%` : ""}.${nfp ? ` El empleo ${nfp.actual < (nfp.forecast ?? nfp.actual) ? "se enfría" : "sigue firme"} (${nf(0).format(nfp.actual)}K puestos vs ${nfp.forecast != null ? nf(0).format(nfp.forecast) + "K esperados" : "—"}${un ? `, desempleo ${nf(1).format(un.actual)}%` : ""}).` : ""}`);
+  if (nextKey) txt.push(`<b>Qué mirar:</b> ${esc(esName(nextKey.title))} el ${fd(nextKey.t)}${nextKey.forecast != null ? ` (estimado ${val(nextKey.forecast, nextKey)})` : ""}. ${/interest rate/i.test(nextKey.title) ? "Más que la decisión, importa el tono de la conferencia." : `Si sale <b>arriba</b> del estimado, sube la probabilidad de ${steps >= 0 ? "más subas" : "que la Fed demore las bajas"}: suele pesar en tecnología, small caps y bonos largos, y fortalece al dólar. Si sale <b>abajo</b>, alivio para acciones de crecimiento.`}`);
+  txt.push(`<b>Escenario más probable:</b> ${steps >= 2 ? "Fed en modo ajuste: sectores defensivos, energía y financieras suelen aguantar mejor que tecnología de alto múltiplo." : steps <= -2 ? "Fed bajando tasas: favorece small caps, tecnología, real estate y bonos largos." : "Fed en pausa: el mercado se mueve más por resultados de empresas que por tasas."}`);
+  $("fed").innerHTML = `<h3>Fed: qué descuenta el mercado <span class="na" style="font-weight:400;font-size:12px">futuros de fed funds (método FedWatch)</span></h3>
+    <div class="fedTop"><div class="fedBig"><div class="l">Tasa actual</div><div class="v num">${F.target ? nf(2).format(F.target[0]) + "–" + nf(2).format(F.target[1]) + "%" : "—"}</div><div class="l">efectiva ${nf(2).format(F.effr)}%</div></div>
+      <div class="fedBig" style="flex:1.6"><div class="l">Próxima reunión · ${fdd(n0.date)}</div>${bar(n0)}<div style="display:flex;justify-content:space-between;font-size:12.5px"><span class="pos">Baja ${n0.pCut}%</span><span>Mantiene ${n0.pHold}%</span><span class="neg">Suba ${n0.pHike}%</span></div></div></div>
+    <div class="tablewrap" style="border:none;margin-top:8px"><table class="fedPath"><thead><tr><th class="l">Reunión</th><th>Tasa implícita</th><th>Cambio vs hoy</th><th class="l">Probabilidad en esa reunión</th></tr></thead><tbody>
+      ${mt.map((m) => `<tr><td class="l">${fdd(m.date)}</td><td class="num">${nf(2).format(m.implied)}%</td><td class="num ${m.cumulative > 0 ? "neg" : m.cumulative < 0 ? "pos" : ""}">${m.cumulative >= 0 ? "+" : ""}${nf(0).format(m.cumulative)} pb</td><td class="l" style="font-size:12px">${m.pHike >= m.pCut ? (m.pHike ? `<span class="neg">suba ${m.pHike}%</span>` : "sin cambios") : `<span class="pos">baja ${m.pCut}%</span>`}</td></tr>`).join("")}</tbody></table></div>
+    <div class="fedNote">${txt.map((t) => `<div style="margin-bottom:5px">${t}</div>`).join("")}</div>`;
 }
 
 // ---------- Cripto ----------
@@ -183,7 +237,7 @@ async function loadPf() {
 
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando el mercado…";
-  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]); renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s, all, (s) => D.mcap?.get(s)); loadPf().catch(() => {}); return u; }), loadDolar(), loadCrypto()];
+  const tasks = [loadOverview(), loadMarket(), loadChart(), loadUniverse().then((u) => { const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR"); $("earn").className = ""; const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]); renderEarnings($("earn"), syms, (s) => META.get(s)?.[5] || s, all, (s) => D.mcap?.get(s)); loadPf().catch(() => {}); return u; }), loadDolar(), loadCrypto(), loadMacro()];
   const res = await Promise.allSettled(tasks);
   const fails = res.filter((r) => r.status === "rejected");
   fails.forEach((f) => console.warn(f.reason));

@@ -47,10 +47,10 @@ const today = day(Date.now() - 3 * 3600e3);
 if (!db.backfilled) {
   const bt = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "rrg_backtest.json"), "utf8"));
   const since = day(Date.now() - 370 * 864e5);
-  const clear = (e) => e.sym.startsWith("XL") || (e.score >= 75 && (e.relVol ?? 0) >= 1.2 && (e.accum ?? 0) >= 1.2 && (e.wq === "improving" || e.wq === "leading"));
+  const clear = (e) => (e.sym.startsWith("XL") || (e.score >= 75 && (e.relVol ?? 0) >= 1.2 && (e.accum ?? 0) >= 1.2 && (e.wq === "improving" || e.wq === "leading")));
   for (const e of bt.events.filter((e) => e.date >= since && clear(e))) {
     if (db.signals.some((s) => s.sym === e.sym && s.date === e.date)) continue;
-    db.signals.push({ date: e.date, sym: e.sym, name: e.name, group: e.group, score: e.score, leaders: (e.top || []).map((t) => t.s), source: "backtest" });
+    db.signals.push({ date: e.date, sym: e.sym, name: e.name, group: e.group, score: e.score, ema: e.ema ?? null, leaders: (e.top || []).map((t) => t.s), source: "backtest" });
   }
   db.backfilled = true;
 }
@@ -63,7 +63,7 @@ for (const s of list.filter((x) => x.status === "por_explotar" && x.group !== "a
   const recent = db.signals.find((x) => x.sym === s.symbol && (Date.parse(today) - Date.parse(x.date)) / 864e5 < 28);
   if (recent) continue;
   const L = await api(`?leaders=${s.symbol}`);
-  db.signals.push({ date: today, sym: s.symbol, name: s.name, group: s.group, score: s.score, leaders: (L?.leaders || []).slice(0, 3).map((x) => x.s), source: "live" });
+  db.signals.push({ date: today, sym: s.symbol, name: s.name, group: s.group, score: s.score, ema: !!(s.aboveEma20 && s.aboveEma200), leaders: (L?.leaders || []).slice(0, 3).map((x) => x.s), source: "live" });
   console.log(`Nueva alerta: ${s.symbol} (${s.name}) · líderes ${(L?.leaders || []).slice(0, 3).map((x) => x.s).join(", ")}`);
 }
 
@@ -79,11 +79,12 @@ for (const s of db.signals) {
   const D = dates.slice(i0, i0 + MAXD + 1), s0 = spy.get(D[0]);
   const path1 = (sym) => { const p = px.get(sym); if (!p) return null; let last = null; const b = p.get(D[0]); if (!b) return null; return D.map((d) => { const c = p.get(d) ?? last; last = c; return c ? r2(((c / b) - (spy.get(d) / s0)) * 100) : null; }); };
   const etf = path1(s.sym);
-  const lp = s.leaders.map(path1).filter(Boolean);
+  const lpAll = s.leaders.map((l) => [l, path1(l)]).filter(([, p]) => p);
+  const lp = lpAll.map(([, p]) => p);
   const lead = lp.length ? D.map((_, k) => { const v = lp.map((p) => p[k]).filter((x) => x != null); return v.length ? r2(v.reduce((a, b) => a + b, 0) / v.length) : null; }) : null;
   const each = Object.fromEntries(s.leaders.map((l, k) => [l, path1(l)?.at(-1) ?? null]));
   const abs = (() => { const p = px.get(s.sym); const b = p?.get(D[0]); const c = p?.get(D.at(-1)); return b && c ? r2((c / b - 1) * 100) : null; })();
-  Object.assign(s, { days: D.length - 1, etf, lead, each, abs, now: now[s.sym] || null });
+  Object.assign(s, { days: D.length - 1, dates: [D[0], D.at(-1)], etf, lead, each, lpaths: Object.fromEntries(lpAll), abs, now: now[s.sym] || null });
 }
 db.updated = new Date().toISOString();
 fs.writeFileSync(FILE, JSON.stringify(db));

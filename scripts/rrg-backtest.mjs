@@ -121,6 +121,8 @@ async function main() {
     const wIdx = []; for (let i = 0; i < dates.length; i++) { const wk = new Date(spy[i].t); const next = spy[i + 1] ? new Date(spy[i + 1].t) : null; if (!next || next.getUTCDay() < wk.getUTCDay() || next - wk > 3 * 864e5) wIdx.push(i); }
     const wtrail = rrg(wIdx.map((i) => closes[i]), wIdx.map((i) => bc[i]), wIdx.map((i) => spy[i].t));
     const rs = (i, n) => (i - n >= 0 && closes[i] && closes[i - n] ? ((closes[i] / closes[i - n]) - (bc[i] / bc[i - n])) * 100 : null);
+    const ema = (n) => { const k = 2 / (n + 1); let e = null; return closes.map((c) => { if (c == null) return e; e = e == null ? c : c * k + e * (1 - k); return e; }); };
+    const e20 = ema(20), e200 = ema(200);
     const rec = new Array(dates.length).fill(null);
     let wk = 0;
     for (let i = 300; i < dates.length; i++) {
@@ -130,7 +132,7 @@ async function main() {
       const a = analyze(trail.slice(Math.max(0, ti - 40), ti + 1), wt.length >= 3 ? wt.slice(-10) : null, px.slice(Math.max(0, i - 80), i + 1), spy.slice(Math.max(0, i - 80), i + 1));
       if (!a) continue;
       const wq = wt.length ? quad(wt.at(-1)) : null, wqPrev = wt.length > 1 ? quad(wt.at(-2)) : null;
-      rec[i] = { st: a.status, q: a.quadrant, wq, wcross: wq === "leading" && wqPrev === "improving" && wt.at(-1).t >= spy[i].t - 6 * 864e5, score: a.score, relVol: a.relVol, accum: a.accum, rs63: rs(i, 63), rs126: rs(i, 126), up: spyMA[i] ? bc[i] > spyMA[i] : null, ti };
+      rec[i] = { st: a.status, q: a.quadrant, wq, wcross: wq === "leading" && wqPrev === "improving" && wt.at(-1).t >= spy[i].t - 6 * 864e5, score: a.score, relVol: a.relVol, accum: a.accum, rs63: rs(i, 63), rs126: rs(i, 126), up: spyMA[i] ? bc[i] > spyMA[i] : null, ema: closes[i] > e20[i] && closes[i] > e200[i], ti };
       for (const h of H) { const v = i + h < dates.length && closes[i] && closes[i + h] ? ((closes[i + h] / closes[i]) - (bc[i + h] / bc[i])) * 100 : null; if (v != null) allRel[h].push(v); }
     }
     REC[sym] = { rec, trail, closes };
@@ -149,7 +151,7 @@ async function main() {
           let cross = null, exit = null; const ti = r.ti;
           for (let j = ti + 1; j < trail.length && j <= ti + 60; j++) { const q = quad(trail[j]); if (q === "leading") { cross = j - ti; break; } if (q === "lagging" && j - ti > 10) break; }
           if (cross != null) for (let j = ti + cross + 1; j < trail.length && j <= ti + 250; j++) { const q = quad(trail[j]); if (q === "weakening" || q === "lagging") { exit = j - ti; break; } }
-          out.push({ sym, name: etfs[sym], group: SECTOR_ETFS[sym] ? "sector" : "industria", i, date: dates[i], score: r.score, relVol: r.relVol, accum: r.accum, wq: r.wq, rs126: r1(r.rs126, 1), cross, exit,
+          out.push({ sym, name: etfs[sym], group: SECTOR_ETFS[sym] ? "sector" : "industria", i, date: dates[i], score: r.score, relVol: r.relVol, accum: r.accum, wq: r.wq, ema: r.ema, rs126: r1(r.rs126, 1), cross, exit,
             rel: Object.fromEntries(H.map((h) => [h, r1(relF(sym, i, h))])), abs: Object.fromEntries(H.map((h) => [h, r1(absF(sym, i, h))])),
             relToExit: exit ? r1(relF(sym, i, exit)) : null, relFromCross: cross != null && exit ? r1(relF(sym, i + cross, exit - cross)) : null });
         }
@@ -169,6 +171,8 @@ async function main() {
     ["cruzo", "RRG diario ya cruzó a Leading (comprar en el cruce)", (r) => r.st === "cruzo"],
     ["solo_xl", "Por explotar solo en sectores XL", (r, sym) => r.st === "por_explotar" && sym.startsWith("XL")],
     ["ind_estricta", "Industrias con señal muy clara (score 75+, volumen +20%, acumulación 1,2x, semanal OK)", (r, sym) => r.st === "por_explotar" && !sym.startsWith("XL") && r.score >= 75 && r.relVol >= 1.2 && r.accum >= 1.2 && (r.wq === "improving" || r.wq === "leading")],
+    ["ema", "Por explotar + precio sobre EMA 20 y EMA 200", (r) => r.st === "por_explotar" && r.ema],
+    ["xl_regla_ema", "Regla nueva (XL + industrias claras) + sobre EMA 20 y 200", (r, sym) => r.ema && r.st === "por_explotar" && (sym.startsWith("XL") || (r.score >= 75 && r.relVol >= 1.2 && r.accum >= 1.2 && (r.wq === "improving" || r.wq === "leading")))],
     ["xl_mas_estricta", "Sectores XL + industrias muy claras (la regla nueva)", (r, sym) => r.st === "por_explotar" && (sym.startsWith("XL") || (r.score >= 75 && r.relVol >= 1.2 && r.accum >= 1.2 && (r.wq === "improving" || r.wq === "leading")))],
   ];
   // ---------- Resumen de señales ----------
@@ -205,14 +209,15 @@ async function main() {
       const back = (n) => (i - n >= 0 && at(i - n) && closes[i - n] ? (p0 / at(i - n) - closes[i] / closes[i - n]) * 100 : null);
       const fwd = (h) => (i + h < dates.length && at(i + h) && closes[i + h] ? ((at(i + h) / p0) - (closes[i + h] / closes[i])) * 100 : null);
       let hi = 0; for (let k = Math.max(0, i - 250); k <= i; k++) { const v = at(k); if (v > hi) hi = v; }
+      let e20 = null, e200 = null; for (let k = Math.max(0, i - 600); k <= i; k++) { const v = at(k); if (!v) continue; e20 = e20 == null ? v : v * (2 / 21) + e20 * (19 / 21); e200 = e200 == null ? v : v * (2 / 201) + e200 * (199 / 201); }
       const rs = [], re = []; for (let k = i - 59; k <= i; k++) { if (k < 1) continue; const a1 = at(k), a0 = at(k - 1); if (a1 && a0 && closes[k] && closes[k - 1]) { rs.push(a1 / a0 - 1); re.push(closes[k] / closes[k - 1] - 1); } }
       const mr = avg(rs), me = avg(re); let cov = 0, ve = 0; rs.forEach((x, k) => { cov += (x - mr) * (re[k] - me); ve += (re[k] - me) ** 2; });
-      st2.push({ s, score: scoresAt(spy[i].t).get(s) ?? null, rs20: back(20), rs60: back(60), rs120: back(120), d52: hi ? (p0 / hi - 1) * 100 : null, beta: ve ? cov / ve : null, f20: fwd(20), f40: fwd(40), f60: fwd(60) });
+      st2.push({ s, emaOk: p0 > e20 && p0 > e200, score: scoresAt(spy[i].t).get(s) ?? null, rs20: back(20), rs60: back(60), rs120: back(120), d52: hi ? (p0 / hi - 1) * 100 : null, beta: ve ? cov / ve : null, f20: fwd(20), f40: fwd(40), f60: fwd(60) });
     }
     // Combinación: ranking de fuerza relativa 6 meses + ranking de score (ambos de 0 a 1)
     const rk = (k) => { const v = st2.filter((m) => m[k] != null).sort((a, b) => a[k] - b[k]); v.forEach((m, j) => (m["r_" + k] = v.length > 1 ? j / (v.length - 1) : 0.5)); };
     rk("rs120"); rk("score");
-    for (const m of st2) { m.combo = m.r_rs120 != null && m.r_score != null ? (m.r_rs120 + m.r_score) / 2 : null; m.momQ = m.score != null && m.score >= 55 ? m.rs120 : null; }
+    for (const m of st2) { m.rsEma = m.emaOk ? m.rs120 : null; m.combo = m.r_rs120 != null && m.r_score != null ? (m.r_rs120 + m.r_score) / 2 : null; m.momQ = m.score != null && m.score >= 55 ? m.rs120 : null; }
     return st2;
   }
   // Las acciones se evalúan sobre la señal del usuario (Por explotar) y, como control, sobre fechas cualquiera (cada mes, todos los ETFs)
@@ -224,6 +229,7 @@ async function main() {
   // ---------- Qué acciones del sector rinden más ----------
   const RULES = [
     ["score", "Las 3 con mejor score fundamental del sector", 1],
+    ["rsEma", "Las 3 con más fuerza relativa 6 meses que están sobre EMA 20 y 200", 1],
     ["combo", "Las 3 mejores combinando fuerza relativa 6 meses + score", 1],
     ["momQ", "Las 3 con más fuerza relativa 6 meses entre las de score 55+", 1],
     ["rs20", "Las 3 con más fuerza relativa contra el sector (20 ruedas)", 1], ["rs60", "Las 3 con más fuerza relativa (60 ruedas)", 1], ["rs120", "Las 3 con más fuerza relativa (6 meses)", 1],

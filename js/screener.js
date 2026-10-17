@@ -82,7 +82,9 @@ const COLS = [
   { k: "ret", l: "ROIC/ROE", t: "ROIC; en bancos y aseguradoras, ROE" }, { k: "epsG", l: "Crec. EPS", t: METRICS.epsG.q }, { k: "revG", l: "Crec. ventas", t: METRICS.revG.q },
   { k: "fcfY", l: "FCF yld", t: METRICS.fcfY.q }, { k: "divY", l: "Div.", t: METRICS.divY.q }, { k: "fairUp", l: "Tu P. justo", t: "Distancia a tu precio justo" }, { k: "score", l: "Score" },
 ];
-const cell = (r, k, f, d) => `<span class="num ${r.edited?.has(k) ? "edited" : ""}">${fmt(r[k], f, d)}</span>`;
+const mq = (x, k) => { const p = x.pct?.[k]; if (p == null) return null; const a = x.abs?.[k]; return a != null ? p * 0.6 + a * 0.4 : p; };
+const mcol = (x, k) => { const q = mq(x, k); return q == null ? "" : q >= 60 ? "color:#4ade80" : q <= 40 ? "color:#f87171" : ""; };
+const cell = (r, k, f, d) => `<span class="num ${r.edited?.has(k) ? "edited" : ""}" style="${mcol(r, k)}">${fmt(r[k], f, d)}</span>`;
 function rowHtml(r) {
   const chg = ok(r.chg) ? `<span class="num ${r.chg >= 0 ? "pos" : "neg"}" data-live-chg="${esc(r.s)}" data-live-dec="1">${r.chg >= 0 ? "+" : ""}${nf(1).format(r.chg)}%</span>` : `<span class="na">—</span>`;
   const ret = r.sec === "fin" ? `<span class="num" title="ROE">${fmt(r.roe, "%")}</span>` : cell(r, "roic", "%");

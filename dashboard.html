@@ -14,8 +14,6 @@
   .sec-h h2 { margin:0; font-size:17px; font-weight:600; }
   .sec-h .sub { color:var(--dim); font-size:12.5px; }
   .sec-h a { color:#93c5fd; font-size:12.5px; text-decoration:none; }
-  .tiles { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
-  @media (max-width:1000px) { .tiles { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .tile { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:11px 13px; }
   .tile .n { color:var(--muted); font-size:12px; display:flex; justify-content:space-between; }
   .tile .p { font-size:19px; font-weight:600; margin-top:2px; }
@@ -61,6 +59,27 @@
   .fg { display:flex; align-items:center; gap:12px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .fg .n { font-size:26px; font-weight:700; width:44px; text-align:center; }
   .fg .m { flex:1; } .fg .meter { margin:6px 0 2px; }
+  .tape { position:sticky; top:0; z-index:4; overflow:hidden; background:#0d1526; border-bottom:1px solid var(--border); white-space:nowrap; }
+  html.embedded .tape { top:0; }
+  .tape-in { display:inline-flex; gap:0; padding:8px 0; animation:tape 70s linear infinite; }
+  .tape:hover .tape-in { animation-play-state:paused; }
+  @keyframes tape { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+  .tk-i { display:inline-flex; align-items:baseline; gap:7px; padding:0 18px; border-right:1px solid var(--border); font-size:13px; }
+  .tk-i .n { color:var(--muted); } .tk-i b { font-weight:600; font-variant-numeric:tabular-nums; } .tk-i .c { font-variant-numeric:tabular-nums; font-size:12.5px; }
+  @media (prefers-reduced-motion: reduce) { .tape-in { animation:none; } .tape { overflow-x:auto; } }
+  .gridMacro { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:12px; margin-top:4px; }
+  @media (max-width:1000px) { .gridMacro { grid-template-columns:1fr; } }
+  .fedTop { display:flex; gap:12px; align-items:stretch; }
+  .fedBig { background:var(--panel2); border-radius:12px; padding:12px 14px; flex:1; }
+  .fedBig .v { font-size:28px; font-weight:700; } .fedBig .l { color:var(--muted); font-size:12px; }
+  .pbar { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:8px 0 4px; background:var(--border); }
+  .pbar i { display:block; height:100%; }
+  .fedPath td { font-size:12.5px; padding:6px 8px; }
+  .fedNote { font-size:13px; line-height:1.6; background:var(--panel2); border-radius:12px; padding:10px 12px; margin-top:10px; }
+  .fedNote b { color:var(--text); }
+  .econ td { font-size:12.5px; padding:6px 8px; } .econ td.l { white-space:normal; }
+  .econ tr.next td { background:rgba(59,130,246,.07); }
+  .econ .tag { font-size:10.5px; padding:1px 7px; border-radius:99px; }
   .loading { color:var(--dim); font-size:13px; padding:8px 0; }
 </style>
 </head>
@@ -76,34 +95,38 @@
     <a href="/watchlist.html">Watchlist</a>
   </nav>
 </header>
+<div class="tape" id="tape" aria-label="Cotizaciones"><div class="tape-in" id="tapeIn"><span class="na" style="padding:0 16px">Cargando cotizaciones…</span></div></div>
 <main>
   <div class="top" style="margin-bottom:6px">
     <div><h1>Dashboard</h1><div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando el mercado…</span></div></div>
     <div class="actions"><button class="btn" id="btnReload">↻ Actualizar</button></div>
   </div>
 
-  <div class="tiles" id="tiles"><div class="loading">Cargando índices…</div></div>
+  <div class="gridMacro">
+    <div class="card" id="fed"><h3>Fed: qué descuenta el mercado</h3><div class="loading">Cargando…</div></div>
+    <div class="card"><h3>Calendario económico EE.UU. <span class="na" style="font-weight:400;font-size:12px">dato · estimado · resultado</span></h3><div id="econ" class="loading">Cargando…</div></div>
+  </div>
 
   <div class="grid3" style="margin-top:12px">
+    <div class="card"><h3>Candidatas del Screener <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/screener.html">Ver todas →</a></h3><div class="sub2">Score alto contra su industria y valuación favorable</div><div id="cands" class="loading">Cargando…</div></div>
+    <div class="card" id="curve"><h3>Tasas EE.UU.</h3><div class="loading">Cargando…</div></div>
     <div class="card" id="sentiment"><h3>Sentimiento</h3><div class="loading">Cargando…</div></div>
-    <div class="card" id="curve"><h3>Curva de tasas EE.UU.</h3><div class="loading">Cargando…</div></div>
-    <div class="card" id="breadth"><h3>Amplitud del universo CEDEAR</h3><div class="loading">Cargando…</div></div>
   </div>
 
   <div class="sec-h"><h2>Rotación sectorial acumulada</h2><div class="seg" id="ranges"></div></div>
   <div class="card"><div class="chartbox"><canvas id="relChart"></canvas></div><div class="legend" id="legend"></div>
     <div class="na" style="font-size:12px;margin-top:8px">Diferencia de rendimiento acumulado de cada sector contra el S&P 500 en el período. Tocá un sector para ocultarlo.</div></div>
 
-  <div class="grid2" style="margin-top:26px">
-    <div class="card"><h3>Mejores candidatas del Screener <a href="/screener.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todas →</a></h3><div class="sub2">Score alto contra su industria y valuación favorable · sin Argentina</div><div id="cands" class="loading">Cargando…</div></div>
-    <div class="card"><h3>Tu watchlist hoy <a href="/watchlist.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2" id="wlName"></div><div id="wl" class="loading">Cargando…</div></div>
-  </div>
-  <div class="card" style="margin-top:12px"><h3>Calendario de resultados <span class="na" style="font-weight:400;font-size:12px">próximos 30 días</span></h3><div class="sub2">Cuándo reportan tus acciones (watchlist y cartera) o todo el universo</div><div id="earn" class="loading">Cargando…</div></div>
   <div class="grid3" style="margin-top:12px">
-    <div class="card"><h3>Dólar y CEDEARs <a href="/cedears.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Ver todos →</a></h3><div class="sub2">CCL implícito: dónde conviene comprar hoy</div><div id="dolar" class="loading">Cargando…</div></div>
-    <div class="card"><h3>Tu cartera hoy <a href="/cartera.html" style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none">Abrir →</a></h3><div class="sub2">Valor, resultado del día y contra el S&P 500</div><div id="pf" class="loading">Cargando…</div></div>
+    <div class="card"><h3>Tu watchlist hoy <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/watchlist.html">Abrir →</a></h3><div class="sub2" id="wlName"></div><div id="wl" class="loading">Cargando…</div></div>
+    <div class="card" id="breadth"><h3>Amplitud del universo CEDEAR</h3><div class="loading">Cargando…</div></div>
     <div class="card"><h3>Cripto <span class="na" style="font-weight:400;font-size:12px">24/7</span></h3><div class="sub2">Bitcoin, Ethereum, Solana y el miedo del mercado cripto</div><div id="crypto" class="loading">Cargando…</div></div>
   </div>
+  <div class="grid2" style="margin-top:12px">
+    <div class="card"><h3>Dólar y CEDEARs <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/cedears.html">Ver todos →</a></h3><div class="sub2">CCL implícito: dónde conviene comprar hoy</div><div id="dolar" class="loading">Cargando…</div></div>
+    <div class="card"><h3>Tu cartera hoy <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/cartera.html">Abrir →</a></h3><div class="sub2">Valor, resultado del día y contra el S&P 500</div><div id="pf" class="loading">Cargando…</div></div>
+  </div>
+  <div class="card" style="margin-top:12px"><h3>Calendario de resultados <span class="na" style="font-weight:400;font-size:12px">próximos 30 días</span></h3><div class="sub2">Cuándo reportan tus acciones (watchlist y cartera) o todo el universo</div><div id="earn" class="loading">Cargando…</div></div>
 </main>
 <div id="toast" class="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>

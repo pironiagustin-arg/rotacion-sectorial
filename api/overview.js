@@ -5,8 +5,8 @@ import { quotes } from "./_screen.js";
 import { SECTOR_ETFS, INDUSTRY_ETFS } from "./_signals.js";
 
 const MARKET = [
-  ["SPY", "S&P 500"], ["QQQ", "Nasdaq 100"], ["IWM", "Russell 2000"], ["^VIX", "VIX"],
-  ["^TNX", "Tasa 10 años EE.UU."], ["DX-Y.NYB", "Dólar (DXY)"], ["GC=F", "Oro"], ["CL=F", "Petróleo WTI"],
+  ["SPY", "S&P 500"], ["QQQ", "Nasdaq 100"], ["DIA", "Dow Jones"], ["IWM", "Russell 2000"], ["^VIX", "VIX"],
+  ["^TNX", "Tasa 10 años EE.UU."], ["DX-Y.NYB", "Dólar (DXY)"], ["GC=F", "Oro"], ["CL=F", "Petróleo WTI"], ["BTC-USD", "Bitcoin"], ["ETH-USD", "Ethereum"],
   ["EEM", "Emergentes"], ["EWZ", "Brasil"],
 ];
 
@@ -104,7 +104,46 @@ async function chartView(req, res) {
   return res.status(200).json({ sym, pts: ts.map((t, i) => (vol ? [t * 1000, c[i] != null ? round(c[i], 4) : null, v[i] ?? 0] : [t * 1000, c[i] != null ? round(c[i], 4) : null])).filter((p) => p[1] != null) });
 }
 
+// GET /api/overview?view=macro -> calendario económico de EE.UU. (con estimado y resultado) y probabilidades de la Fed
+// a partir de los futuros de fed funds (misma lógica que CME FedWatch).
+const FOMC = ["2026-01-28", "2026-03-18", "2026-04-29", "2026-06-17", "2026-07-29", "2026-09-16", "2026-10-28", "2026-12-09", "2027-01-27", "2027-03-17", "2027-04-28", "2027-06-09", "2027-07-28", "2027-09-15", "2027-10-27", "2027-12-08"];
+const MCODE = "FGHJKMNQUVXZ";
+async function macroView(req, res) {
+  const j = (u, h = {}) => fetch(u, { headers: { "User-Agent": UA, ...h } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const now = new Date(), from = new Date(now - 12 * 864e5).toISOString(), to = new Date(+now + 35 * 864e5).toISOString();
+  const [cal, effr] = await Promise.all([
+    j(`https://economic-calendar.tradingview.com/events?from=${from}&to=${to}&countries=US`, { Origin: "https://www.tradingview.com" }),
+    j("https://markets.newyorkfed.org/api/rates/unsecured/effr/last/1.json"),
+  ]);
+  const events = (cal?.result || []).filter((e) => e.importance >= 1 && !/holiday|speech|speaks|minutes|press conference|election/i.test(e.title))
+    .map((e) => ({ t: Date.parse(e.date), title: e.title, period: e.period || "", actual: e.actual, forecast: e.forecast, previous: e.previous, unit: e.unit || "", scale: e.scale || "" }));
+  // Futuros de fed funds: tasa promedio implícita de cada mes = 100 - precio
+  const r0e = effr?.refRates?.[0], r0 = r0e?.percentRate ?? null;
+  const months = []; for (let k = 0; k < 14; k++) { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + k, 1)); months.push(d); }
+  const px = await Promise.all(months.map((d) => j(`https://query1.finance.yahoo.com/v8/finance/chart/ZQ${MCODE[d.getUTCMonth()]}${String(d.getUTCFullYear()).slice(2)}.CBT?range=5d&interval=1d`).then((x) => x?.chart?.result?.[0]?.meta?.regularMarketPrice ?? null)));
+  const R = new Map(months.map((d, i) => [`${d.getUTCFullYear()}-${d.getUTCMonth()}`, px[i] ? 100 - px[i] : null]));
+  const key = (d) => `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+  const meetings = []; let before = r0;
+  for (const ds of FOMC) {
+    const d = new Date(ds + "T00:00:00Z"); if (d < new Date(now - 864e5)) continue; if (meetings.length >= 7 || before == null) break;
+    const N = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate(), day = d.getUTCDate();
+    const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+    const nextHasMeeting = FOMC.some((x) => x.startsWith(next.toISOString().slice(0, 7)));
+    let after = null;
+    if (!nextHasMeeting && R.get(key(next)) != null) after = R.get(key(next));
+    else if (R.get(key(d)) != null) after = (R.get(key(d)) * N - before * day) / (N - day);
+    if (after == null) break;
+    const delta = after - before, steps = delta / 0.25;
+    const p = { cut: steps < 0 ? Math.min(1, -steps) : 0, hike: steps > 0 ? Math.min(1, steps) : 0 }; p.hold = Math.max(0, 1 - p.cut - p.hike);
+    meetings.push({ date: ds, implied: round(after, 3), change: round(delta * 100, 1), cumulative: r0 != null ? round((after - r0) * 100, 1) : null, pHike: round(p.hike * 100, 0), pCut: round(p.cut * 100, 0), pHold: round(p.hold * 100, 0), bigMove: Math.abs(steps) > 1 });
+    before = after;
+  }
+  res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=7200");
+  return res.status(200).json({ events, fed: { effr: r0, effrDate: r0e?.effectiveDate || null, target: r0e ? [r0e.targetRateFrom, r0e.targetRateTo] : null, meetings }, at: Date.now() });
+}
+
 export default async function handler(req, res) {
+  if (req.query?.view === "macro") return macroView(req, res);
   if (req.query?.view === "chart") return chartView(req, res);
   if (req.query?.s) return liveQuotes(req, res);
   if (req.query?.view === "hist") return histView(req, res);

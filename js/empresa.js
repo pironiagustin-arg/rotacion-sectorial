@@ -108,7 +108,7 @@ function oneLiner(r) {
 function vdMetrics(r, g) {
   const keys = Object.entries(r.weights).filter(([k]) => METRICS[k].g === g).sort((a, b) => b[1] - a[1]).map(([k]) => k);
   if (g === "Solidez" && !keys.length) keys.push("ndEbitda", "cr");
-  return keys.slice(0, 3).map((k) => `<div class="kv" title="${esc(METRICS[k].q)}"><span>${METRICS[k].l}</span><span class="num">${fmt(r[k], METRICS[k].f, METRICS[k].d)} <span class="na">· sector ${fmt(r.med[k], METRICS[k].f, METRICS[k].d)}</span></span></div>`).join("");
+  return keys.slice(0, 3).map((k) => `<div class="kv" title="${esc(METRICS[k].q)}"><span>${METRICS[k].l}</span><span class="num"><b style="${mcol(r, k)};font-weight:600">${fmt(r[k], METRICS[k].f, METRICS[k].d)}</b> <span class="na">· sector ${fmt(r.med[k], METRICS[k].f, METRICS[k].d)}</span></span></div>`).join("");
 }
 
 // ---------- Render ----------
@@ -202,7 +202,7 @@ function render() {
   <h2>Contra sus pares <span class="sub">${custom ? "Elegidos por vos" : `Las más grandes de ${esc(prof.l)} operables desde Argentina`}</span></h2>
   <div class="tablewrap"><table>
     <thead><tr><th class="l">Empresa</th><th>Score</th><th>Mkt cap</th>${cols.map((k) => `<th title="${esc(METRICS[k].q)}">${esc(METRICS[k].l)}</th>`).join("")}<th></th></tr></thead>
-    <tbody>${[r, ...peers].map((x) => `<tr class="${x === r ? "me" : "peer"}" data-s="${esc(x.s)}"><td class="l">${esc(x.ced || x.s)} <span class="na">${esc((x.n || "").slice(0, 22))}</span></td><td><span class="score ${scoreCls(x.score)}">${x.score ?? "—"}</span></td><td>${fmtCap(x.mcap)}</td>${cols.map((k) => `<td class="num">${fmt(x[k], METRICS[k].f, METRICS[k].d)}</td>`).join("")}<td>${x === r ? "" : `<button class="x" data-rmpeer="${esc(x.s)}" title="Quitar de la comparación" aria-label="Quitar ${esc(x.ced || x.s)}">×</button>`}</td></tr>`).join("")}
+    <tbody>${[r, ...peers].map((x) => `<tr class="${x === r ? "me" : "peer"}" data-s="${esc(x.s)}"><td class="l">${esc(x.ced || x.s)} <span class="na">${esc((x.n || "").slice(0, 22))}</span></td><td><span class="score ${scoreCls(x.score)}">${x.score ?? "—"}</span></td><td>${fmtCap(x.mcap)}</td>${cols.map((k) => `<td class="num" style="${mcol(x, k)}">${fmt(x[k], METRICS[k].f, METRICS[k].d)}</td>`).join("")}<td>${x === r ? "" : `<button class="x" data-rmpeer="${esc(x.s)}" title="Quitar de la comparación" aria-label="Quitar ${esc(x.ced || x.s)}">×</button>`}</td></tr>`).join("")}
       <tr class="med"><td class="l na">Mediana de ${esc(r.peerLabel)}</td><td></td><td></td>${cols.map((k) => `<td class="num na">${fmt(r.med[k], METRICS[k].f, METRICS[k].d)}</td>`).join("")}<td></td></tr>
     </tbody></table></div>
   <div class="actions" style="margin-top:10px">
@@ -265,12 +265,19 @@ function histMini(r) {
   return r.histKeys.slice(0, 3).map((k) => { const h = r.hist[k], m = METRICS[k]; return `<div class="kv" title="${esc(m.q)}"><span>${m.l}</span><span class="num">${fmt(h.cur, m.f, m.d)} <span class="na">· prom. ${fmt(h.avg, m.f, m.d)}</span></span></div>`; }).join("");
 }
 
+// Color del valor: verde si la métrica es buena (contra sus pares y en términos absolutos), rojo si es mala
+function mq(x, k) {
+  const p = x.pct?.[k]; if (p == null) return null;
+  const a = x.abs?.[k];
+  return a != null ? p * 0.6 + a * 0.4 : p;
+}
+const mcol = (x, k) => { const q = mq(x, k); return q == null ? "" : q >= 60 ? "color:#4ade80" : q <= 40 ? "color:#f87171" : "color:#fbbf24"; };
 function metricBox(r, k, m, tot) {
   const p = r.pct[k], w = r.weights[k], h = r.hist[k];
   const better = h && ok(h.diff) ? (m.dir > 0 ? h.diff > 0 : h.diff < 0) : null;
   return `<div class="m">
     <div class="l"><span>${m.l}</span><span class="w">${w ? `pesa ${nf(0).format((w / tot) * 100)}%` : ""}${p != null ? ` · P${p}` : ""}</span></div>
-    <div class="v num ${r.edited.has(k) ? "edited" : ""}" data-edit="${k}" title="Clic para corregir">${fmt(r[k], m.f, m.d)}</div>
+    <div class="v num ${r.edited.has(k) ? "edited" : ""}" data-edit="${k}" title="Clic para corregir" style="${mcol(r, k)}">${fmt(r[k], m.f, m.d)}</div>
     ${p != null ? `<div class="pb" title="Percentil contra ${esc(r.peerLabel)}"><div style="width:${Math.max(p, 3)}%;background:${COL[lvl(p)]}"></div></div>` : `<div class="pb"></div>`}
     <div class="med">Mediana pares: ${fmt(r.med[k], m.f, m.d)}${r.edited.has(k) ? ` · Yahoo: ${fmt(P.rawMap.get(r.s)?.[k], m.f, m.d)}` : ""}</div>
     ${h ? `<div class="med">Promedio últimos ${h.n} años: ${fmt(h.avg, m.f, m.d)} <span style="color:${better ? COL.good : COL.bad}">(${h.diff >= 0 ? "+" : ""}${nf(0).format(h.diff)}%)</span></div>${spark(h, m)}` : ""}

@@ -109,7 +109,27 @@ export const SIGNAL_CSS = `
 .sg-lead a{font-size:12px;color:#e2e8f0;text-decoration:none;background:#16213a;border:1px solid #2b3a5c;border-radius:8px;padding:3px 8px}
 .sg-lead a:hover{border-color:#3b82f6}.sg-lead a span{color:#86efac;margin-left:4px}
 .sg-note{font-size:12px;color:#94a3b8;background:#16213a;border:1px solid #1e2a44;border-radius:10px;padding:8px 12px;margin-bottom:10px;line-height:1.5}
-.sg-note a{color:#93c5fd}`;
+.sg-note a{color:#93c5fd}
+.sg-alert{border:1px solid #22c55e;background:linear-gradient(135deg,rgba(34,197,94,.16),rgba(34,197,94,.03));border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:0 0 0 3px rgba(34,197,94,.08);font-family:Inter,sans-serif;animation:sgGlow 2.4s ease-in-out infinite}
+@keyframes sgGlow{50%{box-shadow:0 0 0 6px rgba(34,197,94,.14)}}
+.sg-al-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.sg-al-badge{background:#22c55e;color:#052e16;font-weight:800;font-size:11.5px;letter-spacing:.06em;border-radius:6px;padding:4px 8px}
+.sg-al-t{font-size:18px;color:#e2e8f0}.sg-al-t b{font-size:20px}.sg-al-s{margin-left:auto;color:#86efac;font-weight:600;font-size:13px}
+.sg-al-f{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:12.5px;color:#cbd5e1;align-items:center}
+.sg-ema{font-size:11px;border-radius:99px;padding:2px 8px;margin-right:4px;white-space:nowrap}.sg-ema.ok{background:#14532d;color:#86efac}.sg-ema.no{background:#3f1d1d;color:#fca5a5}
+.sg-lead a em{font-style:normal;font-size:10.5px;margin-left:6px}.sg-lead a em.ok{color:#86efac}.sg-lead a em.no{color:#fca5a5}
+.sg-noalert{font-size:13px;color:#94a3b8;background:#16213a;border:1px dashed #2b3a5c;border-radius:12px;padding:12px 14px;margin-bottom:12px;line-height:1.5}
+.sg-sub{font-size:12px;color:#94a3b8;margin:4px 0 6px}
+.sg-tw{overflow-x:auto;border:1px solid #1e2a44;border-radius:12px}
+table.sg-t{width:100%;border-collapse:collapse;font-family:Inter,sans-serif;font-size:13px;color:#e2e8f0}
+table.sg-t th{font-size:11.5px;font-weight:500;color:#94a3b8;text-align:right;padding:8px 10px;border-bottom:1px solid #1e2a44;white-space:nowrap}
+table.sg-t td{text-align:right;padding:8px 10px;border-bottom:1px solid #16213a;white-space:nowrap;font-variant-numeric:tabular-nums}
+table.sg-t .l{text-align:left}table.sg-t tr.sg-r{cursor:pointer}table.sg-t tr.sg-r:hover td{background:#16213a}
+table.sg-t tr.sg-x td{background:#0f1830}
+.sg-pill{font-size:11px;border-radius:99px;padding:2px 8px;font-weight:600}
+.sg-bar{display:inline-block;width:60px;height:5px;background:#1e2a44;border-radius:3px;overflow:hidden;vertical-align:middle;margin-right:6px}.sg-bar i{display:block;height:100%}
+.sg-dim{color:#64748b;font-size:12px}.sg-ind{font-size:10.5px;color:#94a3b8;border:1px solid #2b3a5c;border-radius:99px;padding:0 6px}
+.sg-mini{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:#cbd5e1;margin-top:10px;align-items:center}.sg-mini a{color:#93c5fd;text-decoration:none;margin-left:auto}`;
 
 // Avisos del navegador cuando aparece una señal fuerte nueva
 const SEEN = "rrg_signal_seen";
@@ -133,29 +153,54 @@ export async function askNotifications() {
 // Panel completo para las páginas de RRG
 export async function mountPanel(el, { symbols = null, title, link } = {}) {
   if (!document.getElementById("sg-css")) { const st = document.createElement("style"); st.id = "sg-css"; st.textContent = SIGNAL_CSS + `.toast{position:fixed;bottom:20px;right:20px;background:#16213a;border:1px solid #2b3a5c;color:#e2e8f0;padding:10px 14px;border-radius:10px;display:none;z-index:60;font-family:Inter,sans-serif;font-size:13px}.toast.show{display:block}`; document.head.appendChild(st); }
-  el.innerHTML = `<div class="sg-top"><div><h3>${esc(title || "Señales de rotación")}</h3><div class="sub">Improving con volumen que se acerca a Leading · RRG diario de 1 año, confirmado con el semanal</div></div>
+  el.innerHTML = `<div class="sg-top"><div><h3>${esc(title || "Señales de rotación")}</h3><div class="sub">${symbols ? "Improving con volumen que se acerca a Leading" : "Alerta de compra cuando un sector pasa a Leading con volumen comprador y tendencia (EMA 20 y 200)"}</div></div>
     <div style="display:flex;gap:8px"><button class="sg-btn" id="sgNotif">🔔 Avisarme</button><button class="sg-btn" id="sgAll">Ver todos</button></div></div><div id="sgList" class="sg-empty">Calculando señales…</div>${symbols ? "" : `<div class="sg-live"><div class="sg-lh">Seguimiento de las alertas abiertas <a href="/backtest.html#rrg">ver también las cerradas →</a></div><div id="sgLive" class="sg-empty">Cargando…</div></div>`}`;
   if (!symbols) { if (!document.getElementById("rl-css")) { const st = document.createElement("style"); st.id = "rl-css"; st.textContent = RL_CSS + ".sg-live{margin-top:16px;padding-top:12px;border-top:1px solid #1e2a44}.sg-lh{font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:8px;display:flex;justify-content:space-between}.sg-lh a{font-size:12px;font-weight:400;color:#93c5fd;text-decoration:none}"; document.head.appendChild(st); } renderRrgLive(el.querySelector("#sgLive"), { compact: true }); }
   el.querySelector("#sgNotif").onclick = askNotifications;
   let showAll = false, list = [], hist = {};
   // Líderes del sector para las señales fuertes (se cachean)
   const LEAD = {};
-  const fillLeaders = () => el.querySelectorAll("[data-leaders]").forEach(async (box) => {
+  const fillOne = async (box) => {
+    if (!box || box.dataset.done) return; box.dataset.done = "1";
     try {
       const sym = box.dataset.leaders;
       const r = await (LEAD[sym] ||= fetch(`/api/signals?leaders=${encodeURIComponent(sym)}`).then((x) => x.json()));
       const L = (r.leaders || []).slice(0, 3);
-      box.querySelector(".sg-d").outerHTML = L.length ? L.map((x) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}" title="${esc(x.n)} · ${x.ret >= 0 ? "+" : ""}${x.ret}% en 6 meses">${esc(x.ced || x.s)}<span>${x.rs >= 0 ? "+" : ""}${nf(0).format(x.rs)}% vs sector</span></a>`).join("") : `<span class="sg-d">Sin acciones del sector en el universo.</span>`;
+      box.querySelector(".sg-d").outerHTML = L.length ? L.map((x) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}" title="${esc(x.n)} · ${x.ret >= 0 ? "+" : ""}${x.ret}% en 6 meses · ${x.e20 ? "sobre" : "debajo de"} EMA 20 · ${x.e200 ? "sobre" : "debajo de"} EMA 200">${esc(x.ced || x.s)}<span>${x.rs >= 0 ? "+" : ""}${nf(0).format(x.rs)}% vs sector</span><em class="${x.e20 && x.e200 ? "ok" : "no"}">${x.e20 && x.e200 ? "tendencia ✓" : "bajo EMA"}</em></a>`).join("") : `<span class="sg-d">Sin acciones del sector en el universo.</span>`;
     } catch { box.querySelector(".sg-d").textContent = "No se pudieron calcular."; }
-  });
+  };
+  const fillLeaders = () => el.querySelectorAll("[data-leaders]").forEach((b) => fillOne(b));
+  // Vista minimalista para sectores e industrias: alerta destacada arriba + lista compacta
+  const emaB = (s) => `<span class="sg-ema ${s.aboveEma20 ? "ok" : "no"}" title="Precio ${s.aboveEma20 ? "sobre" : "debajo de"} la media exponencial de 20 ruedas">EMA 20 ${s.aboveEma20 ? "✓" : "✗"}</span><span class="sg-ema ${s.aboveEma200 ? "ok" : "no"}" title="Precio ${s.aboveEma200 ? "sobre" : "debajo de"} la media exponencial de 200 ruedas">EMA 200 ${s.aboveEma200 ? "✓" : "✗"}</span>`;
+  const pctS = (v) => (v == null ? "—" : `${v >= 1 ? "+" : ""}${nf(0).format((v - 1) * 100)}%`);
+  const alertBox = (s) => `<div class="sg-alert">
+      <div class="sg-al-h"><span class="sg-al-badge">ALERTA DE COMPRA</span><span class="sg-al-t"><b>${esc(s.symbol)}</b> ${esc(s.name || "")}</span><span class="sg-al-s">Fuerza ${s.score}/100</span></div>
+      <div class="sg-al-f"><span>Llegaría a Leading en ~${s.eta ?? "—"} ruedas</span><span>Volumen ${pctS(s.relVol)}</span><span>Acumulación ${s.accum != null ? nf(2).format(s.accum) + "x" : "—"}</span><span>Semanal: ${esc(s.weekly || "—")}</span>${emaB(s)}</div>
+      <div class="sg-lead" data-leaders="${esc(s.symbol)}"><span class="sg-lt">Qué comprar: las 3 líderes del sector a 6 meses (mantener ~60 ruedas)</span><span class="sg-d">Buscando…</span></div></div>`;
+  const rowS = (s) => { const st = STATUS[s.status]; return `<tr class="sg-r" data-sym="${esc(s.symbol)}"><td class="l"><b>${esc(s.symbol)}</b> <span class="sg-n">${esc(s.name || "")}</span>${s.group === "industria" ? ' <span class="sg-ind">industria</span>' : ""}</td>
+      <td class="l"><span class="sg-pill" style="background:${st.bg};color:${st.tx}">${st.l}</span></td>
+      <td><div class="sg-bar"><i style="width:${Math.min(100, s.score)}%;background:${st.c}"></i></div><span class="sg-dim">${s.score}</span></td>
+      <td>${s.quadrant === "improving" && s.eta ? `~${s.eta} r.` : "—"}</td><td>${pctS(s.relVol)}</td><td>${s.accum != null ? nf(2).format(s.accum) + "x" : "—"}</td><td class="l">${emaB(s)}</td>
+      <td class="l sg-dim">${esc(s.strictNote || "")}</td></tr>
+      <tr class="sg-x" data-x="${esc(s.symbol)}" hidden><td colspan="8"><div class="sg-lead" data-leaders="${esc(s.symbol)}" data-lazy="1"><span class="sg-lt">Líderes del sector a 6 meses</span><span class="sg-d">Buscando…</span></div></td></tr>`; };
   const draw = () => {
     const box = el.querySelector("#sgList");
-    // Tarjetas: lo que está cargando en Improving (lo que pediste ver). Los que ya cruzaron o pierden fuerza van en una línea.
-    const cards = list.filter((s) => (showAll ? ["por_explotar", "cargando", "temprano", "estancado"] : ["por_explotar", "cargando"]).includes(s.status));
-    const chips = signalChips(list, "cruzo", "Ya cruzaron a Leading:") + signalChips(list, "perdiendo", "Perdiendo fuerza:");
     box.className = "";
-    setTimeout(fillLeaders, 0);
-    box.innerHTML = (symbols ? "" : `<div class="sg-note"><b>Cómo usar la señal (backtest 2018-2026):</b> sola, la señal del sector no le ganó al S&P 500. Lo que funcionó fue comprar las <b>3 acciones del sector con más fuerza relativa a 6 meses</b> cuando el sector da "Por explotar" y mantenerlas unas 60 ruedas: ~+4% contra el SPY por operación, 63% de aciertos. <a href="/backtest.html#rrg">Ver el backtest →</a></div>`) + (cards.length ? `<div class="sg-wrap">${cards.map((s) => signalCard(s, hist, { link })).join("")}</div>` : `<div class="sg-empty">${list.length ? "Ahora no hay ninguno cargando en Improving hacia Leading." + (showAll ? "" : " Tocá 'Ver todos' para ver los que recién arrancan.") : "Sin datos."}</div>`) + chips;
+    if (symbols) {
+      const cards = list.filter((s) => (showAll ? ["por_explotar", "cargando", "temprano", "estancado"] : ["por_explotar", "cargando"]).includes(s.status));
+      const chips = signalChips(list, "cruzo", "Ya cruzaron a Leading:") + signalChips(list, "perdiendo", "Perdiendo fuerza:");
+      setTimeout(fillLeaders, 0);
+      box.innerHTML = (cards.length ? `<div class="sg-wrap">${cards.map((s) => signalCard(s, hist, { link })).join("")}</div>` : `<div class="sg-empty">${list.length ? "Ahora no hay ninguna cargando en Improving hacia Leading." : "Sin datos."}</div>`) + chips;
+      return;
+    }
+    const alerts = list.filter((s) => s.status === "por_explotar");
+    const rest = list.filter((s) => (showAll ? ["cargando", "temprano", "estancado"] : ["cargando"]).includes(s.status)).sort((a, b) => (a.group === "industria") - (b.group === "industria") || b.score - a.score);
+    const lead = list.filter((s) => s.status === "cruzo").map((s) => s.symbol), lose = list.filter((s) => s.status === "perdiendo").map((s) => s.symbol);
+    box.innerHTML = (alerts.length ? alerts.map(alertBox).join("") : `<div class="sg-noalert">Hoy no hay alertas de compra. Para que haya una, un sector XL tiene que estar a punto de pasar a Leading, con volumen comprador y el precio sobre las EMA 20 y 200 (en industrias, además, con una señal muy clara).</div>`)
+      + (rest.length ? `<div class="sg-sub">En seguimiento (todavía no son alerta) · tocá una fila para ver sus líderes</div><div class="sg-tw"><table class="sg-t"><thead><tr><th class="l">Sector</th><th class="l">Estado</th><th>Fuerza</th><th>A Leading</th><th>Volumen</th><th>Acumulación</th><th class="l">Tendencia</th><th class="l"></th></tr></thead><tbody>${rest.map(rowS).join("")}</tbody></table></div>` : "")
+      + `<div class="sg-mini">${lead.length ? `<span><b style="color:#93c5fd">Ya en Leading:</b> ${lead.join(" · ")}</span>` : ""}${lose.length ? `<span><b style="color:#fca5a5">Perdiendo fuerza:</b> ${lose.join(" · ")}</span>` : ""}<a href="/backtest.html#rrg">Cómo funcionó la señal en el pasado →</a></div>`;
+    setTimeout(() => el.querySelectorAll("[data-leaders]:not([data-lazy])").forEach((b) => fillOne(b)), 0);
+    box.querySelectorAll("tr.sg-r").forEach((tr) => (tr.onclick = () => { const x = box.querySelector(`tr[data-x="${CSS.escape(tr.dataset.sym)}"]`); x.hidden = !x.hidden; if (!x.hidden) fillOne(x.querySelector("[data-leaders]")); }));
   };
   el.querySelector("#sgAll").onclick = () => { showAll = !showAll; el.querySelector("#sgAll").textContent = showAll ? "Ver solo las fuertes" : "Ver todos"; draw(); };
   try {

@@ -103,7 +103,12 @@ export async function computeSignals(symbols, names = {}, benchmark = "SPY", { s
     if (w && bW) { const wp = alignTo(bW, w); wtrail = rrg(wp.map((p) => p?.c ?? null), bW.pts.map((p) => p.c), bW.pts.map((p) => p.t)); }
     const a = analyze(trail, wtrail, px, bD.pts);
     if (!a) return;
-    if (strict.has(s) && a.status === "por_explotar" && !STRICT_OK(a)) { a.status = "cargando"; a.strictNote = "Industria: falta una señal más clara para alerta"; }
+    // Tendencia: precio sobre la EMA de 20 y de 200 ruedas (en el backtest filtra falsas alarmas)
+    const cl = d.pts.map((p) => p.c), ema = (n) => { const k = 2 / (n + 1); let e = cl[0]; for (const c of cl) e = c * k + e * (1 - k); return e; };
+    const e20 = ema(20), e200 = ema(200), lastC = cl.at(-1);
+    a.ema20 = round(e20, 2); a.ema200 = round(e200, 2); a.aboveEma20 = lastC > e20; a.aboveEma200 = lastC > e200;
+    if (a.status === "por_explotar" && !(a.aboveEma20 && a.aboveEma200)) { a.status = "cargando"; a.strictNote = `Falta superar la EMA ${!a.aboveEma20 && !a.aboveEma200 ? "20 y 200" : !a.aboveEma20 ? "20" : "200"} para dar alerta`; }
+    if (strict.has(s) && a.status === "por_explotar" && !STRICT_OK(a)) { a.status = "cargando"; a.strictNote = "Industria: falta una señal más clara para dar alerta"; }
     const last = d.pts.at(-1), prev = d.pts.at(-2);
     out.push({ symbol: s, name: names[s] || d.meta.shortName || s, price: round(last?.c, 2), chg: prev ? round((last.c / prev.c - 1) * 100, 2) : null, ...a });
   });

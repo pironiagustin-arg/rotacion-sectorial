@@ -9,11 +9,11 @@ import { UA } from "./_lib.js";
 const SECTOR_OF = { XLK: "tech", XLF: "fin", XLV: "health", XLY: "discr", XLP: "staples", XLE: "energy", XLI: "ind", XLB: "mat", XLU: "util", XLRE: "re", XLC: "comm" };
 const IND_RE = { SMH: /Semiconductor/, IGV: /Software/, CIBR: /Software - Infrastructure|Security/, XBI: /Biotechnology/, IHI: /Medical (Devices|Instruments)/, KRE: /Banks - Regional/, IAI: /Capital Markets|Financial Data/, ITA: /Aerospace/, XHB: /Residential Construction|Building Products|Home Improvement/, XRT: /^(?!REIT).*Retail/, XOP: /Oil & Gas E&P/, GDX: /Gold/, COPX: /Copper/, URA: /Uranium/, TAN: /Solar/, JETS: /Airlines/ };
 async function closes6m(sym) {
-  const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=6mo&interval=1d`, { headers: { "User-Agent": UA } });
+  const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1y&interval=1d`, { headers: { "User-Agent": UA } });
   if (!r.ok) return null;
   const x = (await r.json())?.chart?.result?.[0];
   const c = (x?.indicators?.adjclose?.[0]?.adjclose || x?.indicators?.quote?.[0]?.close || []).filter((v) => v != null);
-  return c.length > 60 ? c : null;
+  return c.length > 130 ? c : null;
 }
 // Las acciones del sector con más fuerza relativa a 6 meses contra el ETF (la regla que mejor funcionó en el backtest)
 async function leaders(etf) {
@@ -30,7 +30,13 @@ async function leaders(etf) {
   for (let i = 0; i < members.length; i += 10) {
     const chunk = members.slice(i, i + 10);
     const res = await Promise.all(chunk.map((u) => closes6m(u[0]).catch(() => null)));
-    chunk.forEach((u, k) => { const c = res[k]; if (!c) return; const rs = ((c.at(-1) / c[0]) - (base.at(-1) / base[0])) * 100; out.push({ s: u[0], ced: u[5], n: u[1], rs: Math.round(rs * 10) / 10, ret: Math.round((c.at(-1) / c[0] - 1) * 1000) / 10 }); });
+    chunk.forEach((u, k) => {
+      const c = res[k]; if (!c) return;
+      const i0 = Math.max(0, c.length - 127), b0 = Math.max(0, base.length - 127);
+      const rs = ((c.at(-1) / c[i0]) - (base.at(-1) / base[b0])) * 100;
+      const ema = (n) => { const kk = 2 / (n + 1); let e = c[0]; for (const x of c) e = x * kk + e * (1 - kk); return e; };
+      out.push({ s: u[0], ced: u[5], n: u[1], rs: Math.round(rs * 10) / 10, ret: Math.round((c.at(-1) / c[i0] - 1) * 1000) / 10, e20: c.at(-1) > ema(20), e200: c.at(-1) > ema(200) });
+    });
   }
   return out.sort((a, b) => b.rs - a.rs).slice(0, 5);
 }
