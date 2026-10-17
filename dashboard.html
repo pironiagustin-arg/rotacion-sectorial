@@ -5,131 +5,142 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/app.css">
 <script src="/js/embed.js"></script>
 <style>
-  main { max-width:1500px; }
-  .sec-h { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin:26px 0 10px; flex-wrap:wrap; }
-  .sec-h h2 { margin:0; font-size:17px; font-weight:600; }
-  .sec-h .sub { color:var(--dim); font-size:12.5px; }
-  .sec-h a { color:#93c5fd; font-size:12.5px; text-decoration:none; }
-  .tile { background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:11px 13px; }
-  .tile .n { color:var(--muted); font-size:12px; display:flex; justify-content:space-between; }
-  .tile .p { font-size:19px; font-weight:600; margin-top:2px; }
-  .tile .c { font-size:12.5px; margin-top:1px; }
-  .tile svg { display:block; margin-top:6px; }
-  .grid3 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:12px; }
-  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(440px,1fr)); gap:12px; }
-  .card h3 { margin:0 0 4px; font-size:14.5px; font-weight:600; display:flex; justify-content:space-between; gap:8px; }
-  .card .sub2 { color:var(--dim); font-size:12px; margin-bottom:10px; }
-  .gauge { display:flex; align-items:center; gap:16px; }
-  .gauge .big { font-size:36px; font-weight:700; }
-  .meter { height:10px; border-radius:6px; background:linear-gradient(90deg,#ef4444,#eab308 50%,#22c55e); position:relative; margin:10px 0 4px; }
-  .meter i { position:absolute; top:-4px; width:4px; height:18px; background:#fff; border-radius:2px; }
-  .kv { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; border-top:1px solid var(--border); }
-  .kv span:first-child { color:var(--muted); }
-  .curve { display:flex; align-items:flex-end; gap:8px; height:90px; margin-top:6px; }
-  .curve div { flex:1; background:#1d4ed8; border-radius:6px 6px 0 0; position:relative; min-height:4px; }
-  .curve div b { position:absolute; top:-18px; left:0; right:0; text-align:center; font-size:11.5px; font-weight:600; color:var(--text); }
-  .curve-l { display:flex; gap:8px; } .curve-l span { flex:1; text-align:center; color:var(--dim); font-size:11px; margin-top:4px; }
-  .seg { display:inline-flex; border:1px solid var(--border2); border-radius:10px; overflow:hidden; }
-  .seg button { background:transparent; border:none; color:var(--muted); padding:6px 11px; font-size:12px; cursor:pointer; font-family:inherit; }
-  .seg button.on { background:var(--accent); color:#fff; }
-  .chartbox { position:relative; height:360px; }
-  .legend { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
-  .legend span { font-size:11.5px; padding:3px 9px; border-radius:99px; border:1px solid var(--border); cursor:pointer; user-select:none; display:inline-flex; align-items:center; gap:6px; color:var(--muted); }
-  .legend span.off { opacity:.35; } .legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
-  .mini td { font-size:12.5px; padding:7px 8px; }
-  .mini tr { cursor:pointer; } .mini tr:hover td { background:var(--panel2); }
-  .breadth { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-  .breadth div { background:var(--panel2); border-radius:10px; padding:9px 11px; }
-  .breadth .v { font-size:20px; font-weight:600; } .breadth .l { color:var(--dim); font-size:11.5px; }
-  .bar2 { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin-top:6px; } .bar2 b { display:block; height:100%; background:var(--good); }
-  .ccl3 { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px; }
-  .ccl3 a { display:flex; align-items:center; gap:9px; background:var(--panel2); border-radius:10px; padding:9px 10px; text-decoration:none; color:var(--text); border:1px solid transparent; }
-  .ccl3 a:hover { border-color:var(--border2); }
-  .ccl3 b { font-size:13.5px; display:block; } .ccl3 small { font-size:12px; }
-  .ccl3 .rk { font-size:10.5px; color:var(--dim); }
-  .cclh { font-size:12px; color:var(--muted); margin-top:12px; }
-  .cx-main { display:flex; justify-content:space-between; align-items:flex-end; gap:10px; }
-  .cx-main .p { font-size:24px; font-weight:700; } .cx-chg { display:flex; gap:10px; font-size:12px; color:var(--muted); margin-top:2px; }
-  .cx-row { display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:7px 0; border-top:1px solid var(--border); }
-  .cx-row .tk { display:flex; align-items:center; gap:8px; }
-  .fg { display:flex; align-items:center; gap:12px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
-  .fg .n { font-size:26px; font-weight:700; width:44px; text-align:center; }
-  .fg .m { flex:1; } .fg .meter { margin:6px 0 2px; }
-  .tape { position:sticky; top:0; z-index:4; overflow:hidden; background:#0d1526; border-bottom:1px solid var(--border); white-space:nowrap; }
-  html.embedded .tape { top:0; }
-  .tape-in { display:inline-flex; gap:0; padding:8px 0; animation:tape 70s linear infinite; }
+  main { max-width:1440px; padding-top:14px; }
+  /* Cinta de cotizaciones */
+  .tape { position:sticky; top:0; z-index:4; overflow:hidden; background:#0a1120; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .tape-in { display:inline-flex; padding:9px 0; animation:tape 80s linear infinite; }
   .tape:hover .tape-in { animation-play-state:paused; }
   @keyframes tape { from { transform:translateX(0); } to { transform:translateX(-50%); } }
-  .tk-i { display:inline-flex; align-items:baseline; gap:7px; padding:0 18px; border-right:1px solid var(--border); font-size:13px; }
-  .tk-i .n { color:var(--muted); } .tk-i b { font-weight:600; font-variant-numeric:tabular-nums; } .tk-i .c { font-variant-numeric:tabular-nums; font-size:12.5px; }
+  .tk-i { display:inline-flex; align-items:baseline; gap:8px; padding:0 20px; font-size:13px; }
+  .tk-i + .tk-i { border-left:1px solid #18233d; }
+  .tk-i .n { color:var(--dim); font-size:12px; } .tk-i b { font-weight:600; font-variant-numeric:tabular-nums; } .tk-i .c { font-variant-numeric:tabular-nums; font-size:12.5px; }
   @media (prefers-reduced-motion: reduce) { .tape-in { animation:none; } .tape { overflow-x:auto; } }
-  .gridMacro { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.25fr); gap:12px; margin-top:4px; }
-  @media (max-width:1000px) { .gridMacro { grid-template-columns:1fr; } }
-  .fedTop { display:flex; gap:12px; align-items:stretch; }
-  .fedBig { background:var(--panel2); border-radius:12px; padding:12px 14px; flex:1; }
-  .fedBig .v { font-size:28px; font-weight:700; } .fedBig .l { color:var(--muted); font-size:12px; }
-  .pbar { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:8px 0 4px; background:var(--border); }
+
+  .head { display:flex; justify-content:space-between; align-items:center; margin:2px 0 14px; }
+  .head h1 { font-size:20px; margin:0; }
+  .head .status { margin:0; }
+  /* Grilla bento */
+  .bento { display:grid; grid-template-columns:repeat(12,minmax(0,1fr)); gap:14px; }
+  .s3 { grid-column:span 3; } .s4 { grid-column:span 4; } .s5 { grid-column:span 5; } .s6 { grid-column:span 6; } .s7 { grid-column:span 7; } .s8 { grid-column:span 8; } .s12 { grid-column:span 12; }
+  @media (max-width:1150px) { .s3, .s4, .s5 { grid-column:span 6; } .s6, .s7, .s8 { grid-column:span 12; } }
+  @media (max-width:720px) { .bento > * { grid-column:span 12 !important; } }
+  .tile { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:16px 18px; min-width:0; }
+  .lbl { display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); margin-bottom:12px; }
+  .lbl a { color:#93c5fd; text-decoration:none; letter-spacing:0; text-transform:none; font-weight:500; font-size:12px; }
+  .big { font-size:34px; font-weight:800; line-height:1; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .cap { color:var(--muted); font-size:13px; margin-top:4px; }
+  .dim { color:var(--dim); } .pos { color:#4ade80; } .neg { color:#f87171; }
+  .loading { color:var(--dim); font-size:13px; }
+  .seg { display:inline-flex; border:1px solid var(--border2); border-radius:8px; overflow:hidden; }
+  .seg button { background:transparent; border:none; color:var(--muted); padding:4px 9px; font-size:11.5px; cursor:pointer; font-family:inherit; text-transform:none; letter-spacing:0; }
+  .seg button.on { background:var(--accent); color:#fff; }
+
+  /* Fed */
+  .pbar { display:flex; height:8px; border-radius:6px; overflow:hidden; margin:14px 0 6px; background:var(--border); }
   .pbar i { display:block; height:100%; }
-  .fedPath td { font-size:12.5px; padding:6px 8px; }
-  .fedNote { font-size:13px; line-height:1.6; background:var(--panel2); border-radius:12px; padding:10px 12px; margin-top:10px; }
-  .fedNote b { color:var(--text); }
-  .econ td { font-size:12.5px; padding:6px 8px; } .econ td.l { white-space:normal; }
-  .econ tr.next td { background:rgba(59,130,246,.07); }
-  .econ .tag { font-size:10.5px; padding:1px 7px; border-radius:99px; }
-  .loading { color:var(--dim); font-size:13px; padding:8px 0; }
+  .plg { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); }
+  .path { display:flex; align-items:flex-end; gap:6px; height:76px; margin-top:16px; }
+  .path div { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; }
+  .path i { display:block; width:100%; border-radius:5px 5px 0 0; min-height:3px; }
+  .path b { font-size:10.5px; font-weight:600; margin-bottom:3px; font-variant-numeric:tabular-nums; }
+  .path span { font-size:10.5px; color:var(--dim); margin-top:4px; }
+  .take { margin-top:14px; font-size:13px; color:var(--text); line-height:1.5; padding-top:12px; border-top:1px solid var(--border); }
+
+  /* Agenda macro */
+  .ev { display:grid; grid-template-columns:46px 1fr auto; gap:10px; align-items:center; padding:8px 0; }
+  .ev + .ev { border-top:1px solid #18233d; }
+  .dt { text-align:center; background:var(--panel2); border-radius:8px; padding:4px 0; line-height:1.1; }
+  .dt b { display:block; font-size:15px; } .dt span { font-size:10px; color:var(--dim); text-transform:uppercase; }
+  .ev .nm { font-size:13.5px; font-weight:500; } .ev .nm small { color:var(--dim); font-weight:400; margin-left:4px; }
+  .ev .vv { text-align:right; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .ev .vv small { display:block; color:var(--dim); font-size:11px; }
+  .dot2 { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:1px; }
+  .sub-l { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.06em; margin:10px 0 2px; }
+
+  /* Sentimiento */
+  .gauge { display:flex; justify-content:center; }
+  .kpis2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px; }
+  .kpis2 > div { background:var(--panel2); border-radius:10px; padding:9px 11px; }
+  .kpis2 .v { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; } .kpis2 .l { font-size:11.5px; color:var(--dim); }
+
+  /* Sectores */
+  .bars { display:grid; gap:7px; }
+  .br { display:grid; grid-template-columns:150px 1fr 56px; gap:10px; align-items:center; font-size:13px; }
+  .br .n { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .br .n b { margin-right:6px; }
+  .br .t { position:relative; height:14px; }
+  .br .t::before { content:""; position:absolute; left:50%; top:-3px; bottom:-3px; width:1px; background:var(--border2); }
+  .br .t i { position:absolute; top:0; height:100%; border-radius:4px; }
+  .br .v { text-align:right; font-variant-numeric:tabular-nums; font-weight:600; }
+
+  /* Tasas */
+  .curve { display:flex; align-items:flex-end; gap:8px; height:110px; }
+  .curve div { flex:1; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; height:100%; }
+  .curve i { display:block; width:100%; background:linear-gradient(180deg,#3b82f6,#1d4ed8); border-radius:6px 6px 0 0; }
+  .curve b { font-size:12px; margin-bottom:4px; font-variant-numeric:tabular-nums; } .curve span { font-size:11px; color:var(--dim); margin-top:5px; }
+  .chip { display:inline-block; font-size:12px; border-radius:99px; padding:3px 10px; background:var(--panel2); color:var(--muted); margin-top:12px; }
+
+  /* Listas con logo */
+  .li { display:grid; grid-template-columns:28px 1fr auto auto; gap:10px; align-items:center; padding:7px 0; cursor:pointer; }
+  .li + .li { border-top:1px solid #18233d; }
+  .li:hover .tk { color:#93c5fd; }
+  .li .tk { font-weight:600; font-size:13.5px; } .li .nm { color:var(--dim); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .li .px { text-align:right; font-variant-numeric:tabular-nums; font-size:13px; }
+  .sc { font-size:12px; font-weight:700; border-radius:7px; padding:3px 0; width:34px; text-align:center; }
+  .sc.g { background:var(--good-bg); color:var(--good-tx); } .sc.m { background:var(--mid-bg); color:var(--mid-tx); } .sc.b { background:var(--bad-bg); color:var(--bad-tx); }
+
+  /* Cripto */
+  .btc { display:flex; justify-content:space-between; align-items:flex-end; gap:10px; }
+  .rets { display:flex; gap:12px; font-size:12px; color:var(--dim); margin-top:6px; }
+  .rets b { font-weight:600; }
+  .fgl { display:flex; align-items:center; gap:10px; margin-top:12px; font-size:12.5px; color:var(--muted); }
+  .fgl .meter { flex:1; height:6px; border-radius:4px; background:linear-gradient(90deg,#ef4444,#eab308 50%,#22c55e); position:relative; }
+  .fgl .meter i { position:absolute; top:-4px; width:3px; height:14px; background:#fff; border-radius:2px; }
+
+  /* Números en fila */
+  .nums { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+  .nums > div { min-width:0; } .nums .v { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; } .nums .l { font-size:11.5px; color:var(--dim); margin-top:2px; }
+  .pick { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; align-items:center; }
+  .pick .t { font-size:11.5px; color:var(--dim); width:100%; }
+  .pick a { display:inline-flex; align-items:center; gap:7px; background:var(--panel2); border-radius:9px; padding:5px 10px 5px 6px; text-decoration:none; color:var(--text); font-size:13px; font-weight:600; }
+  .pick a small { font-weight:500; }
+  @media (max-width:720px) { .nums { grid-template-columns:repeat(2,1fr); } .br { grid-template-columns:110px 1fr 50px; } }
 </style>
 </head>
 <body>
 <header>
   <div class="brand">Rotación Sectorial</div>
-  <nav>
-    <a href="/dashboard.html" class="active">Dashboard</a>
-    <a href="/rotation.html">RRG</a>
-    <a href="/rotation-stocks.html">RRG Acciones</a>
-    <a href="/screener.html">Screener</a>
-    <a href="/empresa.html">Fundamental</a>
-    <a href="/watchlist.html">Watchlist</a>
-  </nav>
+  <nav><a href="/dashboard.html" class="active">Dashboard</a><a href="/rotation.html">RRG</a><a href="/screener.html">Screener</a><a href="/empresa.html">Fundamental</a><a href="/watchlist.html">Watchlist</a></nav>
 </header>
-<div class="tape" id="tape" aria-label="Cotizaciones"><div class="tape-in" id="tapeIn"><span class="na" style="padding:0 16px">Cargando cotizaciones…</span></div></div>
+<div class="tape" aria-label="Cotizaciones"><div class="tape-in" id="tapeIn"><span class="tk-i dim">Cargando cotizaciones…</span></div></div>
 <main>
-  <div class="top" style="margin-bottom:6px">
-    <div><h1>Dashboard</h1><div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando el mercado…</span></div></div>
-    <div class="actions"><button class="btn" id="btnReload">↻ Actualizar</button></div>
+  <div class="head">
+    <h1>Dashboard</h1>
+    <div style="display:flex;gap:10px;align-items:center"><div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando…</span></div><button class="btn sm" id="btnReload" aria-label="Actualizar">↻</button></div>
   </div>
 
-  <div class="gridMacro">
-    <div class="card" id="fed"><h3>Fed: qué descuenta el mercado</h3><div class="loading">Cargando…</div></div>
-    <div class="card"><h3>Calendario económico EE.UU. <span class="na" style="font-weight:400;font-size:12px">dato · estimado · resultado</span></h3><div id="econ" class="loading">Cargando…</div></div>
-  </div>
+  <div class="bento">
+    <section class="tile s4" id="fed"><div class="lbl">Fed · próxima reunión</div><div class="loading">Cargando…</div></section>
+    <section class="tile s5"><div class="lbl">Agenda macro EE.UU.</div><div id="econ" class="loading">Cargando…</div></section>
+    <section class="tile s3" id="sentiment"><div class="lbl">Sentimiento</div><div class="loading">Cargando…</div></section>
 
-  <div class="grid3" style="margin-top:12px">
-    <div class="card"><h3>Candidatas del Screener <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/screener.html">Ver todas →</a></h3><div class="sub2">Score alto contra su industria y valuación favorable</div><div id="cands" class="loading">Cargando…</div></div>
-    <div class="card" id="curve"><h3>Tasas EE.UU.</h3><div class="loading">Cargando…</div></div>
-    <div class="card" id="sentiment"><h3>Sentimiento</h3><div class="loading">Cargando…</div></div>
-  </div>
+    <section class="tile s8"><div class="lbl"><span>Sectores vs S&amp;P 500</span><div class="seg" id="ranges"></div></div><div id="sectors" class="loading">Cargando…</div></section>
+    <section class="tile s4" id="curve"><div class="lbl">Tasas EE.UU.</div><div class="loading">Cargando…</div></section>
 
-  <div class="sec-h"><h2>Rotación sectorial acumulada</h2><div class="seg" id="ranges"></div></div>
-  <div class="card"><div class="chartbox"><canvas id="relChart"></canvas></div><div class="legend" id="legend"></div>
-    <div class="na" style="font-size:12px;margin-top:8px">Diferencia de rendimiento acumulado de cada sector contra el S&P 500 en el período. Tocá un sector para ocultarlo.</div></div>
+    <section class="tile s4"><div class="lbl"><span>Candidatas</span><a href="/screener.html">Screener →</a></div><div id="cands" class="loading">Cargando…</div></section>
+    <section class="tile s4"><div class="lbl"><span id="wlName">Watchlist</span><a href="/watchlist.html">Abrir →</a></div><div id="wl" class="loading">Cargando…</div></section>
+    <section class="tile s4"><div class="lbl">Cripto</div><div id="crypto" class="loading">Cargando…</div></section>
 
-  <div class="grid3" style="margin-top:12px">
-    <div class="card"><h3>Tu watchlist hoy <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/watchlist.html">Abrir →</a></h3><div class="sub2" id="wlName"></div><div id="wl" class="loading">Cargando…</div></div>
-    <div class="card" id="breadth"><h3>Amplitud del universo CEDEAR</h3><div class="loading">Cargando…</div></div>
-    <div class="card"><h3>Cripto <span class="na" style="font-weight:400;font-size:12px">24/7</span></h3><div class="sub2">Bitcoin, Ethereum, Solana y el miedo del mercado cripto</div><div id="crypto" class="loading">Cargando…</div></div>
+    <section class="tile s6"><div class="lbl"><span>Dólar y CEDEARs</span><a href="/cedears.html">Ver todos →</a></div><div id="dolar" class="loading">Cargando…</div></section>
+    <section class="tile s6"><div class="lbl"><span>Tu cartera</span><a href="/cartera.html">Abrir →</a></div><div id="pf" class="loading">Cargando…</div></section>
+
+    <section class="tile s12"><div class="lbl">Resultados de empresas · próximos 30 días</div><div id="earn" class="loading">Cargando…</div></section>
   </div>
-  <div class="grid2" style="margin-top:12px">
-    <div class="card"><h3>Dólar y CEDEARs <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/cedears.html">Ver todos →</a></h3><div class="sub2">CCL implícito: dónde conviene comprar hoy</div><div id="dolar" class="loading">Cargando…</div></div>
-    <div class="card"><h3>Tu cartera hoy <a style="font-weight:400;font-size:12.5px;color:#93c5fd;text-decoration:none" href="/cartera.html">Abrir →</a></h3><div class="sub2">Valor, resultado del día y contra el S&P 500</div><div id="pf" class="loading">Cargando…</div></div>
-  </div>
-  <div class="card" style="margin-top:12px"><h3>Calendario de resultados <span class="na" style="font-weight:400;font-size:12px">próximos 30 días</span></h3><div class="sub2">Cuándo reportan tus acciones (watchlist y cartera) o todo el universo</div><div id="earn" class="loading">Cargando…</div></div>
 </main>
 <div id="toast" class="toast"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="/config.js"></script>
 <script type="module" src="/js/dashboard.js"></script>
 </body>
