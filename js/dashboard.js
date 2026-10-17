@@ -132,7 +132,7 @@ async function loadMacro() {
     <div class="big" style="color:${main[2]}">${main[1]}%</div><div class="cap">de que <b>${main[0]}</b> la tasa</div>
     <div class="pbar"><i style="width:${n0.pCut}%;background:#22c55e"></i><i style="width:${n0.pHold}%;background:#475569"></i><i style="width:${n0.pHike}%;background:#ef4444"></i></div>
     <div class="plg"><span>Baja ${n0.pCut}%</span><span>Mantiene ${n0.pHold}%</span><span>Sube ${n0.pHike}%</span></div>
-    <div class="path" title="Cambio acumulado de tasa que descuenta el mercado, en puntos básicos">${mt.map((m) => { const d = new Date(m.date + "T12:00:00"); return `<div title="${d.getDate()} ${MES[d.getMonth()]} ${d.getFullYear()}: tasa implícita ${nf(2).format(m.implied)}%"><b class="${m.cumulative > 2 ? "neg" : m.cumulative < -2 ? "pos" : "dim"}">${m.cumulative >= 0 ? "+" : ""}${nf(0).format(m.cumulative)}</b><i style="height:${10 + ((m.implied - lo) / (hi - lo || 1)) * 90}%;background:${m.cumulative > 2 ? "#ef4444" : m.cumulative < -2 ? "#22c55e" : "#475569"}"></i><span>${MES[d.getMonth()]}</span></div>`; }).join("")}</div>
+    <div class="path" title="Cambio acumulado de tasa que descuenta el mercado, en puntos básicos">${mt.map((m) => { const d = new Date(m.date + "T12:00:00"); return `<div title="${d.getDate()} ${MES[d.getMonth()]} ${d.getFullYear()}: tasa implícita ${nf(2).format(m.implied)}%"><b class="${m.cumulative > 2 ? "neg" : m.cumulative < -2 ? "pos" : "dim"}">${m.cumulative >= 0 ? "+" : ""}${nf(0).format(m.cumulative)}</b><i style="height:${8 + ((m.implied - lo) / (hi - lo || 1)) * 72}%;background:${m.cumulative > 2 ? "rgba(239,68,68,.45)" : m.cumulative < -2 ? "rgba(34,197,94,.45)" : "#334155"};border-top:2px solid ${m.cumulative > 2 ? "#ef4444" : m.cumulative < -2 ? "#22c55e" : "#64748b"}"></i><span>${MES[d.getMonth()]}</span></div>`; }).join("")}</div>
     <div class="take">${Math.abs(steps) >= 1 ? `Descuenta <b>${Math.abs(steps)} ${steps > 0 ? "subas" : "bajas"}</b> hasta ${MES[ly.getMonth()]} '${String(ly.getFullYear()).slice(2)}.` : "No descuenta cambios de tasa."}${nextKey ? ` Próximo dato clave: <b>${esc(esName(nextKey.title))}</b> el ${new Date(nextKey.t).getDate()}/${new Date(nextKey.t).getMonth() + 1}.` : ""}</div>`;
 }
 
@@ -207,7 +207,7 @@ async function loadAll() {
   ]);
   const fails = res.filter((r) => r.status === "rejected"); fails.forEach((f) => console.warn(f.reason));
   $("dot").className = "dot on";
-  $("statusTxt").innerHTML = `<span class="livedot"></span>En vivo · ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${fails.length ? ` · ${fails.length} sin datos` : ""}`;
+  $("statusTxt").innerHTML = `En vivo · ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}${fails.length ? ` · ${fails.length} sin datos` : ""}`;
 }
 
 $("btnReload").onclick = loadAll;
