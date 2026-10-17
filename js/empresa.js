@@ -278,7 +278,7 @@ function metricBox(r, k, m, tot) {
   return `<div class="m">
     <div class="l"><span>${m.l}</span><span class="w">${w ? `pesa ${nf(0).format((w / tot) * 100)}%` : ""}${p != null ? ` · P${p}` : ""}</span></div>
     <div class="v num ${r.edited.has(k) ? "edited" : ""}" data-edit="${k}" title="Clic para corregir" style="${mcol(r, k)}">${fmt(r[k], m.f, m.d)}</div>
-    ${p != null ? `<div class="pb" title="Percentil contra ${esc(r.peerLabel)}"><div style="width:${Math.max(p, 3)}%;background:${COL[lvl(p)]}"></div></div>` : `<div class="pb"></div>`}
+    ${p != null ? `<div class="pb" title="Percentil contra ${esc(r.peerLabel)}"><div style="width:${Math.max(p, 3)}%;background:${COL[lvl(Math.round(mq(r, k) ?? p))]}"></div></div>` : `<div class="pb"></div>`}
     <div class="med">Mediana pares: ${fmt(r.med[k], m.f, m.d)}${r.edited.has(k) ? ` · Yahoo: ${fmt(P.rawMap.get(r.s)?.[k], m.f, m.d)}` : ""}</div>
     ${h ? `<div class="med">Promedio últimos ${h.n} años: ${fmt(h.avg, m.f, m.d)} <span style="color:${better ? COL.good : COL.bad}">(${h.diff >= 0 ? "+" : ""}${nf(0).format(h.diff)}%)</span></div>${spark(h, m)}` : ""}
     <div class="q">${esc(m.q)}</div></div>`;
