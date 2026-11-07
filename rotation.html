@@ -73,7 +73,6 @@
   </nav>
 </header>
 <div class="container">
-  <div class="panel" id="signalsPanel"></div>
   <div class="panel">
     <div class="add-row">
       <input type="text" id="extraInput" placeholder="EWZ, FXI, EEM…" maxlength="8" />
@@ -147,6 +146,46 @@ function buildRangeButtons() {
   });
 }
 
+
+// Cuadrantes pintados (Leading/Weakening/Lagging/Improving) + ticker junto a la cabeza de cada cola
+const RRG_QUAD = {
+  id: 'rrgQuad',
+  beforeDatasetsDraw(c) {
+    const { ctx, chartArea: a, scales: { x, y } } = c;
+    if (!a) return;
+    const cx = Math.min(Math.max(x.getPixelForValue(100), a.left), a.right), cy = Math.min(Math.max(y.getPixelForValue(100), a.top), a.bottom);
+    const Q = [
+      [cx, a.top, a.right - cx, cy - a.top, 'rgba(47,158,68,.10)', 'LEADING', '#2F9E44', 'right', 'top'],
+      [cx, cy, a.right - cx, a.bottom - cy, 'rgba(245,159,0,.10)', 'WEAKENING', '#F59F00', 'right', 'bottom'],
+      [a.left, cy, cx - a.left, a.bottom - cy, 'rgba(224,49,49,.10)', 'LAGGING', '#E03131', 'left', 'bottom'],
+      [a.left, a.top, cx - a.left, cy - a.top, 'rgba(76,110,245,.16)', 'IMPROVING', '#748FFC', 'left', 'top'],
+    ];
+    ctx.save();
+    for (const [qx, qy, w, h, fill, label, col, hz, vt] of Q) {
+      if (w <= 0 || h <= 0) continue;
+      ctx.fillStyle = fill; ctx.fillRect(qx, qy, w, h);
+      ctx.fillStyle = col; ctx.globalAlpha = .75; ctx.font = '600 11px Inter, system-ui, sans-serif';
+      ctx.textAlign = hz; ctx.textBaseline = vt;
+      ctx.fillText(label, hz === 'left' ? qx + 8 : qx + w - 8, vt === 'top' ? qy + 8 : qy + h - 8);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  },
+  afterDatasetsDraw(c) {
+    const { ctx, chartArea: a } = c;
+    ctx.save(); ctx.font = '600 11px Inter, system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    c.data.datasets.forEach((ds, i) => {
+      const meta = c.getDatasetMeta(i); if (meta.hidden || !meta.data.length) return;
+      const p = meta.data[meta.data.length - 1]; if (!p || p.x < a.left || p.x > a.right || p.y < a.top || p.y > a.bottom) return;
+      const right = p.x < a.right - 50;
+      ctx.textAlign = right ? 'left' : 'right';
+      ctx.strokeStyle = 'rgba(11,18,32,.9)'; ctx.lineWidth = 3; ctx.strokeText(ds.label, p.x + (right ? 10 : -10), p.y);
+      ctx.fillStyle = ds.borderColor === '#3a3f4b' ? '#5b6170' : '#e2e8f0'; ctx.fillText(ds.label, p.x + (right ? 10 : -10), p.y);
+    });
+    ctx.restore();
+  },
+};
+
 function quadColor(x, y) {
   if (x >= 100 && y >= 100) return '#2F9E44';
   if (x >= 100 && y < 100) return '#F59F00';
@@ -207,6 +246,7 @@ function renderChart(datasets) {
   if (chart) chart.destroy();
   chart = new Chart(ctx, {
     type: 'scatter',
+    plugins: [RRG_QUAD],
     data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -392,10 +432,6 @@ setInterval(() => { if (!playing) load(); }, 90000);
     apply(getLang());
   });
 })();
-</script>
-<script type="module">
-  import { mountPanel } from "/js/signals.js";
-  mountPanel(document.getElementById("signalsPanel"), { title: "Sectores e industrias por explotar" });
 </script>
 </body>
 </html>
