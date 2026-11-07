@@ -401,7 +401,7 @@ function draw(box, sp) {
     const GY = (v) => T + 14 + (1 - (v - glo) / gr) * (ph * 0.42);
     const pts = sp.growth.map((v, i) => (v == null ? null : [X(i), GY(v), v])).filter(Boolean);
     if (pts.length > 1) g += `<path d="${smooth(pts.map((p) => [+p[0].toFixed(1), +p[1].toFixed(1)]))}" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-dasharray="1 0"/>`;
-    g += pts.map(([x, y, v]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="#fbbf24" stroke="var(--panel)" stroke-width="1.5"/><text x="${x.toFixed(1)}" y="${(y - 7).toFixed(1)}" text-anchor="middle" class="gtx ${v >= 0 ? 'gp' : 'gn'}">${v > 0 ? '+' : ''}${nf(v, Math.abs(v) < 10 ? 1 : 0)}%</text>`).join('');
+    g += pts.map(([x, y, v]) => `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${v >= 0 ? '#fbbf24' : '#f87171'}" stroke="var(--panel)" stroke-width="1.5"/>`).join('');
   }
   // promedio del período (de la primera serie)
   if (sp.avg) {

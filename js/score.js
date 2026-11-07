@@ -494,8 +494,79 @@ export function scoreAll(rows, { peer = "sector", userMult = {}, profW = {} } = 
     r.cand = (base && r.c !== "AR" && r.profile !== "crypto") || (ok(r.fairUp) && r.fairUp >= 15);
     r.candReason = base ? `Score ${r.score} con valuación mejor que el ${val}% de ${r.peerLabel}${["fast", "stalwart"].includes(r.lynch) && ok(r.peg) ? ` y PEG ${fmt(r.peg, "x", 2)}` : ""}` : r.cand ? `Tu precio justo deja ${fmt(r.fairUp, "%", 0)} de margen` : "";
     r.verdict = verdict(r);
+    r.opp = oppScore(r);
   }
   return rows;
+}
+
+// ---------- Oportunidad fundamental ----------
+// Mezcla 7 señales con pesos según el tipo de empresa (Lynch): BPA vs precio, crecimiento de ventas, flujo de caja libre
+// (ajustado por capex), múltiplos bajando contra su historia, recompras, deuda y drawdown como margen de seguridad.
+// El drawdown solo suma si el negocio está sano: una acción castigada con fundamentos rotos no es oportunidad.
+const OPP_W = {
+  fast: { gap: 1.5, rev: 2, fcf: 1, mult: 1, sh: 0.7, debt: 0.8, dd: 1 },
+  stalwart: { gap: 1.5, rev: 1, fcf: 1.3, mult: 1.3, sh: 1, debt: 1, dd: 1.2 },
+  slow: { gap: 1, rev: 0.6, fcf: 1.5, mult: 1.2, sh: 1.2, debt: 1.3, dd: 1 },
+  cyclical: { gap: 0.4, rev: 0.8, fcf: 1.2, mult: 0.6, sh: 1, debt: 1.6, dd: 1.6 },
+  turnaround: { gap: 0.8, rev: 1.2, fcf: 1, mult: 0.8, sh: 0.8, debt: 1.8, dd: 1.2 },
+  asset: { gap: 0.6, rev: 0.6, fcf: 1, mult: 1.4, sh: 1, debt: 1.2, dd: 1.2 },
+};
+export const OPP_LABEL = { gap: "BPA vs precio", rev: "Crecimiento", fcf: "Flujo de caja", mult: "Múltiplos vs historia", sh: "Recompras", debt: "Deuda", dd: "Margen de seguridad" };
+export function oppScore(r) {
+  const fy = r.fx?.fy || {}, fin = r.sec === "fin", ar = r.c === "AR";
+  const lin = (v, a, b) => Math.max(0, Math.min(100, ((v - a) / (b - a)) * 100));
+  const vals = (a) => (a || []).filter(ok);
+  const back = (a, n) => { const v = vals(a); return v.length > n ? v[v.length - 1 - n] : null; };
+  const P = {}, flags = [];
+  // 1. BPA vs precio: ganancias que suben con el PER bajando = el precio quedó atrás
+  const peNow = ok(r.pe) && r.pe > 0 ? r.pe : vals(fy.pe).at(-1), pe3 = back(fy.pe, 3) ?? back(fy.pe, 2);
+  const eg = vals(fy.epsG).slice(-3);
+  if (!ar && peNow > 0 && pe3 > 0 && eg.length >= 2) {
+    const epsCum = (eg.reduce((a, g) => a * (1 + Math.max(-90, g) / 100), 1) - 1) * 100, comp = (peNow / pe3 - 1) * 100;
+    let sc = lin(-comp, -20, 40); if (epsCum <= 0) sc = Math.min(sc, 30);
+    // ganancias que se multiplican desde una base chica: el PER "comprimido" es efecto base o pico de ciclo, no descuento
+    if (epsCum > 300) { sc = Math.min(sc, 55); flags.push(`BPA ×${nf(0).format(1 + epsCum / 100)} en ${eg.length} años: el PER bajo viene de un salto de ganancias; confirmá que sea sostenible`); }
+    P.gap = [sc, `BPA ${epsCum >= 0 ? "+" : ""}${nf(0).format(epsCum)}% en ${eg.length} años y PER ${nf(1).format(pe3)}→${nf(1).format(peNow)}x: ${comp < -5 && epsCum > 0 ? "el precio quedó atrás de las ganancias" : comp > 10 ? "el precio se adelantó" : "van parejos"}`];
+    if (r.lynch === "cyclical" && comp < -25 && epsCum > 50) flags.push("Cíclica con ganancias en alza fuerte: el PER bajo puede ser de pico de ciclo");
+  }
+  // 2. Crecimiento de ventas según el tipo
+  const g = ok(r.revG) ? r.revG : vals(fy.revG).at(-1), g3 = vals(fy.revG).slice(-3);
+  if (!ar && ok(g)) {
+    const [a, b] = { fast: [5, 30], stalwart: [0, 15], slow: [-3, 8], cyclical: [-10, 15], turnaround: [-5, 15], asset: [-5, 10] }[r.lynch] || [0, 15];
+    const avg3 = g3.length ? g3.reduce((x, y) => x + y, 0) / g3.length : g;
+    P.rev = [lin((g + avg3) / 2, a, b), `Ventas ${g >= 0 ? "+" : ""}${nf(0).format(g)}% (prom. ${g3.length} años ${nf(0).format(avg3)}%)`];
+  }
+  // 3. Flujo de caja libre, sin castigar a quien invierte fuerte (capex) si la caja operativa es buena
+  if (!fin && ok(r.fcfM)) {
+    const capex = ok(r.capexInt) ? r.capexInt : vals(fy.capexInt).at(-1), cap3 = back(fy.capexInt, 3), ocfM = ok(capex) ? r.fcfM + capex : null;
+    const heavy = ok(capex) && ok(ocfM) && ocfM > 15 && (capex > 12 || (ok(cap3) && capex - cap3 > 4));
+    if (heavy) { P.fcf = [lin(ocfM, 5, 35), `Caja operativa ${nf(0).format(ocfM)}% de ventas; FCF ${nf(0).format(r.fcfM)}% porque invierte ${nf(0).format(capex)}% en capex`]; flags.push(`Capex alto (${nf(0).format(capex)}% de ventas): el FCF está deprimido por inversión, no por un peor negocio`); }
+    else P.fcf = [lin(r.fcfM, 0, 22) * (ok(r.fcfConv) && r.fcfConv < 60 ? 0.7 : 1), `FCF ${nf(0).format(r.fcfM)}% de ventas${ok(r.fcfConv) ? ` · convierte ${nf(0).format(r.fcfConv)}% de la ganancia en caja` : ""}`];
+  }
+  // 4. Múltiplos contra su propia historia (más bajos = mejor)
+  const mk = fin ? "pb" : vals(fy.evEbitda).length >= 3 ? "evEbitda" : "pe";
+  const hist = vals(fy[mk]).slice(0, -1), cur = mk === "pe" ? peNow : mk === "pb" ? (ok(r.pb) ? r.pb : vals(fy.pb).at(-1)) : (ok(r.evEbitda) ? r.evEbitda : vals(fy.evEbitda).at(-1));
+  if (hist.length >= 2 && cur > 0) {
+    const av = hist.reduce((a, b) => a + b, 0) / hist.length, d = (cur / av - 1) * 100;
+    P.mult = [lin(-d, -25, 30), `${{ pb: "P/Libro", evEbitda: "EV/EBITDA", pe: "PER" }[mk]} ${nf(1).format(cur)}x vs ${nf(1).format(av)}x de prom. propio (${d >= 0 ? "+" : ""}${nf(0).format(d)}%)`];
+  }
+  // 5. Recompras: acciones en circulación bajando
+  if (ok(r.dil)) P.sh = [lin(-r.dil, -2, 3), r.dil < -0.3 ? `Recompra: acciones ${nf(1).format(r.dil)}% por año` : r.dil > 0.5 ? `Diluye: acciones +${nf(1).format(r.dil)}% por año` : "Acciones estables"];
+  // 6. Deuda
+  if (!fin && ok(r.ndEbitda)) P.debt = [lin(-r.ndEbitda, -3, 0.5), r.ndEbitda <= 0 ? "Caja neta (más caja que deuda)" : `Deuda neta ${nf(1).format(r.ndEbitda)}x EBITDA`];
+  // 7. Drawdown = margen de seguridad, solo si el negocio está sano
+  const qual = ["rev", "fcf", "debt", "sh"].filter((k) => P[k]).map((k) => P[k][0]);
+  const healthy = qual.length >= 2 && qual.reduce((a, b) => a + b, 0) / qual.length >= 50;
+  if (ok(r.d52)) {
+    const ddS = lin(-r.d52, 0, 40);
+    P.dd = [healthy ? ddS : Math.min(ddS, 20), `${nf(0).format(r.d52)}% del máximo de 52 semanas${!healthy && r.d52 < -25 ? " (castigada, pero el negocio no acompaña)" : ""}`];
+    if (!healthy && r.d52 < -30) flags.push("Muy castigada con fundamentos débiles: puede ser trampa de valor");
+  }
+  const W = OPP_W[r.lynch] || OPP_W.stalwart, keys = Object.keys(P);
+  if (keys.length < 4) return { score: null, parts: [], flags, why: [] };
+  let num = 0, den = 0; for (const k of keys) { num += P[k][0] * W[k]; den += W[k]; }
+  const parts = keys.map((k) => ({ k, l: OPP_LABEL[k], s: Math.round(P[k][0]), w: W[k], t: P[k][1] })).sort((a, b) => b.s * b.w - a.s * a.w);
+  return { score: Math.round(num / den), parts, flags, why: parts.filter((p) => p.s >= 60).slice(0, 3).map((p) => p.t), cov: keys.length };
 }
 
 function verdict(r) {

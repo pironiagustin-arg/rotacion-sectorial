@@ -1,5 +1,5 @@
 import { UNIVERSE, SECTORS, MARKETS, COUNTRIES } from "/lib/universe.js";
-import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
+import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, OPP_LABEL, ok, derive, scoreAll, median, fmt, fmtCap, nf, scoreCls } from "/js/score.js";
 import { startLive } from "/js/live.js";
 import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, authClick, loadSnapshots, loadLive, loadOverrides, saveOverride, userMult, userProfW, loadFund } from "/js/core.js";
 
@@ -163,12 +163,27 @@ function renderCompare() {
     <div class="na" style="font-size:12px;margin-top:8px">En verde, el mejor valor de cada fila. Pasá el mouse sobre una métrica para ver qué significa.</div>`;
 }
 
+function renderOpp(rows) {
+  const list = rows.filter((r) => ok(r.opp?.score) && r.c !== "AR" && r.profile !== "crypto").sort((a, b) => b.opp.score - a.opp.score).slice(0, 60);
+  const col = (v) => (v >= 65 ? "#22c55e" : v >= 45 ? "#eab308" : "#ef4444");
+  const cls = (v) => (v >= 65 ? "g" : v >= 45 ? "m" : "b");
+  const order = ["gap", "rev", "fcf", "mult", "sh", "debt", "dd"];
+  return `<p class="opp-h">Ranking armado solo con fundamentos, con pesos según el tipo de empresa: <b>BPA vs precio</b> (ganancias que suben con el PER bajando), <b>crecimiento</b>, <b>flujo de caja</b> (sin castigar a quien invierte fuerte en capex), <b>múltiplos contra su propia historia</b>, <b>recompras</b>, <b>deuda</b> y <b>margen de seguridad</b> (caída desde máximos, que solo suma si el negocio está sano). Respeta los filtros de arriba.</p>
+  <div class="opp-grid">${list.map((r) => { const P = Object.fromEntries(r.opp.parts.map((p) => [p.k, p])); return `<div class="opp" data-open="${esc(r.s)}">
+    <div class="opp-t"><div><span class="tk">${esc(r.ced || r.s)}</span> <span class="badge">${LYNCH[r.lynch] || ""}</span><span class="nm">${esc((r.n || "").slice(0, 40))} · ${esc(SECTORS[r.sec] || "")}</span></div><div class="opp-s ${cls(r.opp.score)}"><b>${r.opp.score}</b><span>oportunidad</span></div></div>
+    <div class="opp-bars">${order.map((k) => { const p = P[k]; return `<div title="${esc(p ? p.t : "Sin dato o no aplica")}"><i>${p ? `<u style="height:${Math.max(4, p.s)}%;background:${col(p.s)}"></u>` : ""}</i>${OPP_LABEL[k].split(" ")[0]}</div>`; }).join("")}</div>
+    ${r.opp.why.length ? `<ul class="opp-why">${r.opp.why.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
+    ${r.opp.flags.map((f) => `<div class="opp-flag">⚠ ${esc(f)}</div>`).join("")}
+  </div>`; }).join("") || '<div class="na">Ninguna acción con datos suficientes en este filtro.</div>'}</div>`;
+}
+
 function render() {
   const rows = filtered();
   renderKpis(rows);
   $("cmpCount").textContent = S.cmp.size;
   const v = $("view");
   if (S.view === "table") v.innerHTML = renderTable(rows);
+  else if (S.view === "opp") v.innerHTML = renderOpp(rows);
   else if (S.view === "sector") v.innerHTML = renderGroups(rows, "sector");
   else if (S.view === "country") v.innerHTML = renderGroups(rows, "country");
   else v.innerHTML = renderCompare();
