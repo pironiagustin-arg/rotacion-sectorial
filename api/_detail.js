@@ -189,12 +189,20 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
     });
   };
 
+  // PEG proyectado (fórmula clásica): PER actual ÷ crecimiento esperado del BPA en % (promedio compuesto
+  // del consenso para el año fiscal en curso y el siguiente; Yahoo ya no publica el estimado a 5 años)
+  const gs = (summary?.est || []).map((x) => x.epsG).filter((g) => g != null && g > -100);
+  const gProj = gs.length ? (Math.pow(gs.reduce((a, g) => a * (1 + g / 100), 1), 1 / gs.length) - 1) * 100 : null;
+  const perNow = [...M.per].reverse().find((v) => v != null);
+  const pegFwd = perNow != null && gProj > 0 ? rd(perNow / gProj, 2) : null;
+
   return {
     symbol, asOf: new Date().toISOString(),
     head: {
       name: summary?.longName || base.name, sector: summary?.sector, industry: summary?.industry, website: summary?.website,
       price: rd(price, 2), chg: summary?.changePct != null ? rd(summary.changePct * 100, 2) : null, mcap: mcapNow,
       fpe: rd(summary?.ntmEps > 0 ? price / summary.ntmEps : summary?.forwardPE, 1), fpeSrc: summary?.ntmEps > 0 ? "ntm" : "yahoo", // NTM = mezcla del año fiscal en curso y el siguiente, como Koyfin currency: base.currency,
+      pegFwd, gProj: rd(gProj, 1), perNow: rd(perNow, 1),
     },
     table,
     prices: { d: dates.map((t) => new Date(t).toISOString().slice(0, 10)), c: close.map((x) => rd(x, 2)) },

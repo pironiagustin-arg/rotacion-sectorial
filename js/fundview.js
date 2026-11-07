@@ -22,7 +22,7 @@ const F = {
 const HELP = {
   price: 'Precio de cierre diario.',
   per: 'PER = capitalización / beneficio neto de los últimos 12 meses.',
-  peg: 'PEG = PER ÷ crecimiento anual compuesto del BPA de los últimos 3 años (en %). Debajo de 1 = barata para lo que crece; solo con crecimiento positivo.',
+  peg: 'Curva: PEG histórico = PER ÷ crecimiento anual compuesto real del BPA de los 3 años previos (en %). Arriba: PEG proyectado = PER actual ÷ crecimiento esperado del BPA (consenso de analistas). Debajo de 1 = barata para lo que crece.',
   ps: 'Precio / ventas = capitalización / ingresos de los últimos 12 meses.',
   pfcf: 'Capitalización / flujo de caja libre (operativo − capex) de 12 meses.',
   pocf: 'Capitalización / flujo de caja operativo de 12 meses.',
@@ -136,7 +136,8 @@ function renderBody() {
   drawAll();
 }
 
-const card = (k, title, legend) => `<div class="kf-card kf-ch"><span class="kf-q" title="${esc(HELP[k] || "")}">?</span><h5>${esc(title)}</h5>
+const pegNote = () => { const h = D.head; return h.pegFwd != null ? `<div class="kf-peg">Proyectado hoy: <b>${nf(h.pegFwd, 2)}</b> <span>= PER ${nf(h.perNow, 1)} ÷ crec. esperado ${nf(h.gProj, 1)}%</span></div>` : ""; };
+const card = (k, title, legend) => `<div class="kf-card kf-ch"><span class="kf-q" title="${esc(HELP[k] || "")}">?</span><h5>${esc(title)}${k === "peg" ? ' <span class="kf-mut">(histórico, crec. real 3 años)</span>' : ""}</h5>${k === "peg" ? pegNote() : ""}
   ${legend ? `<div class="kf-leg">${legend.map((s) => `<span><i style="background:${s.c}"></i>${esc(s.n)}</span>`).join("")}</div>` : ""}<div class="fc" data-c="${k}"></div></div>`;
 
 const BIZ = [
@@ -168,6 +169,7 @@ function diffRow(j0) {
       <div class="kf-dd">${d > 0 ? "+" : ""}${nf(d, 1)}%</div>
       <div class="kf-ds">${cls === "eq" ? "En su promedio" : d < 0 ? "Debajo del promedio" : "Encima del promedio"}</div>
       <div class="kf-dv"><span>Hoy <b>${fx(now)}</b></span><span>Prom. <b>${fx(avg)}</b></span></div>
+      ${k === "peg" && D.head.pegFwd != null ? `<div class="kf-dv"><span>Proyectado <b>${nf(D.head.pegFwd, 2)}</b></span><span>crec. esp. <b>${nf(D.head.gProj, 0)}%</b></span></div>` : ""}
       <div class="kf-rg" title="Rango del período: ${fx(lo)} a ${fx(hi)}"><i class="a" style="left:${pos(avg)}%"></i><i class="n" style="left:${pos(now)}%"></i></div>
       <div class="kf-rl"><span>${fx(lo)}</span><span>${fx(hi)}</span></div>
     </div>`;
