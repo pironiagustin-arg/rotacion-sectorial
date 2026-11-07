@@ -105,7 +105,8 @@ function render() {
     </div>
     <div class="kf-switch">${seg([["neg", "Negocio"], ["val", "Valoración"]], VIEW, "view")}</div>
     <div class="kf-card kf-ctrl" id="kfCtrl"></div>
-    <div class="kf-grid" id="kfGrid"></div>`;
+    <div class="kf-grid" id="kfGrid"></div>
+    <div id="kfDiff"></div>`;
   el.querySelectorAll("[data-view]").forEach((b) => (b.onclick = () => { VIEW = b.dataset.view; render(); }));
   renderBody();
 }
@@ -150,6 +151,27 @@ const BIZ = [
   { id: 'sbc', title: 'Remuneración en acciones', kind: 'bar', fmt: F.big, series: [{ k: 'sbc', n: 'Remuneración en acciones', c: '#ec4899' }] },
   { id: 'liq', title: 'Liquidez corriente y deuda / patrimonio', kind: 'lines', fmt: F.ratio, series: [{ k: 'cur', n: 'Liquidez corriente', c: '#eab308' }, { k: 'de', n: 'Deuda / patrimonio', c: '#ef4444' }] },
 ];
+// Fila "hoy vs promedio": cuánto se aleja cada múltiplo de su promedio en la temporalidad elegida
+const DIFF = [["per", "PER"], ["ps", "P / ventas"], ["pfcf", "P / FCF"], ["pocf", "P / flujo operativo"], ["pop", "P / resultado op."], ["evebitda", "VE / EBITDA"], ["evebit", "VE / EBIT"]];
+function diffRow(j0) {
+  const tiles = DIFF.map(([k, l]) => {
+    const v = D.mult[k].slice(j0).filter((x) => x != null && isFinite(x));
+    if (v.length < 5) return "";
+    const now = v.at(-1), avg = v.reduce((a, b) => a + b, 0) / v.length, lo = Math.min(...v), hi = Math.max(...v);
+    const d = (now / avg - 1) * 100, pos = (x) => (hi > lo ? ((x - lo) / (hi - lo)) * 100 : 50);
+    const cls = Math.abs(d) < 5 ? "eq" : d < 0 ? "cheap" : "exp";
+    return `<div class="kf-dt ${cls}">
+      <div class="kf-dl">${esc(l)}</div>
+      <div class="kf-dd">${d > 0 ? "+" : ""}${nf(d, 1)}%</div>
+      <div class="kf-ds">${cls === "eq" ? "En su promedio" : d < 0 ? "Debajo del promedio" : "Encima del promedio"}</div>
+      <div class="kf-dv"><span>Hoy <b>${F.x(now)}</b></span><span>Prom. <b>${F.x(avg)}</b></span></div>
+      <div class="kf-rg" title="Rango del período: ${F.x(lo)} a ${F.x(hi)}"><i class="a" style="left:${pos(avg)}%"></i><i class="n" style="left:${pos(now)}%"></i></div>
+      <div class="kf-rl"><span>${F.x(lo)}</span><span>${F.x(hi)}</span></div>
+    </div>`;
+  }).join("");
+  return tiles ? `<div class="kf-card kf-diff"><h5>Hoy vs promedio del período <span class="kf-mut">(${VRANGE} · verde = más barata que su promedio, rojo = más cara)</span></h5><div class="kf-drow">${tiles}</div></div>` : "";
+}
+
 const VAL = { price: ['#3b82f6', F.px], per: ['#f59e0b', F.x], ps: ['#a78bfa', F.x], pfcf: ['#14b8a6', F.x], pocf: ['#38bdf8', F.x], pop: ['#f59e0b', F.x], evebitda: ['#f472b6', F.x], evebit: ['#f87171', F.x] };
 
 
@@ -166,6 +188,8 @@ function drawAll() {
       const box = q(`.fc[data-c="${k}"]`); if (!box) continue;
       draw(box, { kind: "line", x, y: (k === "price" ? P.c : D.mult[k]).slice(j0), color: VAL[k][0], fmt: VAL[k][1], avg: SHOW_AVG, avgFmt: k === "price" ? F.px : F.x });
     }
+    q("#kfDiff").innerHTML = diffRow(j0);
+  } else if (q("#kfDiff")) { q("#kfDiff").innerHTML = "";
   } else {
     const rows = (PERIOD === "q" ? D.quarters : D.years).slice(-(PERIOD === "q" ? NQ : NY));
     for (const b of BIZ) {
