@@ -43,10 +43,12 @@ async function yahooSeries(symbol) {
 function merge(sec, yh) {
   sec = (sec || []).filter((x) => x[1] != null); yh = yh || [];
   const near = (arr, t) => arr.find((x) => Math.abs(x[0] - t) < 20 * DAY);
-  const devs = yh.map(([t, v]) => { const s = near(sec, t); return s && v ? Math.abs(s[1] / v - 1) : null; }).filter((x) => x != null);
+  const ratios = yh.map(([t, v]) => { const s = near(sec, t); return s && s[1] && v ? v / s[1] : null; }).filter((x) => x != null && x > 0);
   // sin períodos compartidos: solo se acepta la SEC si llega hasta donde arranca Yahoo (si no, quedó vieja)
   const fresh = !yh.length || (sec.length && yh[0][0] - sec.at(-1)[0] < 200 * DAY);
-  const okSec = sec.length && (devs.length ? median(devs) < 0.15 : fresh);
+  let okSec = sec.length && (ratios.length ? Math.abs(median(ratios) - 1) < 0.15 : fresh);
+  // misma serie con otra definición (ej. deuda con o sin arrendamientos): si la relación es estable, se empalma escalando
+  if (!okSec && ratios.length >= 2 && Math.max(...ratios) / Math.min(...ratios) < 1.35) { const k = median(ratios); sec = sec.map(([t, v]) => [t, v * k]); okSec = true; }
   const pts = [...yh];
   if (okSec) for (const p of sec) if (!near(yh, p[0])) pts.push(p);
   return pts.sort((a, b) => a[0] - b[0]);
@@ -81,6 +83,12 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
     return out.reverse();
   };
   const SECX = { shares2: { quarterly: adj(secShares?.sharesQ), annual: adj(secShares?.sharesA) } };
+  // Caja de Yahoo: si no publica caja + inversiones CP (pasa en financieras), se usa caja y equivalentes,
+  // así la SEC se valida contra algo (en AXP la SEC trae un concepto equivocado de US$ 0,2 B contra 43 B reales)
+  for (const per of ["quarterly", "annual"]) {
+    const y = Y[per];
+    if (!y.CashCashEquivalentsAndShortTermInvestments?.length && y.CashAndCashEquivalents?.length) y.CashCashEquivalentsAndShortTermInvestments = y.CashAndCashEquivalents;
+  }
   const Q = {}, A = {};
   for (const [k, [y, s]] of Object.entries({ ...FLOWS, ...STOCKS })) {
     Q[k] = merge(SECX[k]?.quarterly || secPts(s, "quarterly"), Y.quarterly[y]);
@@ -173,11 +181,13 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
       // capital invertido con la misma definición en toda la serie: patrimonio + deuda − caja (sin inversiones CP)
       const eq = interp(bal.equity, t), as = interp(bal.assets, t), cashOnly = interp(bal.cash2, t) ?? interp(bal.cash, t) ?? 0;
       const ic = eq != null ? eq + (interp(bal.debt, t) ?? 0) - cashOnly : null;
-      const tax = at(S.tax, t) ?? 0.21, debt = g("debt"), sh = g("shares") ?? g("shares2");
+      const tax = at(S.tax, t) ?? 0.21, sh = g("shares") ?? g("shares2");
+      // balance: si no hay dato de ese trimestre, se estima entre cierres conocidos (anuales)
+      const debt = g("debt") ?? (isQ ? interp(bal.debt, t) : null), cashV = g("cash") ?? g("cash2") ?? (isQ ? interp(bal.cash, t) : null);
       const ca = g("ca"), cl = g("cl"), ni = g("ni");
       return {
         t, label: isQ ? qLabel(t) : String(new Date(t - 182 * DAY).getUTCFullYear()),
-        rev, ni, fcf: g("fcf"), ocf: g("ocf"), ebitda: g("ebitda"), sbc: g("sbc"), debt, cash: g("cash") ?? g("cash2"), shares: sh,
+        rev, ni, fcf: g("fcf"), ocf: g("ocf"), ebitda: g("ebitda"), sbc: g("sbc"), debt: rd(debt, 0), cash: rd(cashV, 0), shares: sh,
         eps: ni != null && sharesAt(t) ? rd(ni / sharesAt(t), 2) : null,
         mGross: mg(g("gp")), mOp: mg(g("opInc")), mNet: mg(ni), mFcf: mg(g("fcf")),
         roe: cap(niT != null && eq > 0 ? (niT / eq) * 100 : null), roa: cap(niT != null && as > 0 ? (niT / as) * 100 : null),
