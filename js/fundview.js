@@ -37,6 +37,105 @@ const HELP = {
 };
 
 
+// ── Guía al tocar "?": qué es, cuándo es bueno o malo, y qué le está pasando a esta acción ──
+const GUIDE = {
+  price: { good: "Sube = el mercado paga más por la empresa.", bad: "Baja sostenida sin que caigan las ganancias = puede abaratarse.", dir: 0 },
+  per: { good: "Más bajo = más barata por cada dólar de ganancia.", bad: "Más alto = el mercado ya paga mucho crecimiento futuro.", trap: "Ojo: un PER bajo en una cíclica en el pico (ej. memorias, petroleras) suele ser una trampa: las ganancias están infladas y van a caer.", dir: -1 },
+  peg: { good: "Menor a 1 = barata para lo que crece. 1–2 = razonable.", bad: "Mayor a 2 = pagás caro el crecimiento.", trap: "Solo sirve con crecimiento estable; en cíclicas o con un año extraordinario da números engañosos.", dir: -1 },
+  ps: { good: "Más bajo = más barata por cada dólar de ventas.", bad: "Más alto = exige márgenes altos o mucho crecimiento.", trap: "Compará solo contra su propia historia o el mismo sector: un software y un supermercado tienen P/V muy distintos.", dir: -1 },
+  pfcf: { good: "Más bajo = más caja libre por cada dólar invertido.", bad: "Más alto = poca caja libre para lo que vale.", trap: "Sube si la empresa está invirtiendo fuerte (capex alto): no siempre es malo.", dir: -1 },
+  pocf: { good: "Más bajo = más barata contra la caja que genera el negocio.", bad: "Más alto = cara contra su caja operativa.", dir: -1 },
+  pop: { good: "Más bajo = más barata contra su ganancia operativa.", bad: "Más alto = cara contra lo que gana el negocio en sí.", dir: -1 },
+  evebitda: { good: "Más bajo = más barata incluyendo su deuda.", bad: "Más alto = cara; tiene en cuenta deuda y caja, mejor para comparar empresas apalancadas.", trap: "No aplica a bancos ni aseguradoras.", dir: -1 },
+  evebit: { good: "Más bajo = más barata incluyendo deuda y amortizaciones.", bad: "Más alto = cara.", dir: -1 },
+  rev: { good: "Sube = el negocio crece.", bad: "Baja = pierde ventas o el ciclo se da vuelta.", dir: 1 },
+  eps: { good: "Sube = cada acción gana más.", bad: "Baja = cae la ganancia por acción.", trap: "Si el BPA crece más que el beneficio neto, es porque recompra acciones.", dir: 1 },
+  fcf: { good: "Sube = más caja libre para dividendos, recompras o bajar deuda.", bad: "Baja o negativo = gasta más de lo que genera.", trap: "Puede bajar por inversiones fuertes que van a dar fruto después.", dir: 1 },
+  marg: { good: "Márgenes que suben = poder de precios o eficiencia.", bad: "Márgenes que caen = más competencia o costos.", dir: 1 },
+  ni: { good: "Sube = gana más.", bad: "Baja = gana menos.", dir: 1 },
+  ebitda: { good: "Sube = el negocio operativo genera más.", bad: "Baja = se debilita la operación.", dir: 1 },
+  ocf: { good: "Sube = entra más caja por la operación.", bad: "Baja = cobra peor o vende menos.", dir: 1 },
+  debt: { good: "Más caja que deuda (caja neta) = colchón ante crisis.", bad: "Deuda creciendo más rápido que la caja = más riesgo.", trap: "En bancos y financieras la deuda es parte del negocio (es su fondeo).", dir: 0 },
+  shares: { good: "Bajan = recompra acciones: cada acción queda dueña de una parte mayor de la empresa (positivo).", bad: "Suben = emite acciones (dilución): tu parte se achica.", dir: -1 },
+  rent: { good: "ROE/ROIC altos y estables = negocio con ventaja competitiva. ROIC > 15% es muy bueno.", bad: "Bajando = rinde menos el capital.", trap: "ROE muy alto con ROIC normal suele ser por deuda o por recompras que achican el patrimonio.", dir: 1 },
+  sbc: { good: "Bajo contra ventas (< 5%) = poca dilución.", bad: "Alto (> 10% de ventas) = paga sueldos con acciones y diluye; es un costo real aunque no salga de caja.", dir: -1 },
+  liq: { good: "Liquidez corriente > 1,5 = paga cómodo lo de corto plazo. Deuda/patrimonio < 1 = poco apalancada.", bad: "Liquidez < 1 o deuda/patrimonio > 2 = más riesgo financiero.", trap: "En bancos, tarjetas (como AXP) y aseguradoras estos ratios no se leen así: su deuda es su materia prima y no clasifican activos corrientes.", dir: 0 },
+};
+const isFin = () => /financial/i.test(D?.head?.sector || "");
+const pct = (a, b) => (a != null && b != null && b !== 0 ? (a / Math.abs(b) - 1) * 100 : null);
+const sgnp = (v, d = 0) => (v == null || !isFinite(v) ? "—" : (v > 0 ? "+" : "") + nf(v, d) + "%");
+function firstLast(rows, k) { const v = rows.filter((r) => r[k] != null && isFinite(r[k])); return v.length >= 2 ? [v[0], v.at(-1), v.length] : null; }
+function readBiz(k) {
+  const rows = (PERIOD === "q" ? D.quarters : D.years).slice(-(PERIOD === "q" ? NQ : NY)), per = PERIOD === "q" ? "trimestres" : "años";
+  const g = GUIDE[k], b = BIZ.find((x) => x.id === k), fl = (key) => firstLast(rows, key);
+  const out = [];
+  if (k === "shares") {
+    const f = fl("shares"); if (!f) return "";
+    const ch = pct(f[1].shares, f[0].shares);
+    out.push(ch < -0.5 ? `Bajó ${nf(-ch, 1)}% en ${f[2]} ${per}: está <b class="pos">recomprando acciones</b>, cada acción queda dueña de más ganancia.` : ch > 0.5 ? `Subió ${nf(ch, 1)}% en ${f[2]} ${per}: <b class="neg">dilución</b>, tu parte de la empresa se achica.` : "Casi sin cambios: no recompra ni diluye de forma relevante.");
+    const fe = fl("eps"), fn = fl("ni");
+    if (fe && fn && ch < -0.5) out.push(`Por eso el BPA (${sgnp(pct(fe[1].eps, fe[0].eps))}) crece más que el beneficio neto (${sgnp(pct(fn[1].ni, fn[0].ni))}).`);
+  } else if (k === "sbc") {
+    const l = [...rows].reverse().find((r) => r.sbc != null && r.rev);
+    if (!l) return "";
+    const sr = (l.sbc / l.rev) * 100, sf = l.fcf > 0 ? (l.sbc / l.fcf) * 100 : null;
+    out.push(`En ${l.label} equivale al <b class="${sr > 10 ? "neg" : sr > 5 ? "mid" : "pos"}">${nf(sr, 1)}% de las ventas</b>${sf != null ? ` y al ${nf(sf, 0)}% del flujo de caja libre` : ""}: ${sr > 10 ? "alto, diluye bastante" : sr > 5 ? "moderado" : "bajo, poca dilución"}.`);
+    const fs = fl("shares"); if (fs) { const ch = pct(fs[1].shares, fs[0].shares); out.push(ch < 0 ? `Igual las acciones bajaron ${nf(-ch, 1)}%: las recompras compensan esa dilución.` : `Y las acciones subieron ${nf(ch, 1)}%: la dilución no se compensa con recompras.`); }
+  } else if (k === "liq") {
+    const l = [...rows].reverse().find((r) => r.cur != null || r.de != null); if (!l) return isFin() ? "No se publica para esta empresa: es financiera." : "";
+    if (l.cur != null) out.push(`Liquidez corriente <b class="${l.cur >= 1.5 ? "pos" : l.cur >= 1 ? "mid" : "neg"}">${nf(l.cur, 2)}</b>: ${l.cur >= 1.5 ? "paga cómodo sus deudas de corto plazo" : l.cur >= 1 ? "alcanza justo para lo de corto plazo" : "tiene más deudas de corto plazo que activos líquidos"}.`);
+    if (l.de != null) out.push(`Deuda/patrimonio <b class="${l.de < 1 ? "pos" : l.de <= 2 ? "mid" : "neg"}">${nf(l.de, 2)}</b>: ${l.de < 0.5 ? "casi sin deuda" : l.de < 1 ? "deuda moderada" : l.de <= 2 ? "apalancada" : "muy apalancada"}.`);
+    if (isFin()) out.push("Como es una financiera, tomalo con pinzas: su deuda es su fondeo.");
+  } else if (k === "debt") {
+    const l = [...rows].reverse().find((r) => r.debt != null || r.cash != null); if (!l) return "";
+    const net = (l.cash ?? 0) - (l.debt ?? 0);
+    out.push(isFin() ? "Financiera: la deuda es su fondeo, no se lee como riesgo directo." : net >= 0 ? `Tiene <b class="pos">caja neta de ${F.big(net)}</b> (más caja que deuda).` : `Tiene <b class="${-net > (l.cash || 0) ? "neg" : "mid"}">deuda neta de ${F.big(-net)}</b>.`);
+    const fd = fl("debt"); if (fd) { const ch = pct(fd[1].debt, fd[0].debt); if (Math.abs(ch) > 15) out.push(`La deuda ${ch > 0 ? "subió" : "bajó"} ${nf(Math.abs(ch), 0)}% en ${fd[2]} ${per}.`); }
+  } else if (k === "rent") {
+    const l = [...rows].reverse().find((r) => r.roe != null || r.roic != null); if (!l) return "";
+    if (l.roic != null) out.push(`ROIC ${nf(l.roic, 1)}%: <b class="${l.roic >= 15 ? "pos" : l.roic >= 8 ? "mid" : "neg"}">${l.roic >= 15 ? "excelente uso del capital" : l.roic >= 8 ? "aceptable" : "rinde poco el capital"}</b>.`);
+    if (l.roe != null && l.roic != null && l.roe > l.roic * 1.8) out.push(`El ROE (${nf(l.roe, 0)}%) muy por encima del ROIC indica deuda o recompras que achican el patrimonio.`);
+    const f = fl("roe"); if (f) { const d = f[1].roe - f[0].roe; if (Math.abs(d) > 3) out.push(`El ROE ${d > 0 ? "mejoró" : "empeoró"} ${nf(Math.abs(d), 0)} puntos en ${f[2]} ${per}.`); }
+  } else if (k === "marg") {
+    for (const [key, nm] of [["mGross", "bruto"], ["mOp", "operativo"], ["mFcf", "de FCF"]]) { const f = fl(key); if (f) { const d = f[1][key] - f[0][key]; out.push(`Margen ${nm}: ${nf(f[0][key], 1)}% → ${nf(f[1][key], 1)}% (<span class="${d >= 0 ? "pos" : "neg"}">${d >= 0 ? "+" : ""}${nf(d, 1)} pp</span>).`); } }
+  } else {
+    const key = b?.series[0].k, f = key && fl(key); if (!f) return "";
+    const ch = pct(f[1][key], f[0][key]), good = (ch ?? 0) * (g.dir || 1) >= 0;
+    out.push(`En ${f[2]} ${per} pasó de ${b.fmt(f[0][key])} a ${b.fmt(f[1][key])} (<b class="${good ? "pos" : "neg"}">${sgnp(ch)}</b>): ${good ? "positivo" : "negativo"}.`);
+    if (k === "eps") { const fn = fl("ni"); if (fn) { const cn = pct(fn[1].ni, fn[0].ni); if (ch - cn > 3) out.push(`Crece más que el beneficio neto (${sgnp(cn)}) gracias a las recompras.`); } }
+    if (k === "fcf") { const fo = fl("ocf"); if (fo && ch < 0 && pct(fo[1].ocf, fo[0].ocf) > 0) out.push("El flujo operativo sí creció: la caída viene de más inversión (capex), no de un peor negocio."); }
+  }
+  return out.join(" ");
+}
+function readVal(k) {
+  const j0 = cutoff(D.prices.d, VRANGE), arr = (k === "price" ? D.prices.c : D.mult[k] || []).slice(j0).filter((x) => x != null && isFinite(x));
+  if (arr.length < 5) return "";
+  const now = arr.at(-1), avg = arr.reduce((a, b) => a + b, 0) / arr.length, lo = Math.min(...arr), hi = Math.max(...arr);
+  if (k === "price") return `En ${VRANGE} ${now >= arr[0] ? "subió" : "bajó"} ${nf(Math.abs(pct(now, arr[0])), 1)}%; está ${nf(Math.abs(pct(now, hi)), 1)}% debajo del máximo del período.`;
+  const d = pct(now, avg), pos = hi > lo ? ((now - lo) / (hi - lo)) * 100 : 50, fx = VAL[k][1];
+  const out = [`Hoy ${fx(now)} contra un promedio de ${fx(avg)} en ${VRANGE}: <b class="${d < -5 ? "pos" : d > 5 ? "neg" : "mid"}">${Math.abs(d) < 5 ? "en su promedio" : d < 0 ? `${nf(-d, 0)}% más barata que su promedio` : `${nf(d, 0)}% más cara que su promedio`}</b>${pos < 15 ? ", cerca del piso del período" : pos > 85 ? ", cerca del techo del período" : ""}.`];
+  if (k === "per" && d < -15) { const q = D.quarters.slice(-5).filter((r) => r.ni != null); if (q.length >= 5 && pct(q.at(-1).ni, q[0].ni) > 40) out.push(`Pero el beneficio creció ${nf(pct(q.at(-1).ni, q[0].ni), 0)}% en un año: parte del abaratamiento viene de ganancias muy altas; confirmá que sean sostenibles.`); }
+  if (k === "peg" && D.head.pegFwd != null) out.push(`Con el crecimiento esperado por analistas da ${nf(D.head.pegFwd, 2)}: ${D.head.pegFwd < 1 ? "barata para lo que se espera que crezca" : D.head.pegFwd <= 2 ? "razonable" : "cara para lo que se espera que crezca"}.`);
+  return out.join(" ");
+}
+function openGuide(btn) {
+  ROOT.querySelectorAll(".kf-pop").forEach((x) => x.remove());
+  const k = btn.dataset.q, g = GUIDE[k] || {}, card = btn.closest(".kf-ch");
+  const read = VIEW === "val" ? readVal(k) : readBiz(k);
+  const dirTxt = g.dir === 1 ? "Mejor si <b>sube</b>." : g.dir === -1 ? "Mejor si es <b>más bajo</b>." : "Depende del contexto.";
+  const pop = document.createElement("div"); pop.className = "kf-pop";
+  pop.innerHTML = `<button class="kf-px" aria-label="Cerrar">×</button><div class="kf-pq">Qué es</div><div>${esc(HELP[k] || "")}</div>
+    <div class="kf-pq">Cómo leerlo · ${dirTxt}</div><div><span class="pos">▲</span> ${esc(g.good || "")}</div><div><span class="neg">▼</span> ${esc(g.bad || "")}</div>${g.trap ? `<div class="kf-pt">⚠ ${esc(g.trap)}</div>` : ""}
+    ${read ? `<div class="kf-pq">Qué pasa en ${esc(D.symbol)}</div><div>${read}</div>` : ""}`;
+  card.appendChild(pop);
+  pop.querySelector(".kf-px").onclick = (e) => { e.stopPropagation(); pop.remove(); };
+}
+document.addEventListener("click", (e) => {
+  const q = e.target.closest?.(".kf-q");
+  if (q && ROOT?.contains(q)) { e.stopPropagation(); const open = q.closest(".kf-ch").querySelector(".kf-pop"); open ? open.remove() : openGuide(q); return; }
+  if (!e.target.closest?.(".kf-pop")) ROOT?.querySelectorAll(".kf-pop").forEach((x) => x.remove());
+});
+
 const CACHE = new Map();
 let D = null, SYM = null, ROOT = null, VIEW = "val", PRANGE = "2A", VRANGE = "2A", SHOW_AVG = true, PERIOD = "q", NQ = 8, NY = 10;
 const CH = [];
@@ -137,7 +236,7 @@ function renderBody() {
 }
 
 const pegNote = () => { const h = D.head; return h.pegFwd != null ? `<div class="kf-peg">Proyectado hoy: <b>${nf(h.pegFwd, 2)}</b> <span>= PER ${nf(h.perNow, 1)} ÷ crec. esperado ${nf(h.gProj, 1)}%</span></div>` : ""; };
-const card = (k, title, legend) => `<div class="kf-card kf-ch"><span class="kf-q" title="${esc(HELP[k] || "")}">?</span><h5>${esc(title)}${k === "peg" ? ' <span class="kf-mut">(histórico, crec. real 3 años)</span>' : ""}</h5>${k === "peg" ? pegNote() : ""}
+const card = (k, title, legend) => `<div class="kf-card kf-ch"><button class="kf-q" data-q="${k}" aria-label="Cómo leer ${esc(title)}">?</button><h5>${esc(title)}${k === "peg" ? ' <span class="kf-mut">(histórico, crec. real 3 años)</span>' : ""}</h5>${k === "peg" ? pegNote() : ""}
   ${legend ? `<div class="kf-leg">${legend.map((s) => `<span><i style="background:${s.c}"></i>${esc(s.n)}</span>`).join("")}</div>` : ""}<div class="fc" data-c="${k}"></div></div>`;
 
 const BIZ = [
