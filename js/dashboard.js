@@ -30,6 +30,74 @@ async function loadTape() {
   const attr = (m) => `data-live-px="${esc(m.symbol)}"${m.symbol === "^TNX" ? ' data-live-suf="%"' : crypto(m.symbol) ? ' data-live-pre="US$ " data-live-dec="0"' : ""}`;
   const row = ov.market.map((m) => `<span class="tk-i"><span class="n">${esc(m.name)}</span><b ${attr(m)}>${fp(m)}</b><span class="c ${m.d1 >= 0 ? "pos" : "neg"}" data-live-chg="${esc(m.symbol)}">${ok(m.d1) ? (m.d1 >= 0 ? "+" : "") + nf(2).format(m.d1) + "%" : "—"}</span></span>`).join("");
   $("tapeIn").innerHTML = row + row;
+  D.market = ov.market; renderCross();
+}
+
+// ---------- Activos: tabla de rendimiento con mapa de calor ----------
+const XA_COLS = [["d1", "1D"], ["w1", "1S"], ["m1", "1M"], ["m3", "3M"], ["ytd", "YTD"], ["y1", "1A"]];
+D.xaSort = loadLocal("dash_xa_sort", "ytd");
+const GROUPS = { "SPY": "Acciones", QQQ: "Acciones", DIA: "Acciones", IWM: "Acciones", EEM: "Acciones", EWZ: "Acciones", ARGT: "Acciones", "^VIX": "Volatilidad", "^TNX": "Tasas", TLT: "Bonos", HYG: "Bonos", "DX-Y.NYB": "Monedas", "GC=F": "Materias primas", "SI=F": "Materias primas", "HG=F": "Materias primas", "CL=F": "Materias primas", "BTC-USD": "Cripto", "ETH-USD": "Cripto" };
+function heat(v, k, inv) {
+  if (!ok(v)) return "";
+  if (inv) v = -v; // VIX: que suba es malo para el mercado
+  const sc = { d1: 3, w1: 6, m1: 10, m3: 18, ytd: 30, y1: 40 }[k] || 10, a = Math.min(1, Math.abs(v) / sc) * 0.55;
+  return `background:${v >= 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`}`;
+}
+function renderCross() {
+  const el = $("cross"); if (!el || !D.market) return;
+  const k = D.xaSort, rows = [...D.market].sort((a, b) => (b[k] ?? -1e9) - (a[k] ?? -1e9));
+  const fp = (m) => (m.symbol === "^TNX" ? nf(2).format(m.price) + "%" : /-USD$/.test(m.symbol) ? nf(0).format(m.price) : nf(2).format(m.price));
+  el.className = "xa-w";
+  el.innerHTML = `<table class="xa"><thead><tr><th class="l">Activo</th><th class="l">Clase</th><th>Precio</th>${XA_COLS.map(([c, l]) => `<th data-xs="${c}" class="${c === k ? "on" : ""}">${l}${c === k ? " ▾" : ""}</th>`).join("")}<th>3 meses</th></tr></thead><tbody>
+    ${rows.map((m) => `<tr><td class="l"><b>${esc(m.symbol.replace(/^\^/, "").replace("DX-Y.NYB", "DXY").replace("=F", ""))}</b><span class="nm">${esc(m.name)}</span></td><td class="l dim">${GROUPS[m.symbol] || ""}</td><td>${fp(m)}</td>
+      ${XA_COLS.map(([c]) => `<td class="h" style="${heat(m[c], c, m.symbol === "^VIX")}">${ok(m[c]) ? (m[c] >= 0 ? "+" : "") + nf(1).format(m[c]) + "%" : "—"}</td>`).join("")}<td>${spark(m.spark || [], (m.m3 ?? 0) >= 0, 90, 24)}</td></tr>`).join("")}</tbody></table>`;
+  el.querySelectorAll("[data-xs]").forEach((th) => (th.onclick = () => { D.xaSort = th.dataset.xs; saveLocal("dash_xa_sort", D.xaSort); renderCross(); }));
+}
+
+// ---------- Régimen de mercado y VIX ----------
+const dec = (x) => String(x).replace(/(\d)\.(\d)/g, "$1,$2");
+async function loadRegime() {
+  const r = await fetch("/api/overview?view=regime"); if (!r.ok) throw new Error("regime");
+  const R = await r.json(), sg = R.signals || [];
+  const on = sg.filter((x) => x.state > 0).length, off = sg.filter((x) => x.state < 0).length;
+  const name = { on: "Risk-on", off: "Risk-off", neutral: "Neutral" }[R.regime];
+  const sub = { on: "Las señales favorecen tomar riesgo", off: "Las señales piden cautela", neutral: "Señales mezcladas: selectividad" }[R.regime];
+  const pos = Math.max(0, Math.min(100, (R.score + 100) / 2));
+  $("regime").innerHTML = `<div class="lbl"><span>Régimen de mercado</span><span class="dim2">${sg.length} señales · tendencia, volatilidad, crédito, rotación, amplitud, dólar y tasas</span></div>
+    <div class="rg-top"><div class="rg-badge ${R.regime}"><div class="t">Hoy</div><div class="r">${name}</div><div style="font-size:12px;opacity:.85">${sub}</div></div>
+      <div><div class="rg-meter"><i style="left:${pos}%"></i></div><div class="rg-ml"><span>Risk-off</span><span>Neutral</span><span>Risk-on</span></div>
+      <div class="rg-cnt"><b class="pos">${on}</b> a favor · <b class="neg">${off}</b> en contra · <b>${sg.length - on - off}</b> neutrales</div></div></div>
+    <div class="rg-list">${sg.map((x) => `<div class="rg-row" title="${esc(x.why)}"><span class="d ${x.state > 0 ? "p" : x.state < 0 ? "n" : "z"}"></span>
+      <div style="min-width:0"><div class="nm">${esc(x.name)}</div><div class="why">${esc(x.why)}</div></div>
+      <div class="vv">${esc(dec(x.value))}<small>${esc(dec(x.detail))}</small></div>
+      <div>${x.spark ? spark(x.spark, x.state >= 0, 78, 26) : ""}</div></div>`).join("")}</div>`;
+  // VIX
+  const v = R.vix; if (!v) return;
+  const lv = v.v < 16 ? ["Calma", "#22c55e"] : v.v <= 20 ? ["Normal", "#94a3b8"] : v.v <= 25 ? ["Nervioso", "#eab308"] : v.v <= 35 ? ["Miedo", "#f97316"] : ["Pánico", "#ef4444"];
+  const ts = v.v3m ? v.v / v.v3m : null, back = ts > 1;
+  const W = 320, H = 90, mn = Math.min(...v.spark) * 0.95, mx = Math.max(...v.spark) * 1.03;
+  const Y = (y) => H - ((y - mn) / (mx - mn)) * H, X = (i) => (i / (v.spark.length - 1)) * W;
+  const band = (y, c) => (y > mn && y < mx ? `<line x1="0" x2="${W}" y1="${Y(y)}" y2="${Y(y)}" stroke="${c}" stroke-dasharray="4 4" opacity=".6"/><text x="${W - 2}" y="${Y(y) - 3}" fill="${c}" font-size="9" text-anchor="end">${y}</text>` : "");
+  const path = v.spark.map((y, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(y).toFixed(1)}`).join("");
+  let note;
+  if (v.v > 25 && back) note = "<b>Pánico con curva invertida.</b> Históricamente los picos de VIX con backwardation marcan zonas de compra escalonada cuando la curva vuelve a contango.";
+  else if (v.v > 25) note = "<b>Miedo alto.</b> Zona donde suele convenir empezar a comprar de a partes, sin apalancarse.";
+  else if (back) note = "<b>Curva invertida:</b> el mercado paga más por protección inmediata que a 3 meses. Señal de estrés de corto plazo.";
+  else if (v.v < 14) note = "<b>Complacencia.</b> Volatilidad muy baja: la protección (puts) está barata.";
+  else note = "Volatilidad dentro de lo normal y curva en contango.";
+  $("vixT").innerHTML = `<div class="lbl"><span>VIX · volatilidad</span><span class="dim2">percentil ${v.pct} del año</span></div>
+    <div class="vx-h"><div><div class="big" style="color:${lv[1]}">${nf(2).format(v.v)}</div><div class="cap">${pc(v.chg1d)} hoy · prom. 1A ${nf(1).format(v.avg)}</div></div><span class="vx-st" style="background:${lv[1]}22;color:${lv[1]}">${lv[0]}</span></div>
+    <svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="margin-top:10px;display:block">${band(20, "#eab308")}${band(30, "#ef4444")}<path d="${path}L${W},${H}L0,${H}Z" fill="${lv[1]}" opacity=".12"/><path d="${path}" fill="none" stroke="${lv[1]}" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+    <div class="vx-ts"><div><b>${v.v9 != null ? nf(1).format(v.v9) : "—"}</b><span>VIX 9 días</span></div><div><b>${nf(1).format(v.v)}</b><span>VIX 30 días</span></div><div><b>${v.v3m != null ? nf(1).format(v.v3m) : "—"}</b><span>VIX 3 meses</span></div></div>
+    <div class="vx-note">${ts ? `Estructura: <b class="${back ? "neg" : "pos"}">${back ? "backwardation" : "contango"}</b> (${nf(2).format(ts)}). ` : ""}${note}</div>`;
+}
+
+// Oculta tarjetas vacías y reacomoda la fila para que no queden huecos
+function relayout() {
+  const hide = (id) => { const el = $(id); if (el) el.style.display = "none"; };
+  const span = (id, n) => { const el = $(id); if (el) el.className = el.className.replace(/\bs\d+\b/, "s" + n); };
+  if (D.wlEmpty) { hide("wlT"); span("candT", 6); span("cryT", 6); }
+  if (D.pfEmpty) { hide("pfT"); span("dolT", 12); }
 }
 
 // ---------- Sentimiento y tasas ----------
@@ -91,6 +159,7 @@ async function loadUniverse() {
   const wrows = (name ? wl.lists[name] : []).map((s) => rows.find((r) => r.s === s || r.ced === s)).filter(Boolean).slice(0, 6);
   $("wlName").textContent = name ? `Watchlist · ${name}` : "Watchlist";
   $("wl").className = "";
+  D.wlEmpty = !wrows.length; relayout();
   $("wl").innerHTML = wrows.length ? wrows.map((r) => item(r, `<span class="px"><span data-live-px="${esc(r.s)}">${fmt(r.px)}</span><div>${liveChg(r.s, r.chg)}</div></span>${scPill(r.score)}`)).join("") : `<div class="dim">Agregá acciones desde el Screener o la Watchlist.</div>`;
   document.querySelectorAll(".li[data-s]").forEach((el) => (el.onclick = () => go(el.dataset.s)));
   // Amplitud (dentro de la tarjeta de sentimiento)
@@ -172,7 +241,7 @@ async function loadDolar() {
 // ---------- Cartera ----------
 async function loadPf() {
   const pf = getPortfolio();
-  if (!pf.positions.length) { $("pf").className = ""; $("pf").innerHTML = `<div class="dim">Cargá tus compras en <a href="/cartera.html" style="color:#93c5fd">Cartera</a> para ver tu resultado en dólares y contra el S&amp;P 500.</div>`; return; }
+  if (!pf.positions.length) { D.pfEmpty = true; relayout(); $("pf").className = ""; $("pf").innerHTML = `<div class="dim">Cargá tus compras en <a href="/cartera.html" style="color:#93c5fd">Cartera</a> para ver tu resultado en dólares y contra el S&amp;P 500.</div>`; return; }
   const [d, q] = await Promise.all([fetchArs(), fetch("/api/overview?s=SPY").then((r) => (r.ok ? r.json() : null)).catch(() => null)]);
   const spy = q?.q?.SPY?.px;
   let vU = 0, vA = 0, cU = 0, sV = 0, day = 0; const per = new Map();
@@ -197,7 +266,7 @@ async function loadPf() {
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando…";
   const res = await Promise.allSettled([
-    loadTape(), loadMarket(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
+    loadTape(), loadMarket(), loadRegime(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
     loadUniverse().then(() => {
       const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR");
       const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]);

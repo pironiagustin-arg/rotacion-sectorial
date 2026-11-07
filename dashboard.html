@@ -100,6 +100,36 @@
   .fgl .meter { flex:1; height:6px; border-radius:4px; background:linear-gradient(90deg,#ef4444,#eab308 50%,#22c55e); position:relative; }
   .fgl .meter i { position:absolute; top:-4px; width:3px; height:14px; background:#fff; border-radius:2px; }
 
+
+  /* Régimen */
+  .rg-top { display:grid; grid-template-columns:auto 1fr; gap:18px; align-items:center; margin-bottom:12px; }
+  .rg-badge { border-radius:14px; padding:12px 16px; min-width:170px; }
+  .rg-badge .t { font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.8; } .rg-badge .r { font-size:24px; font-weight:800; line-height:1.15; }
+  .rg-badge.on { background:rgba(34,197,94,.12); color:#4ade80; } .rg-badge.off { background:rgba(239,68,68,.12); color:#f87171; } .rg-badge.neutral { background:rgba(234,179,8,.12); color:#facc15; }
+  .rg-meter { position:relative; height:8px; border-radius:4px; background:linear-gradient(90deg,#ef4444,#eab308 50%,#22c55e); }
+  .rg-meter i { position:absolute; top:-5px; width:4px; height:18px; border-radius:2px; background:#fff; transform:translateX(-50%); box-shadow:0 0 0 2px var(--panel); }
+  .rg-ml { display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-top:6px; }
+  .rg-cnt { font-size:12.5px; color:var(--muted); margin-top:8px; } .rg-cnt b { color:var(--text); }
+  .rg-list { display:grid; grid-template-columns:1fr 1fr; gap:0 18px; }
+  .rg-row { display:grid; grid-template-columns:10px minmax(0,1fr) auto 78px; gap:10px; align-items:center; padding:8px 0; border-top:1px solid var(--border); }
+  .rg-row .d { width:10px; height:10px; border-radius:50%; } .rg-row .d.p { background:#22c55e; } .rg-row .d.n { background:#ef4444; } .rg-row .d.z { background:#eab308; }
+  .rg-row .nm { font-size:13px; font-weight:600; } .rg-row .why { font-size:11.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rg-row .vv { text-align:right; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; } .rg-row .vv small { display:block; font-size:11px; color:var(--dim); font-weight:400; }
+  /* VIX */
+  .vx-h { display:flex; justify-content:space-between; align-items:flex-end; gap:10px; }
+  .vx-st { font-size:12px; font-weight:600; padding:3px 9px; border-radius:99px; }
+  .vx-ts { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
+  .vx-ts div { background:var(--panel2); border-radius:10px; padding:8px 10px; } .vx-ts b { display:block; font-size:16px; font-variant-numeric:tabular-nums; } .vx-ts span { font-size:11px; color:var(--dim); }
+  .vx-note { font-size:12.5px; color:var(--muted); margin-top:10px; line-height:1.5; } .vx-note b { color:var(--text); }
+  /* Activos */
+  .dim2 { text-transform:none; letter-spacing:0; font-weight:400; color:var(--dim); font-size:11.5px; }
+  .xa { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  .xa th { font-size:11px; color:var(--dim); font-weight:500; text-align:right; padding:6px 8px; border-bottom:1px solid var(--border); cursor:pointer; white-space:nowrap; position:static; background:none; }
+  .xa th.l, .xa td.l { text-align:left; } .xa th.on { color:#93c5fd; }
+  .xa td { padding:6px 8px; text-align:right; font-size:13px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .xa td.h { border-radius:4px; } .xa .nm { color:var(--dim); font-size:12px; margin-left:6px; }
+  .xa-w { overflow-x:auto; }
+  @media (max-width:900px) { .rg-list { grid-template-columns:1fr; } .rg-top { grid-template-columns:1fr; } }
   /* Números en fila */
   .nums { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
   .nums > div { min-width:0; } .nums .v { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; } .nums .l { font-size:11.5px; color:var(--dim); margin-top:2px; }
@@ -127,15 +157,20 @@
     <section class="tile s5"><div class="lbl">Agenda macro EE.UU.</div><div id="econ" class="loading">Cargando…</div></section>
     <section class="tile s3" id="sentiment"><div class="lbl">Sentimiento</div><div class="loading">Cargando…</div></section>
 
+    <section class="tile s8" id="regime"><div class="lbl">Régimen de mercado</div><div class="loading">Cargando…</div></section>
+    <section class="tile s4" id="vixT"><div class="lbl">VIX · volatilidad</div><div class="loading">Cargando…</div></section>
+
     <section class="tile s8"><div class="lbl"><span>Sectores vs S&amp;P 500</span><div class="seg" id="ranges"></div></div><div id="sectors" class="loading">Cargando…</div></section>
     <section class="tile s4" id="curve"><div class="lbl">Tasas EE.UU.</div><div class="loading">Cargando…</div></section>
 
-    <section class="tile s4"><div class="lbl"><span>Candidatas</span><a href="/screener.html">Screener →</a></div><div id="cands" class="loading">Cargando…</div></section>
-    <section class="tile s4"><div class="lbl"><span id="wlName">Watchlist</span><a href="/watchlist.html">Abrir →</a></div><div id="wl" class="loading">Cargando…</div></section>
-    <section class="tile s4"><div class="lbl">Cripto</div><div id="crypto" class="loading">Cargando…</div></section>
+    <section class="tile s12"><div class="lbl"><span>Activos · rendimiento</span><span class="dim2">ordenar tocando la columna</span></div><div id="cross" class="loading">Cargando…</div></section>
 
-    <section class="tile s6"><div class="lbl"><span>Dólar y CEDEARs</span><a href="/cedears.html">Ver todos →</a></div><div id="dolar" class="loading">Cargando…</div></section>
-    <section class="tile s6"><div class="lbl"><span>Tu cartera</span><a href="/cartera.html">Abrir →</a></div><div id="pf" class="loading">Cargando…</div></section>
+    <section class="tile s4" id="candT"><div class="lbl"><span>Candidatas</span><a href="/screener.html">Screener →</a></div><div id="cands" class="loading">Cargando…</div></section>
+    <section class="tile s4" id="wlT"><div class="lbl"><span id="wlName">Watchlist</span><a href="/watchlist.html">Abrir →</a></div><div id="wl" class="loading">Cargando…</div></section>
+    <section class="tile s4" id="cryT"><div class="lbl">Cripto</div><div id="crypto" class="loading">Cargando…</div></section>
+
+    <section class="tile s6" id="dolT"><div class="lbl"><span>Dólar y CEDEARs</span><a href="/cedears.html">Ver todos →</a></div><div id="dolar" class="loading">Cargando…</div></section>
+    <section class="tile s6" id="pfT"><div class="lbl"><span>Tu cartera</span><a href="/cartera.html">Abrir →</a></div><div id="pf" class="loading">Cargando…</div></section>
 
     <section class="tile s12"><div class="lbl">Resultados de empresas · próximos 30 días</div><div id="earn" class="loading">Cargando…</div></section>
   </div>

@@ -43,6 +43,7 @@ export async function renderEarnings(el, syms, label = (s) => s, all = null, wei
   // Grilla: desde el lunes de esta semana hasta 30 días adelante
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const start = new Date(today); start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+  if (today.getDay() === 6 || today.getDay() === 0) start.setDate(start.getDate() + 7); // fin de semana: arranca la semana que viene
   const end = new Date(today); end.setDate(end.getDate() + 30);
   const weeks = [];
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 7)) weeks.push(new Date(d));

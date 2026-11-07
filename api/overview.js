@@ -7,7 +7,7 @@ import { SECTOR_ETFS, INDUSTRY_ETFS } from "./_signals.js";
 const MARKET = [
   ["SPY", "S&P 500"], ["QQQ", "Nasdaq 100"], ["DIA", "Dow Jones"], ["IWM", "Russell 2000"], ["^VIX", "VIX"],
   ["^TNX", "Tasa 10 años EE.UU."], ["DX-Y.NYB", "Dólar (DXY)"], ["GC=F", "Oro"], ["CL=F", "Petróleo WTI"], ["BTC-USD", "Bitcoin"], ["ETH-USD", "Ethereum"],
-  ["EEM", "Emergentes"], ["EWZ", "Brasil"],
+  ["EEM", "Emergentes"], ["EWZ", "Brasil"], ["ARGT", "Argentina"], ["TLT", "Bonos Tesoro 20a+"], ["HYG", "High yield"], ["SI=F", "Plata"], ["HG=F", "Cobre"],
 ];
 
 async function daily(symbol) {
@@ -142,7 +142,72 @@ async function macroView(req, res) {
   return res.status(200).json({ events, fed: { effr: r0, effrDate: r0e?.effectiveDate || null, target: r0e ? [r0e.targetRateFrom, r0e.targetRateTo] : null, meetings }, at: Date.now() });
 }
 
+
+// GET /api/overview?view=regime -> régimen de mercado (risk-on / risk-off) con señales de tendencia, volatilidad,
+// crédito, rotación, amplitud, dólar y tasas; más la estructura temporal del VIX.
+const sma = (a, n) => (a.length >= n ? a.slice(-n).reduce((x, y) => x + y, 0) / n : null);
+const ratio = (A, B) => { const m = new Map(B.map((p) => [Math.round(p.t / 864e5), p.c])); return A.map((p) => ({ t: p.t, c: m.has(Math.round(p.t / 864e5)) ? p.c / m.get(Math.round(p.t / 864e5)) : null })).filter((p) => p.c != null); };
+async function regimeView(req, res) {
+  const syms = ["SPY", "^VIX", "^VIX9D", "^VIX3M", "HYG", "IEF", "XLY", "XLP", "IWM", "RSP", "DX-Y.NYB", "^TNX", ...Object.keys(SECTOR_ETFS)];
+  const got = await Promise.all(syms.map((s) => daily(s).catch(() => [])));
+  const S = Object.fromEntries(syms.map((s, i) => [s, got[i]]));
+  const cl = (s) => S[s].map((p) => p.c);
+  const spark = (pts) => pts.slice(-126).map((p) => round(p.c, 4));
+  const sig = [];
+  const add = (k, name, state, value, detail, why, pts) => sig.push({ k, name, state, value, detail, why, spark: pts ? spark(pts) : null });
+
+  // 1. Tendencia del S&P 500
+  const spy = cl("SPY");
+  if (spy.length > 200) {
+    const p = spy.at(-1), m50 = sma(spy, 50), m200 = sma(spy, 200);
+    const st = p > m50 && p > m200 ? 1 : p < m200 ? -1 : 0;
+    add("trend", "Tendencia S&P 500", st, `${round((p / m200 - 1) * 100, 1)}% vs MM200`, `MM50 ${round((p / m50 - 1) * 100, 1)}%`, st > 0 ? "Sobre sus medias de 50 y 200 ruedas: tendencia alcista" : st < 0 ? "Debajo de la media de 200 ruedas: tendencia bajista" : "Entre medias: tendencia indefinida", S.SPY);
+    const hi = Math.max(...spy.slice(-252)), dd = (p / hi - 1) * 100;
+    add("dd", "Distancia al máximo", dd > -5 ? 1 : dd > -10 ? 0 : -1, `${round(dd, 1)}%`, "vs máximo de 52 semanas", dd > -5 ? "Cerca de máximos" : dd > -10 ? "Retroceso normal (< 10%)" : dd > -20 ? "Corrección (−10% a −20%)" : "Mercado bajista (> −20%)", null);
+  }
+  // 2. Volatilidad
+  const vix = cl("^VIX"), v9 = cl("^VIX9D"), v3m = cl("^VIX3M");
+  let vixOut = null;
+  if (vix.length) {
+    const v = vix.at(-1), pct = round((vix.filter((x) => x <= v).length / vix.length) * 100, 0);
+    add("vix", "VIX", v < 16 ? 1 : v <= 25 ? 0 : -1, round(v, 2), `percentil ${pct} del último año`, v < 16 ? "Volatilidad baja: mercado tranquilo" : v <= 25 ? "Volatilidad normal" : v <= 35 ? "Miedo: volatilidad alta" : "Pánico", null);
+    const ts = v3m.length ? v / v3m.at(-1) : null;
+    if (ts) add("term", "Estructura del VIX", ts < 0.9 ? 1 : ts <= 1 ? 0 : -1, round(ts, 2), "VIX ÷ VIX 3 meses", ts < 0.9 ? "Contango: el mercado espera calma" : ts <= 1 ? "Curva plana: atención" : "Backwardation: estrés de corto plazo (suele marcar pisos cuando revierte)", null);
+    vixOut = { v: round(v, 2), v9: v9.length ? round(v9.at(-1), 2) : null, v3m: v3m.length ? round(v3m.at(-1), 2) : null, pct, min: round(Math.min(...vix), 2), max: round(Math.max(...vix), 2),
+      avg: round(vix.reduce((a, b) => a + b, 0) / vix.length, 2), chg1d: vix.length > 1 ? round((v / vix.at(-2) - 1) * 100, 1) : null, spark: S["^VIX"].slice(-252).map((p) => round(p.c, 2)), dates: S["^VIX"].slice(-252).map((p) => p.t) };
+  }
+  // 3. Ratios de apetito por riesgo: sobre / debajo de su media de 50 ruedas
+  const ratioSig = (k, name, a, b, onTxt, offTxt, invert = false) => {
+    const r = ratio(S[a], S[b]); if (r.length < 60) return;
+    const c = r.map((p) => p.c), m = sma(c, 50), d = (c.at(-1) / m - 1) * 100, ch1m = (c.at(-1) / c.at(-22) - 1) * 100;
+    let st = d > 0.5 ? 1 : d < -0.5 ? -1 : 0; if (invert) st = -st;
+    add(k, name, st, `${ch1m >= 0 ? "+" : ""}${round(ch1m, 1)}% 1M`, `${d >= 0 ? "+" : ""}${round(d, 1)}% vs MM50`, st > 0 ? onTxt : st < 0 ? offTxt : "Sin dirección clara", r);
+  };
+  ratioSig("credit", "Crédito (HYG / IEF)", "HYG", "IEF", "High yield le gana a bonos del Tesoro: hay apetito por riesgo", "Bonos basura pierden contra el Tesoro: se cierra el crédito");
+  ratioSig("cyc", "Cíclico vs defensivo (XLY / XLP)", "XLY", "XLP", "Consumo discrecional lidera: confianza en la economía", "Consumo básico lidera: posición defensiva");
+  ratioSig("small", "Small caps (IWM / SPY)", "IWM", "SPY", "Las chicas acompañan: suba amplia", "Las chicas se quedan atrás: suba concentrada");
+  ratioSig("ew", "Igual ponderado (RSP / SPY)", "RSP", "SPY", "La acción promedio acompaña al índice", "Pocas mega caps sostienen el índice");
+  // 4. Amplitud sectorial
+  const secs = Object.keys(SECTOR_ETFS).map((s) => cl(s)).filter((a) => a.length > 200);
+  if (secs.length) {
+    const a50 = secs.filter((a) => a.at(-1) > sma(a, 50)).length, a200 = secs.filter((a) => a.at(-1) > sma(a, 200)).length;
+    const p50 = (a50 / secs.length) * 100;
+    add("breadth", "Amplitud sectorial", p50 >= 60 ? 1 : p50 < 40 ? -1 : 0, `${a50}/${secs.length}`, `sobre MM50 · ${a200}/${secs.length} sobre MM200`, p50 >= 60 ? "La mayoría de los sectores en tendencia alcista" : p50 < 40 ? "La mayoría de los sectores débiles" : "Mercado dividido", null);
+  }
+  // 5. Dólar y tasas
+  const dxy = cl("DX-Y.NYB");
+  if (dxy.length > 60) { const d = (dxy.at(-1) / sma(dxy, 50) - 1) * 100; add("dxy", "Dólar global (DXY)", d < -0.5 ? 1 : d > 0.5 ? -1 : 0, round(dxy.at(-1), 2), `${d >= 0 ? "+" : ""}${round(d, 1)}% vs MM50`, d < -0.5 ? "Dólar débil: favorece emergentes y materias primas" : d > 0.5 ? "Dólar fuerte: presión sobre emergentes" : "Dólar estable", S["DX-Y.NYB"]); }
+  const tnx = cl("^TNX");
+  if (tnx.length > 22) { const ch = (tnx.at(-1) - tnx.at(-22)) * 100; add("rates", "Tasa 10 años", ch < -10 ? 1 : ch > 25 ? -1 : 0, `${round(tnx.at(-1), 2)}%`, `${ch >= 0 ? "+" : ""}${round(ch, 0)} pb en 1 mes`, ch < -10 ? "Tasas bajando: alivio para valuaciones" : ch > 25 ? "Tasas subiendo rápido: presión sobre valuaciones" : "Tasas estables", S["^TNX"]); }
+
+  const score = sig.length ? sig.reduce((a, x) => a + x.state, 0) / sig.length : 0;
+  const regime = score >= 0.3 ? "on" : score <= -0.3 ? "off" : "neutral";
+  res.setHeader("Cache-Control", "public, s-maxage=600, stale-while-revalidate=1800");
+  return res.status(200).json({ regime, score: round(score * 100, 0), signals: sig, vix: vixOut, at: Date.now() });
+}
+
 export default async function handler(req, res) {
+  if (req.query?.view === "regime") return regimeView(req, res);
   if (req.query?.view === "macro") return macroView(req, res);
   if (req.query?.view === "chart") return chartView(req, res);
   if (req.query?.s) return liveQuotes(req, res);
