@@ -163,18 +163,27 @@ function renderCompare() {
     <div class="na" style="font-size:12px;margin-top:8px">En verde, el mejor valor de cada fila. Pasá el mouse sobre una métrica para ver qué significa.</div>`;
 }
 
+const OPP_MORE = new Set();
 function renderOpp(rows) {
-  const list = rows.filter((r) => ok(r.opp?.score) && r.c !== "AR" && r.profile !== "crypto").sort((a, b) => b.opp.score - a.opp.score).slice(0, 60);
+  const all = rows.filter((r) => ok(r.opp?.score) && r.c !== "AR" && r.profile !== "crypto").sort((a, b) => b.opp.score - a.opp.score);
   const col = (v) => (v >= 65 ? "#22c55e" : v >= 45 ? "#eab308" : "#ef4444");
   const cls = (v) => (v >= 65 ? "g" : v >= 45 ? "m" : "b");
   const order = ["gap", "rev", "fcf", "mult", "sh", "debt", "dd"];
-  return `<p class="opp-h">Ranking armado solo con fundamentos, con pesos según el tipo de empresa: <b>BPA vs precio</b> (ganancias que suben con el PER bajando), <b>crecimiento</b>, <b>flujo de caja</b> (sin castigar a quien invierte fuerte en capex), <b>múltiplos contra su propia historia</b>, <b>recompras</b>, <b>deuda</b> y <b>margen de seguridad</b> (caída desde máximos, que solo suma si el negocio está sano). Respeta los filtros de arriba.</p>
-  <div class="opp-grid">${list.map((r) => { const P = Object.fromEntries(r.opp.parts.map((p) => [p.k, p])); return `<div class="opp" data-open="${esc(r.s)}">
-    <div class="opp-t"><div><span class="tk">${esc(r.ced || r.s)}</span> <span class="badge">${LYNCH[r.lynch] || ""}</span><span class="nm">${esc((r.n || "").slice(0, 40))} · ${esc(SECTORS[r.sec] || "")}</span></div><div class="opp-s ${cls(r.opp.score)}"><b>${r.opp.score}</b><span>oportunidad</span></div></div>
+  const card = (r) => { const P = Object.fromEntries(r.opp.parts.map((p) => [p.k, p])); return `<div class="opp" data-open="${esc(r.s)}">
+    <div class="opp-t"><div><span class="tk">${esc(r.ced || r.s)}</span><span class="nm">${esc((r.n || "").slice(0, 40))} · ${esc(SECTORS[r.sec] || "")}</span></div><div class="opp-s ${cls(r.opp.score)}"><b>${r.opp.score}</b><span>oportunidad</span></div></div>
     <div class="opp-bars">${order.map((k) => { const p = P[k]; return `<div title="${esc(p ? p.t : "Sin dato o no aplica")}"><i>${p ? `<u style="height:${Math.max(4, p.s)}%;background:${col(p.s)}"></u>` : ""}</i>${OPP_LABEL[k].split(" ")[0]}</div>`; }).join("")}</div>
     ${r.opp.why.length ? `<ul class="opp-why">${r.opp.why.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>` : ""}
     ${r.opp.flags.map((f) => `<div class="opp-flag">⚠ ${esc(f)}</div>`).join("")}
-  </div>`; }).join("") || '<div class="na">Ninguna acción con datos suficientes en este filtro.</div>'}</div>`;
+  </div>`; };
+  const FOCUS = { fast: "pesa más el crecimiento y BPA vs precio", stalwart: "pesan BPA vs precio, flujo de caja y múltiplos vs su historia", slow: "pesan el flujo de caja, la deuda y las recompras", cyclical: "pesan la deuda y el margen de seguridad; el PER bajo pesa poco (puede ser pico de ciclo)", turnaround: "pesa sobre todo la deuda: tiene que sobrevivir", asset: "pesan los múltiplos contra su historia (P/Libro)" };
+  const groups = ["fast", "stalwart", "slow", "cyclical", "turnaround", "asset"].filter((k) => LYNCH[k]).map((k) => [k, all.filter((r) => r.lynch === k)]).filter(([, l]) => l.length);
+  return `<p class="opp-h">Ranking armado solo con fundamentos, agrupado por tipo de empresa (Lynch) para comparar entre pares: <b>BPA vs precio</b>, <b>crecimiento</b>, <b>flujo de caja</b> (sin castigar a quien invierte fuerte en capex), <b>múltiplos contra su propia historia</b>, <b>recompras</b>, <b>deuda</b> y <b>margen de seguridad</b> (caída desde máximos, solo suma si el negocio está sano). Respeta los filtros de arriba.</p>
+  <div class="opp-nav">${groups.map(([k, l]) => `<a href="#opp-${k}">${LYNCH[k]} <span>${l.length}</span></a>`).join("")}</div>
+  ${groups.map(([k, l]) => { const more = OPP_MORE.has(k), shown = more ? l : l.slice(0, 6); return `<section class="opp-sec" id="opp-${k}">
+    <div class="opp-sh"><h3>${LYNCH[k]} <span class="na">${l.length} acciones · mejor ${l[0].opp.score} · mediana ${median(l.map((r) => r.opp.score))}</span></h3><span class="na">${esc(FOCUS[k] || "")}</span></div>
+    <div class="opp-grid">${shown.map(card).join("")}</div>
+    ${l.length > 6 ? `<button class="btn sm" data-oppmore="${k}" style="margin-top:10px">${more ? "Ver menos" : `Ver las ${l.length} de ${LYNCH[k]}`}</button>` : ""}
+  </section>`; }).join("") || '<div class="na">Ninguna acción con datos suficientes en este filtro.</div>'}`;
 }
 
 function render() {
@@ -296,6 +305,7 @@ function bind() {
     }
     const fl = t.closest("[data-filter]");
     if (fl) { if (fl.dataset.filter === "sector") S.f.sectors = new Set([fl.dataset.key]); else S.f.country = fl.dataset.key; S.view = "table"; document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x.dataset.v === "table")); renderFilters(); render(); return; }
+    const om = t.closest("[data-oppmore]"); if (om) { const k = om.dataset.oppmore; OPP_MORE.has(k) ? OPP_MORE.delete(k) : OPP_MORE.add(k); return render(); }
     const op = t.closest("[data-open]"); if (op) return go(op.dataset.open);
     const tr = t.closest("tr.row"); if (tr) go(tr.dataset.s);
   });

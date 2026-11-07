@@ -161,3 +161,10 @@ html.embedded main { padding-top:16px; }
   .opp-bars i u { position:absolute; left:0; right:0; bottom:0; }
   .opp-why { font-size:12.5px; color:var(--text); margin:0; padding-left:16px; line-height:1.5; }
   .opp-flag { font-size:11.5px; color:#fde68a; background:rgba(234,179,8,.08); border-radius:8px; padding:5px 8px; margin-top:8px; }
+
+  .opp-nav { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 6px; position:sticky; top:0; z-index:4; background:var(--bg); padding:6px 0; }
+  .opp-nav a { text-decoration:none; font-size:12.5px; color:var(--muted); background:var(--panel2); border:1px solid var(--border); border-radius:99px; padding:4px 11px; }
+  .opp-nav a:hover { color:var(--text); border-color:var(--accent); } .opp-nav a span { color:var(--dim); margin-left:3px; }
+  .opp-sec { margin-top:18px; scroll-margin-top:50px; }
+  .opp-sh { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; border-left:3px solid var(--accent); padding-left:10px; margin-bottom:10px; }
+  .opp-sh h3 { margin:0; font-size:16px; } .opp-sh h3 .na { font-size:12px; font-weight:400; margin-left:6px; } .opp-sh > .na { font-size:12px; }
