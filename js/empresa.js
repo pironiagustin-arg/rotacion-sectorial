@@ -47,9 +47,18 @@ async function loadRows(sym) {
   scoreAll(P.rows, { userMult: userMult(), profW: userProfW() });
 }
 
+// La ficha muestra solo el bloque Fundamentals (estilo Koyfin). Poner en false para volver a la ficha completa
+// (resumen, métricas clave, pares, tesis automática y tu tesis): ese código sigue abajo.
+const SOLO_FUND = true;
+
 async function load(sym) {
   P.sym = sym; P.hist = null;
   const meta = META.get(sym);
+  if (SOLO_FUND) {
+    document.title = `${meta?.[5] || sym} · Fundamental`;
+    $("root").innerHTML = `<div id="kf"></div>`;
+    return mountFundView($("kf"), sym);
+  }
   $("root").innerHTML = `<div class="skeleton">Cargando ${esc(meta?.[5] || sym)}…</div>`;
   document.title = `${meta?.[5] || sym} · Ficha`;
   await loadRows(sym);
@@ -143,6 +152,7 @@ function render() {
   const others = Object.keys(METRICS).filter((k) => !r.weights[k] && relevant(r, k) && (ok(r[k]) || r.hist[k]));
   const tot = Object.values(r.weights).reduce((s, x) => s + x, 0);
   const histN = r.fx?.years?.length;
+  if (SOLO_FUND) { $("root").innerHTML = `<div id="kf"></div>`; return mountFundView($("kf"), r.s); }
   $("root").innerHTML = `
   <section class="card">
     <div class="hero">
