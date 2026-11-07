@@ -183,11 +183,17 @@ async function loadMacro() {
   const ev = M.events.filter((e) => KEY.test(e.title)).sort((a, b) => a.t - b.t);
   const next = ev.filter((e) => e.t >= now - 3600e3).slice(0, 4), past = ev.filter((e) => e.t < now && e.actual != null).slice(-3).reverse();
   const dt = (t) => { const d = new Date(t); return `<div class="dt"><b>${d.getDate()}</b><span>${MES[d.getMonth()]}</span></div>`; };
-  const surprise = (e) => { if (e.forecast == null || e.actual == null || e.actual === e.forecast) return ["#64748b", "en línea con lo esperado"]; const h = hawkDir(e.title), hawk = h === 0 ? null : (e.actual > e.forecast ? h > 0 : h < 0); return [hawk == null ? "#64748b" : hawk ? "#ef4444" : "#22c55e", `${e.actual > e.forecast ? "arriba" : "abajo"} de lo esperado${hawk == null ? "" : hawk ? ": presiona a subir tasas" : ": alivio para tasas"}`]; };
+  const surprise = (e) => { if (e.forecast == null || e.actual == null || e.actual === e.forecast || val(e.actual, e) === val(e.forecast, e)) return ["#64748b", "en línea con lo esperado"]; const h = hawkDir(e.title), hawk = h === 0 ? null : (e.actual > e.forecast ? h > 0 : h < 0); return [hawk == null ? "#64748b" : hawk ? "#ef4444" : "#22c55e", `${e.actual > e.forecast ? "arriba" : "abajo"} de lo esperado${hawk == null ? "" : hawk ? ": presiona a subir tasas" : ": alivio para tasas"}`]; };
   $("econ").className = "";
-  $("econ").innerHTML = `${next.map((e) => `<div class="ev">${dt(e.t)}<div class="nm">${esc(esName(e.title))}<small>${esc(e.period)}</small></div><div class="vv">${e.forecast != null ? val(e.forecast, e) : val(e.previous, e)}<small>${e.forecast != null ? "estimado" : "previo"}</small></div></div>`).join("") || '<div class="dim">Sin datos clave en las próximas semanas.</div>'}
-    <div class="sub-l">Últimos datos</div>
-    ${past.map((e) => { const [c, t] = surprise(e); return `<div class="ev" title="${t}">${dt(e.t)}<div class="nm"><span class="dot2" style="background:${c}"></span>${esc(esName(e.title))}<small>${esc(e.period)}</small></div><div class="vv"><b>${val(e.actual, e)}</b><small>est. ${val(e.forecast, e)}</small></div></div>`; }).join("")}`;
+  const vsBox = (e) => {
+    const [c] = e.actual != null ? surprise(e) : ["", ""];
+    const cls = e.actual == null ? "pend" : c === "#ef4444" ? "hot" : c === "#22c55e" ? "cool" : "flat";
+    const est = e.forecast != null ? val(e.forecast, e) : "—";
+    return `<div class="vs"><div><b>${est}</b><small>${e.forecast != null ? "esperado" : "sin est."}</small></div><i>vs</i><div class="${cls}"><b>${e.actual != null ? val(e.actual, e) : "—"}</b><small>${e.actual != null ? "dato" : "pendiente"}</small></div></div>`;
+  };
+  $("econ").innerHTML = `${next.map((e) => `<div class="ev" title="Previo: ${val(e.previous, e)}">${dt(e.t)}<div class="nm">${esc(esName(e.title))}<small>${esc(e.period)}</small><small style="display:block;margin:2px 0 0">previo ${val(e.previous, e)}</small></div>${vsBox(e)}</div>`).join("") || '<div class="dim">Sin datos clave en las próximas semanas.</div>'}
+    <div class="sub-l">Últimos datos <span style="text-transform:none;letter-spacing:0">· rojo = presiona a subir tasas, verde = alivio</span></div>
+    ${past.map((e) => { const [, t] = surprise(e); return `<div class="ev" title="${t}">${dt(e.t)}<div class="nm">${esc(esName(e.title))}<small>${esc(e.period)}</small><small style="display:block;margin:2px 0 0">${t}</small></div>${vsBox(e)}</div>`; }).join("")}`;
   // Fed
   const n0 = mt[0];
   if (!n0) { $("fed").innerHTML = `<div class="lbl">Fed</div><div class="dim">Sin datos de futuros.</div>`; return; }
@@ -198,10 +204,9 @@ async function loadMacro() {
   const nextKey = M.events.filter((e) => e.t > now && /^(inflation rate yoy|core pce price index|non farm payrolls)/i.test(e.title)).sort((a, b) => a.t - b.t)[0];
   const ly = new Date(lastC.date + "T12:00:00");
   $("fed").innerHTML = `<div class="lbl"><span>Fed · ${d0.getDate()} ${MES[d0.getMonth()]}</span><span style="text-transform:none;letter-spacing:0;font-weight:500">tasa ${F.target ? nf(2).format(F.target[0]) + "–" + nf(2).format(F.target[1]) + "%" : "—"}</span></div>
-    <div class="big" style="color:${main[2]}">${main[1]}%</div><div class="cap">de que <b>${main[0]}</b> la tasa</div>
-    <div class="pbar"><i style="width:${n0.pCut}%;background:#22c55e"></i><i style="width:${n0.pHold}%;background:#475569"></i><i style="width:${n0.pHike}%;background:#ef4444"></i></div>
-    <div class="plg"><span>Baja ${n0.pCut}%</span><span>Mantiene ${n0.pHold}%</span><span>Sube ${n0.pHike}%</span></div>
-    <div class="path" title="Cambio acumulado de tasa que descuenta el mercado, en puntos básicos">${mt.map((m) => { const d = new Date(m.date + "T12:00:00"); return `<div title="${d.getDate()} ${MES[d.getMonth()]} ${d.getFullYear()}: tasa implícita ${nf(2).format(m.implied)}%"><b class="${m.cumulative > 2 ? "neg" : m.cumulative < -2 ? "pos" : "dim"}">${m.cumulative >= 0 ? "+" : ""}${nf(0).format(m.cumulative)}</b><i style="height:${8 + ((m.implied - lo) / (hi - lo || 1)) * 72}%;background:${m.cumulative > 2 ? "rgba(239,68,68,.45)" : m.cumulative < -2 ? "rgba(34,197,94,.45)" : "#334155"};border-top:2px solid ${m.cumulative > 2 ? "#ef4444" : m.cumulative < -2 ? "#22c55e" : "#64748b"}"></i><span>${MES[d.getMonth()]}</span></div>`; }).join("")}</div>
+    <div class="big" style="color:#60a5fa">${main[1]}%</div><div class="cap">de que <b>${main[0]}</b> la tasa · <span class="dim">FedWatch (futuros de fed funds)</span></div>
+    <div class="fw">${[["Baja", n0.pCut], ["Mantiene", n0.pHold], ["Sube", n0.pHike]].map(([l, v]) => `<div><div class="bar"><i class="${v === main[1] ? "top" : ""}" style="height:${Math.max(3, v)}%"></i></div><b>${v}%</b><span>${l}</span></div>`).join("")}</div>
+    <div class="path" title="Cambio acumulado de tasa que descuenta el mercado, en puntos básicos">${mt.map((m) => { const d = new Date(m.date + "T12:00:00"); return `<div title="${d.getDate()} ${MES[d.getMonth()]} ${d.getFullYear()}: tasa implícita ${nf(2).format(m.implied)}%"><b style="color:#93c5fd">${m.cumulative >= 0 ? "+" : ""}${nf(0).format(m.cumulative)}</b><i style="height:${8 + ((m.implied - lo) / (hi - lo || 1)) * 72}%;background:rgba(59,130,246,.35);border-top:2px solid #60a5fa"></i><span>${MES[d.getMonth()]}</span></div>`; }).join("")}</div>
     <div class="take">${Math.abs(steps) >= 1 ? `Descuenta <b>${Math.abs(steps)} ${steps > 0 ? "subas" : "bajas"}</b> hasta ${MES[ly.getMonth()]} '${String(ly.getFullYear()).slice(2)}.` : "No descuenta cambios de tasa."}${nextKey ? ` Próximo dato clave: <b>${esc(esName(nextKey.title))}</b> el ${new Date(nextKey.t).getDate()}/${new Date(nextKey.t).getMonth() + 1}.` : ""}</div>`;
 }
 

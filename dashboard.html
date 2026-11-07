@@ -56,6 +56,18 @@
   .dt { text-align:center; background:var(--panel2); border-radius:8px; padding:4px 0; line-height:1.1; }
   .dt b { display:block; font-size:15px; } .dt span { font-size:10px; color:var(--dim); text-transform:uppercase; }
   .ev .nm { font-size:13.5px; font-weight:500; } .ev .nm small { color:var(--dim); font-weight:400; margin-left:4px; }
+  .vs { display:grid; grid-template-columns:68px 18px 68px; align-items:center; text-align:center; }
+  .vs > div { background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:4px 4px 3px; line-height:1.15; }
+  .vs b { display:block; font-size:13px; font-variant-numeric:tabular-nums; } .vs small { font-size:9.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.04em; }
+  .vs > i { font-style:normal; font-size:10px; color:var(--dim); font-weight:600; }
+  .vs .pend b { color:var(--dim); } .vs .hot { border-color:rgba(239,68,68,.55); background:rgba(239,68,68,.1); } .vs .hot b { color:#f87171; }
+  .vs .cool { border-color:rgba(34,197,94,.55); background:rgba(34,197,94,.1); } .vs .cool b { color:#4ade80; } .vs .flat { border-color:var(--border2); }
+  .fw { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:14px 0 4px; }
+  .fw div { background:var(--panel2); border-radius:10px; padding:8px 6px 7px; text-align:center; }
+  .fw .bar { height:60px; display:flex; align-items:flex-end; justify-content:center; margin-bottom:6px; }
+  .fw .bar i { display:block; width:60%; border-radius:4px 4px 0 0; background:#3b82f6; min-height:3px; }
+  .fw .bar i.top { background:#60a5fa; box-shadow:0 0 12px rgba(96,165,250,.4); }
+  .fw b { display:block; font-size:16px; color:#93c5fd; font-variant-numeric:tabular-nums; } .fw span { font-size:11px; color:var(--dim); }
   .ev .vv { text-align:right; font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
   .ev .vv small { display:block; color:var(--dim); font-size:11px; }
   .dot2 { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:1px; }
