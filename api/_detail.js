@@ -108,7 +108,7 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
   const sharesAt = (t) => interp(bal.shares, t) ?? sharesNow; // antes del primer dato de Yahoo: el más viejo conocido
 
   // ── múltiplos diarios ──
-  const M = { per: [], ps: [], pfcf: [], pocf: [], pop: [], evebitda: [], evebit: [] };
+  const M = { per: [], peg: [], ps: [], pfcf: [], pocf: [], pop: [], evebitda: [], evebit: [] };
   const pos = (n, d) => { if (n == null || d == null || d <= 0) return null; const v = n / d; return v > 0 && v < 1000 ? rd(v, 2) : null; };
   const ebitAt = (t) => interp(ttm.ebit.length ? ttm.ebit : ttm.opInc, t, true);
   const isBank = /financial/i.test(summary?.sector || "") && /bank|insurance|capital markets|credit/i.test(summary?.industry || "");
@@ -121,6 +121,15 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
     // en bancos la deuda y la caja son el negocio: VE y flujo de caja no tienen sentido
     M.evebitda.push(isBank ? null : pos(ev, g("ebitda"))); M.evebit.push(isBank ? null : pos(ev, ebitAt(t)));
     if (isBank) { M.pfcf[i] = null; M.pocf[i] = null; }
+  });
+
+  // PEG = PER ÷ CAGR 3 años del BPA de 12 meses (en %); solo con crecimiento positivo
+  const epsAt = (t) => { const ni = interp(ttm.ni, t), sh = sharesAt(t); return ni != null && sh ? ni / sh : null; };
+  dates.forEach((t, i) => {
+    const pe = M.per[i], e1 = epsAt(t), e0 = epsAt(t - 3 * 365 * DAY);
+    const g = e1 > 0 && e0 > 0 ? (Math.pow(e1 / e0, 1 / 3) - 1) * 100 : null;
+    const v = pe != null && g > 0 ? pe / g : null;
+    M.peg.push(v != null && v < 10 ? rd(v, 3) : null);
   });
 
   // ── tabla de crecimiento y valoración ──

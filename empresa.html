@@ -188,7 +188,8 @@
   .kf-tip b { display:block; font-size:11px; color:var(--muted); font-weight:500; margin-bottom:2px; }
   .kf-tip i { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:4px; } .kf-tip span { font-weight:600; font-variant-numeric:tabular-nums; }
   .kf-diff { margin-top:12px; } .kf-diff h5 { margin:0 0 10px; font-size:13px; }
-  .kf-drow { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .kf-drow { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+  @media (max-width:900px) { .kf-drow { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   .kf-dt { background:var(--bg); border:1px solid var(--border); border-top:3px solid var(--border2); border-radius:10px; padding:10px 12px; }
   .kf-dt.cheap { border-top-color:var(--good); } .kf-dt.exp { border-top-color:var(--bad); } .kf-dt.eq { border-top-color:var(--mid); }
   .kf-dl { color:var(--muted); font-size:12px; }

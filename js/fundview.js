@@ -10,17 +10,19 @@ const dLong = (s) => { const [y, m, d] = s.split('-'); return `${+d} ${MES[+m - 
 
 const F = {
   x: (v) => nf(v, 1) + 'x',
+  x2: (v) => nf(v, 2) + 'x',
   pct: (v) => nf(v, 1) + '%',
   usd: (v) => '$' + nf(v, 2),
   px: (v) => '$' + nf(v, Math.abs(v) >= 10 ? 0 : 2),
   big: (v) => { if (v == null || !isFinite(v)) return '—'; const a = Math.abs(v); return a >= 1e12 ? nf(v / 1e12, 2) + ' T' : a >= 1e9 ? nf(v / 1e9, a >= 1e10 ? 0 : 1) + ' B' : nf(v / 1e6, a >= 1e7 ? 0 : 1) + ' M'; },
-  sh: (v) => nf(v / 1e6, 0) + ' M',
+  sh: (v) => nf(v / 1e6, Math.abs(v) < 1e9 ? 2 : 0) + ' M',
   ratio: (v) => nf(v, Math.abs(v) < 10 ? 2 : 1) + 'x',
 };
 
 const HELP = {
   price: 'Precio de cierre diario.',
   per: 'PER = capitalización / beneficio neto de los últimos 12 meses.',
+  peg: 'PEG = PER ÷ crecimiento anual compuesto del BPA de los últimos 3 años (en %). Debajo de 1 = barata para lo que crece; solo con crecimiento positivo.',
   ps: 'Precio / ventas = capitalización / ingresos de los últimos 12 meses.',
   pfcf: 'Capitalización / flujo de caja libre (operativo − capex) de 12 meses.',
   pocf: 'Capitalización / flujo de caja operativo de 12 meses.',
@@ -116,9 +118,9 @@ function renderBody() {
   const avgTog = `<label class="kf-tog"><input type="checkbox" id="kfAvg" ${SHOW_AVG ? "checked" : ""}><i></i>Promedio del período</label>`;
   if (VIEW === "val") {
     ctrl.innerHTML = seg(["YTD", "1M", "6M", "1A", "2A", "3A", "5A"].map((k) => [k, k]), VRANGE, "vr") + avgTog;
-    const cards = [["price", "Precio de la acción"], ["per", "PER"], ["ps", "Precio / ventas"], ["pfcf", "Precio / flujo de caja libre"], ["pocf", "Precio / flujo de caja operativo"], ["pop", "Precio / resultado operativo"], ["evebitda", "VE / EBITDA"], ["evebit", "VE / EBIT"]]
-      .filter(([k]) => k === "price" || D.mult[k].some((v) => v != null));
-    grid.innerHTML = cards.map(([k, l]) => card(k, l)).join("") + (cards.length < 8 ? `<div class="kf-card kf-miss">Sin datos para ${8 - cards.length} múltiplo(s): no aplican a este tipo de empresa (ej. bancos) o no hay estados contables.</div>` : "");
+    const cards = [["price", "Precio de la acción"], ["per", "PER"], ["peg", "PEG"], ["ps", "Precio / ventas"], ["pfcf", "Precio / flujo de caja libre"], ["pocf", "Precio / flujo de caja operativo"], ["pop", "Precio / resultado operativo"], ["evebitda", "VE / EBITDA"], ["evebit", "VE / EBIT"]]
+      .filter(([k]) => k === "price" || (D.mult[k] || []).some((v) => v != null));
+    grid.innerHTML = cards.map(([k, l]) => card(k, l)).join("") + (cards.length < 9 ? `<div class="kf-card kf-miss">Sin datos para ${9 - cards.length} múltiplo(s): no aplican a este tipo de empresa (ej. bancos) o no hay estados contables.</div>` : "");
     ctrl.querySelectorAll("[data-vr]").forEach((b) => (b.onclick = () => { VRANGE = b.dataset.vr; renderBody(); }));
   } else {
     const all = PERIOD === "q" ? D.quarters : D.years, n = PERIOD === "q" ? NQ : NY;
@@ -152,10 +154,11 @@ const BIZ = [
   { id: 'liq', title: 'Liquidez corriente y deuda / patrimonio', kind: 'lines', fmt: F.ratio, series: [{ k: 'cur', n: 'Liquidez corriente', c: '#eab308' }, { k: 'de', n: 'Deuda / patrimonio', c: '#ef4444' }] },
 ];
 // Fila "hoy vs promedio": cuánto se aleja cada múltiplo de su promedio en la temporalidad elegida
-const DIFF = [["per", "PER"], ["ps", "P / ventas"], ["pfcf", "P / FCF"], ["pocf", "P / flujo operativo"], ["pop", "P / resultado op."], ["evebitda", "VE / EBITDA"], ["evebit", "VE / EBIT"]];
+const DIFF = [["per", "PER"], ["peg", "PEG"], ["ps", "P / ventas"], ["pfcf", "P / FCF"], ["pocf", "P / flujo operativo"], ["pop", "P / resultado op."], ["evebitda", "VE / EBITDA"], ["evebit", "VE / EBIT"]];
 function diffRow(j0) {
   const tiles = DIFF.map(([k, l]) => {
-    const v = D.mult[k].slice(j0).filter((x) => x != null && isFinite(x));
+    const fx = VAL[k]?.[1] || F.x;
+    const v = (D.mult[k] || []).slice(j0).filter((x) => x != null && isFinite(x));
     if (v.length < 5) return "";
     const now = v.at(-1), avg = v.reduce((a, b) => a + b, 0) / v.length, lo = Math.min(...v), hi = Math.max(...v);
     const d = (now / avg - 1) * 100, pos = (x) => (hi > lo ? ((x - lo) / (hi - lo)) * 100 : 50);
@@ -164,15 +167,15 @@ function diffRow(j0) {
       <div class="kf-dl">${esc(l)}</div>
       <div class="kf-dd">${d > 0 ? "+" : ""}${nf(d, 1)}%</div>
       <div class="kf-ds">${cls === "eq" ? "En su promedio" : d < 0 ? "Debajo del promedio" : "Encima del promedio"}</div>
-      <div class="kf-dv"><span>Hoy <b>${F.x(now)}</b></span><span>Prom. <b>${F.x(avg)}</b></span></div>
-      <div class="kf-rg" title="Rango del período: ${F.x(lo)} a ${F.x(hi)}"><i class="a" style="left:${pos(avg)}%"></i><i class="n" style="left:${pos(now)}%"></i></div>
-      <div class="kf-rl"><span>${F.x(lo)}</span><span>${F.x(hi)}</span></div>
+      <div class="kf-dv"><span>Hoy <b>${fx(now)}</b></span><span>Prom. <b>${fx(avg)}</b></span></div>
+      <div class="kf-rg" title="Rango del período: ${fx(lo)} a ${fx(hi)}"><i class="a" style="left:${pos(avg)}%"></i><i class="n" style="left:${pos(now)}%"></i></div>
+      <div class="kf-rl"><span>${fx(lo)}</span><span>${fx(hi)}</span></div>
     </div>`;
   }).join("");
   return tiles ? `<div class="kf-card kf-diff"><h5>Hoy vs promedio del período <span class="kf-mut">(${VRANGE} · verde = más barata que su promedio, rojo = más cara)</span></h5><div class="kf-drow">${tiles}</div></div>` : "";
 }
 
-const VAL = { price: ['#3b82f6', F.px], per: ['#f59e0b', F.x], ps: ['#a78bfa', F.x], pfcf: ['#14b8a6', F.x], pocf: ['#38bdf8', F.x], pop: ['#f59e0b', F.x], evebitda: ['#f472b6', F.x], evebit: ['#f87171', F.x] };
+const VAL = { price: ['#3b82f6', F.px], per: ['#f59e0b', F.x], peg: ['#facc15', F.x2], ps: ['#a78bfa', F.x], pfcf: ['#14b8a6', F.x], pocf: ['#38bdf8', F.x], pop: ['#f59e0b', F.x], evebitda: ['#f472b6', F.x], evebit: ['#f87171', F.x] };
 
 
 function drawAll() {
@@ -186,11 +189,11 @@ function drawAll() {
     const j0 = cutoff(P.d, VRANGE), x = P.d.slice(j0);
     for (const k of Object.keys(VAL)) {
       const box = q(`.fc[data-c="${k}"]`); if (!box) continue;
-      draw(box, { kind: "line", x, y: (k === "price" ? P.c : D.mult[k]).slice(j0), color: VAL[k][0], fmt: VAL[k][1], avg: SHOW_AVG, avgFmt: k === "price" ? F.px : F.x });
+      draw(box, { kind: "line", x, y: (k === "price" ? P.c : D.mult[k] || []).slice(j0), color: VAL[k][0], fmt: VAL[k][1], avg: SHOW_AVG, avgFmt: VAL[k][1] });
     }
     q("#kfDiff").innerHTML = diffRow(j0);
-  } else if (q("#kfDiff")) { q("#kfDiff").innerHTML = "";
   } else {
+    if (q("#kfDiff")) q("#kfDiff").innerHTML = "";
     const rows = (PERIOD === "q" ? D.quarters : D.years).slice(-(PERIOD === "q" ? NQ : NY));
     for (const b of BIZ) {
       const box = q(`.fc[data-c="${b.id}"]`); if (!box) continue;
