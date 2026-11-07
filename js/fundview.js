@@ -88,7 +88,7 @@ function render() {
           </div>
           <div class="kf-stats">
             <div><b>${F.big(h.mcap)} $</b><span>Capitalización</span></div>
-            <div><b>${h.fpe != null ? nf(h.fpe, 1) + "x" : "—"}</b><span>Fwd P/E</span></div>
+            <div><b>${h.fpe != null ? nf(h.fpe, 1) + "x" : "—"}</b><span title="${h.fpeSrc === "ntm" ? "Precio ÷ BPA estimado de los próximos 12 meses (mezcla del año fiscal en curso y el siguiente, consenso Yahoo)" : "Forward P/E de Yahoo (año fiscal siguiente)"}">Fwd P/E (NTM)</span></div>
             <div><b>${nf(h.price, 2)} US$</b><span>Precio ${h.chg != null ? `<i class="${h.chg >= 0 ? "up" : "dn"}">${h.chg >= 0 ? "▲ +" : "▼ "}${nf(h.chg, 2)}%</i>` : ""}</span></div>
             <small>${asTxt}</small>
           </div>

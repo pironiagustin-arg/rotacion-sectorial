@@ -194,7 +194,7 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
     head: {
       name: summary?.longName || base.name, sector: summary?.sector, industry: summary?.industry, website: summary?.website,
       price: rd(price, 2), chg: summary?.changePct != null ? rd(summary.changePct * 100, 2) : null, mcap: mcapNow,
-      fpe: rd(summary?.forwardPE, 1), currency: base.currency,
+      fpe: rd(summary?.ntmEps > 0 ? price / summary.ntmEps : summary?.forwardPE, 1), fpeSrc: summary?.ntmEps > 0 ? "ntm" : "yahoo", // NTM = mezcla del año fiscal en curso y el siguiente, como Koyfin currency: base.currency,
     },
     table,
     prices: { d: dates.map((t) => new Date(t).toISOString().slice(0, 10)), c: close.map((x) => rd(x, 2)) },
