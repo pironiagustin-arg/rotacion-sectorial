@@ -3,6 +3,7 @@ import { METRICS, GROUPS, PROFILES, LYNCH, LYNCH_INFO, ok, derive, scoreAll, fmt
 import { startLive } from "/js/live.js";
 import { talkRead } from "/js/talk.js";
 import { fetchArs, arsOf, ratioOf, devTxt } from "/js/ars.js";
+import { mountFundView } from "/js/fundview.js";
 import { $, esc, toast, loadLocal, saveLocal, state, initSupabase, loadSnapshots, loadOverrides, saveOverride, userMult, userProfW, withMeta, META, loadFund } from "/js/core.js";
 
 const P = { sym: null, rows: [], r: null, hist: null, charts: [] };
@@ -196,8 +197,11 @@ function render() {
     </div>
   </div>` : ""}
 
-  <h2>Historia <span class="sub" id="histSrc">Cargando estados contables…</span></h2>
-  <div class="charts" id="charts"></div>
+  <h2>Fundamentals <span class="sub">Negocio trimestral/anual y múltiplos históricos diarios · SEC + Yahoo</span></h2>
+  <div id="kf"></div>
+
+  <details class="fold"><summary><h2>Historia larga <span class="sub" id="histSrc">Cargando estados contables…</span></h2></summary>
+  <div class="charts" id="charts"></div></details>
 
   <h2>Contra sus pares <span class="sub">${custom ? "Elegidos por vos" : `Las más grandes de ${esc(prof.l)} operables desde Argentina`}</span></h2>
   <div class="tablewrap"><table>
@@ -257,6 +261,7 @@ function render() {
     <div class="actions" style="margin-top:12px"><button class="btn primary" id="tSave">Guardar tesis</button>${r.edited.size ? `<button class="btn" id="tReset">Restaurar métricas de Yahoo</button>` : ""}</div>
   </div>`;
   updateFair(); updateTam(); bindPage(); renderAbout(); renderThesis(); renderByma();
+  mountFundView($("kf"), r.s);
   if (P.hist) renderHistory();
 }
 

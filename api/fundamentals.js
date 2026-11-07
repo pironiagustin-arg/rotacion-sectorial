@@ -1,4 +1,5 @@
-// /api/fundamentals?symbol=AAPL
+// /api/fundamentals?symbol=AAPL  (con &detail=1 devuelve la ficha estilo Koyfin: múltiplos diarios y negocio trimestral)
+import { buildDetail } from "./_detail.js";
 // Fuente principal: SEC EDGAR (companyfacts). Complemento: Yahoo Finance (precio, forward P/E, PEG, dividendos).
 // Cada métrica del registro `metrics` trae su propia serie anual y trimestral.
 
@@ -182,7 +183,7 @@ async function yahooAuth() {
 }
 
 async function yahooChart(symbol, range, interval) {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includeAdjustedClose=true`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=${interval}&includeAdjustedClose=true&events=split`;
   const r = await fetch(url, { headers: { "User-Agent": YH_UA } });
   if (!r.ok) throw new Error(`Yahoo chart ${r.status}`);
   const j = await r.json();
@@ -192,7 +193,8 @@ async function yahooChart(symbol, range, interval) {
   const q = res.indicators?.quote?.[0] || {};
   const adj = res.indicators?.adjclose?.[0]?.adjclose;
   const pts = ts.map((t, i) => ({ t: t * 1000, c: q.close?.[i] ?? null, adj: adj?.[i] ?? q.close?.[i] ?? null })).filter((p) => p.c != null);
-  return { meta: res.meta || {}, pts };
+  const splits = Object.values(res.events?.splits || {}).map((x) => ({ t: x.date * 1000, r: x.numerator / x.denominator })).filter((x) => x.r > 0);
+  return { meta: res.meta || {}, pts, splits };
 }
 
 async function yahooSummary(symbol) {
@@ -234,6 +236,13 @@ async function yahooSummary(symbol) {
       epsLtGrowth: raw(t5?.growth) != null ? raw(t5.growth) * 100 : null,
       sector: ap.sector || null,
       industry: ap.industry || null,
+      website: ap.website || null,
+      longName: pr.longName || pr.shortName || null,
+      changePct: raw(pr.regularMarketChangePercent),
+      est: [t0, t1].filter((t) => t && t.endDate).map((t) => ({
+        end: t.endDate, eps: raw(t.earningsEstimate?.avg), rev: raw(t.revenueEstimate?.avg),
+        epsG: raw(t.growth) != null ? raw(t.growth) * 100 : null, revG: raw(t.revenueEstimate?.growth) != null ? raw(t.revenueEstimate.growth) * 100 : null,
+      })),
     };
   } catch (e) {
     yhAuth = null;
@@ -532,7 +541,7 @@ function buildSeries(facts, priceMonthly, sharesNow, live) {
     sharesCagr5y: cagr(sharesAnnual, 5),
     dpsCagr3y: cagr(out.dividendsPerShare.annual, 3), dpsCagr5y: cagr(out.dividendsPerShare.annual, 5), dpsCagr10y: cagr(out.dividendsPerShare.annual, 10),
   };
-  return { out, current: currentVals, cagrs };
+  return { out, current: currentVals, cagrs, raw: { sharesQ: Q.dilutedShares, sharesA: A.dilutedShares } };
 }
 
 function avgOf(arr) {
@@ -636,6 +645,12 @@ export default async function handler(req, res) {
 
     let cf = null;
     if (cikInfo) cf = await fetchJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cikInfo.cik}.json`).catch(() => null);
+    const wantDetail = String(req.query?.detail || "") === "1";
+    if (wantDetail && (!cikInfo || !cf)) {
+      const d = await buildDetail({ symbol, m: null, daily, summary, base });
+      res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=21600");
+      res.status(200).json(d); return;
+    }
 
     if (!cikInfo || !cf) {
       res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=900");
@@ -659,7 +674,12 @@ export default async function handler(req, res) {
     const marketCap = summary?.marketCap || (price && shares ? price * shares : null);
 
     const monthlyPts = (monthly?.pts || []).map((p) => ({ t: p.t, c: p.c }));
-    const { out: m, current: cv, cagrs } = buildSeries(facts, monthlyPts, shares, { price, shares, mcap: marketCap });
+    const { out: m, current: cv, cagrs, raw: secRaw } = buildSeries(facts, monthlyPts, shares, { price, shares, mcap: marketCap });
+    if (wantDetail) {
+      const d = await buildDetail({ symbol, m, daily, summary, base, secShares: secRaw, splits: monthly?.splits || [] });
+      res.setHeader("Cache-Control", "public, s-maxage=3600, stale-while-revalidate=21600");
+      res.status(200).json(d); return;
+    }
 
     // ---- valores actuales (precio vivo + últimos 12 meses reportados) ----
     const current = { ...cv, ...cagrs };
