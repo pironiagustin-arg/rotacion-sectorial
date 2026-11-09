@@ -184,6 +184,13 @@ function gauge(v) {
   return `<svg width="180" height="100" viewBox="0 0 180 100" role="img" aria-label="Índice de miedo y codicia: ${Math.round(v)}">${seg(0, 25, "#b91c1c")}${seg(25, 45, "#ef4444")}${seg(45, 55, "#eab308")}${seg(55, 75, "#22c55e")}${seg(75, 100, "#15803d")}
     <line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="5" fill="#e2e8f0"/></svg>`;
 }
+// Curva (10a-2a, 10a-3m) e inflación esperada (breakeven 10a) de FRED, con su historia de 2 años
+function fredBlock(F) {
+  if (!F || !["T10Y2Y", "T10Y3M", "T10YIE"].some((k) => F[k]?.last != null)) return "";
+  const sp = (h, c) => { const W = 120, H = 26, mn = Math.min(0, ...h), mx = Math.max(0, ...h), Y = (v) => H - ((v - mn) / (mx - mn || 1)) * H; return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" stroke="#475569" stroke-dasharray="2 3"/><path d="${h.map((v, i) => `${i ? "L" : "M"}${((i / (h.length - 1)) * W).toFixed(1)},${Y(v).toFixed(1)}`).join("")}" fill="none" stroke="${c}" stroke-width="1.5"/></svg>`; };
+  const row = (k, l, tip, inv) => { const x = F[k]; if (x?.last == null || !x.hist?.length) return ""; const v = x.last, c = inv ? (v < 0 ? "#ef4444" : "#22c55e") : "#93c5fd"; return `<div class="fr" title="${esc(tip)}"><span>${l}</span>${sp(x.hist, c)}<b style="color:${c}">${inv ? (v >= 0 ? "+" : "") + nf(0).format(v * 100) + " pb" : nf(2).format(v) + "%"}</b></div>`; };
+  return `<div class="frb">${row("T10Y2Y", "10a − 2a", "Pendiente de la curva. Negativa (invertida) históricamente anticipó recesiones; el riesgo suele aparecer cuando vuelve a positiva.", true)}${row("T10Y3M", "10a − 3m", "La versión que más usa la Fed de Nueva York para estimar probabilidad de recesión.", true)}${row("T10YIE", "Inflación esperada 10a", "Breakeven: la inflación anual promedio que descuenta el mercado de bonos para los próximos 10 años (bonos nominales vs indexados). Si sube, la Fed tiene menos margen para bajar tasas.", false)}</div>`;
+}
 async function loadMarket() {
   const r = await fetch("/api/market"); if (!r.ok) throw new Error("market");
   const m = await r.json(), fg = m.fearGreed || {}, vix = m.vix || {};
@@ -192,7 +199,8 @@ async function loadMarket() {
   $("sentiment").innerHTML = `<div class="lbl">Sentimiento</div>
     <div class="gauge">${ok(fg.score) ? gauge(fg.score) : ""}</div>
     <div style="text-align:center;margin-top:-6px"><div class="big" style="font-size:28px">${ok(fg.score) ? Math.round(fg.score) : "—"}</div><div class="cap">${esc(lbl[fg.rating] || "")} <span class="dim">· hace 1 semana ${ok(fg.previousWeek) ? Math.round(fg.previousWeek) : "—"}</span></div></div>
-    <div class="kpis2" style="margin-top:12px"><div><div class="v">${ok(vix.value) ? nf(1).format(vix.value) : "—"}</div><div class="l">VIX ${pc(vix.changePercent)}</div></div><div id="breadth">${keep && !/—/.test(keep) ? keep : '<div class="v">—</div><div class="l">suben hoy</div>'}</div></div>`;
+    <div class="kpis2" style="margin-top:12px"><div><div class="v">${ok(fg.putCall) ? nf(2).format(fg.putCall) : "—"}</div><div class="l" title="Ratio de opciones put/call (promedio 5 días). Más de 1 = mucha cobertura/miedo; menos de 0,7 = complacencia">Put/Call</div></div><div id="breadth">${keep && !/—/.test(keep) ? keep : '<div class="v">—</div><div class="l">suben hoy</div>'}</div></div>
+    ${fg.parts?.length ? `<div class="fgp">${fg.parts.filter((p) => ok(p.score)).map((p) => `<div title="${esc(lbl[p.rating] || "")}"><span>${esc(p.l)}</span><i><u style="width:${p.score}%;background:${p.score < 25 ? "#b91c1c" : p.score < 45 ? "#ef4444" : p.score < 55 ? "#eab308" : p.score < 75 ? "#22c55e" : "#15803d"}"></u></i></div>`).join("")}</div>` : ""}`;
   if (D.breadth) $("breadth").innerHTML = D.breadth;
   const t = (m.treasuries || []).filter((x) => ok(x.yield));
   const mx = Math.max(...t.map((x) => x.yield)), mn = Math.min(...t.map((x) => x.yield)) - 0.6;
@@ -200,7 +208,8 @@ async function loadMarket() {
   const sp = ok(y2) && ok(y10) ? (y10 - y2) * 100 : null;
   $("curve").innerHTML = `<div class="lbl">Tasas EE.UU.</div>
     <div class="curve">${t.map((x) => `<div><b>${nf(2).format(x.yield)}</b><i style="height:${12 + ((x.yield - mn) / (mx - mn || 1)) * 70}%"></i><span>${esc(x.label.replace(" años", "a").replace(" meses", "m"))}</span></div>`).join("")}</div>
-    ${ok(sp) ? `<span class="chip">10a − 2a: <b class="${sp >= 0 ? "pos" : "neg"}">${sp >= 0 ? "+" : ""}${nf(0).format(sp)} pb</b> · ${sp < 0 ? "invertida" : sp < 50 ? "casi plana" : "normal"}</span>` : ""}`;
+    ${fredBlock(m.fred)}
+    ${m.fred?.T10Y2Y?.last == null && ok(sp) ? `<span class="chip">10a − 2a: <b class="${sp >= 0 ? "pos" : "neg"}">${sp >= 0 ? "+" : ""}${nf(0).format(sp)} pb</b> · ${sp < 0 ? "invertida" : sp < 50 ? "casi plana" : "normal"}</span>` : ""}`;
 }
 
 // ---------- Sectores: barras ordenadas contra el S&P 500 ----------
