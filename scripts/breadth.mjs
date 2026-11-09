@@ -60,9 +60,10 @@ fs.writeFileSync(path.join(ROOT, "data", "breadth.json"), JSON.stringify(out));
 const spyKeys = [...spy.keys()];
 const tOf = (m) => { const k = [...m.keys()].filter((d) => spy.has(d)); return techScore(k.map((d) => m.get(d)), k.map((d) => spy.get(d))); };
 const META = new Map(UNIVERSE.map((r) => [r[0], r]));
+const ch = (v, k) => +((v.at(-1) / v.at(-1 - k) - 1) * 100).toFixed(2);
 const rows = [];
 syms.forEach((s, i) => { const m = series[i]; if (!m || m.size < 260) return; const t = tOf(m); if (!t) return; const v = [...m.values()];
-  rows.push({ s, n: META.get(s)?.[1] || s, sec: META.get(s)?.[2], ced: META.get(s)?.[5] || null, score: t.score, trend: t.trend, rs: t.rs, contr: t.contr, setup: t.setup, rsi: t.rsi, e200: t.e200, s50: t.s50, pos: t.pos, d1: +((v.at(-1) / v.at(-2) - 1) * 100).toFixed(2), rsDiff: t.rsDiff }); });
+  rows.push({ s, n: META.get(s)?.[1] || s, sec: META.get(s)?.[2], ced: META.get(s)?.[5] || null, score: t.score, trend: t.trend, rs: t.rs, contr: t.contr, setup: t.setup, rsi: t.rsi, e200: t.e200, s50: t.s50, pos: t.pos, d1: ch(v, 1), w1: ch(v, 5), m1: ch(v, 21), m3: ch(v, 63), rsDiff: t.rsDiff }); });
 const eRows = [];
 etfs.forEach((e, i) => { const m = etfSeries[i]; if (!m || m.size < 260) return; const t = tOf(m); if (t) eRows.push({ s: e, rsDiff: t.rsDiff, score: t.score, rsi: t.rsi, e200: t.e200 }); });
 // RS rating 1-99 (percentil del rendimiento ponderado contra todo el universo + ETF)

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Técnico</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<script src="/js/embed.js"></script>
+<link rel="stylesheet" href="/css/dash.css">
+<style>
+  .hm-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+  .hm-bar .sp { flex:1; }
+  .hm-back { background:var(--panel2); border:1px solid var(--border2); color:var(--text); font:600 12px Inter,sans-serif; border-radius:8px; padding:5px 10px; cursor:pointer; }
+  .hm-leg { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--dim); }
+  .hm-leg i { display:block; width:150px; height:9px; border-radius:5px; }
+  .hm .sc > span { pointer-events:auto; cursor:zoom-in; right:4px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .hm .sc > span:hover { color:#fff; text-decoration:underline; }
+  .hm-tip { position:fixed; z-index:50; pointer-events:none; background:#0d1526; border:1px solid var(--border2); border-radius:10px; padding:9px 11px; font-size:12px; color:var(--muted); box-shadow:0 10px 26px rgba(0,0,0,.5); min-width:180px; display:none; }
+  .hm-tip b { color:var(--text); } .hm-tip .r { display:flex; justify-content:space-between; gap:14px; }
+  .hm .cl.mine { box-shadow:inset 0 0 0 2px #93c5fd; }
+  .hm-stats { display:flex; gap:14px; font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Rotación Sectorial</div>
+  <nav><a href="/dashboard.html">Dashboard</a><a href="/rotation.html">RRG</a><a href="/screener.html">Screener</a><a href="/tecnico.html" class="active">Técnico</a><a href="/empresa.html">Fundamental</a><a href="/watchlist.html">Watchlist</a></nav>
+</header>
+<main>
+  <div class="head"><h1>Análisis técnico</h1><span class="dim2" id="asof"></span></div>
+  <div class="bento">
+    <section class="tile s12" data-help="heat"><div class="lbl"><span>Mapa de calor</span><span class="dim2" id="heatN"></span></div>
+      <div class="hm-bar"><div class="seg" id="heatP"></div><div class="seg" id="heatU"></div><span id="heatZ"></span><span class="sp"></span><div class="hm-leg" id="heatLeg"></div></div>
+      <div id="heat" class="loading">Cargando…</div></section>
+    <section class="tile s8" data-help="tech"><div class="lbl"><span>Ranking técnico</span><div class="seg" id="techR"></div></div><div id="tech" class="loading">Cargando…</div></section>
+    <section class="tile s4" data-help="rsi"><div class="lbl"><span>RSI extremos</span></div><div id="rsi" class="loading">Cargando…</div></section>
+    <section class="tile s12" data-help="secs"><div class="lbl"><span>Sectores y subsectores · fuerza relativa</span></div><div id="secs" class="loading">Cargando…</div></section>
+  </div>
+</main>
+<div class="hm-tip" id="tip"></div>
+<script src="/config.js"></script>
+<script type="module" src="/js/tecnico.js"></script>
+</body>
+</html>
