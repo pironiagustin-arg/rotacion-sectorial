@@ -26,6 +26,8 @@
   .tr-t th { line-height:1.2; }
   .t10 { display:grid; grid-template-columns:22px minmax(0,1fr) auto auto 44px; gap:10px; align-items:center; padding:7px 2px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13px; } .t10:hover { background:rgba(59,130,246,.06); }
   .t10 .n { color:var(--dim); font-size:11px; } .t10 .sc2 { font-size:17px; font-weight:800; text-align:right; } .t10 .nm2 { color:var(--dim); font-size:11.5px; margin-left:6px; }
+  .ck { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; font-weight:800; font-size:12px; } .ck.y { background:rgba(34,197,94,.15); color:#4ade80; } .ck.n { background:rgba(239,68,68,.12); color:#f87171; }
+  .ck-mk { display:flex; gap:14px; align-items:center; border:1px solid; border-radius:12px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:var(--muted); line-height:1.45; } .ck-mk span { color:var(--muted); } .ck-mk b { color:var(--text); }
   .tr-int { font-size:12.5px; color:var(--muted); line-height:1.5; margin:-2px 0 10px; } .tr-int b { color:var(--text); }
   .hm-stats { display:flex; gap:14px; font-size:12px; color:var(--muted); }
 </style>
@@ -41,6 +43,7 @@
     <section class="tile s12" data-help="heat"><div class="lbl"><span>Mapa de calor</span><span class="dim2" id="heatN"></span></div>
       <div class="hm-bar"><div class="seg" id="heatP"></div><div class="seg" id="heatU"></div><span id="heatZ"></span><span class="sp"></span><div class="hm-leg" id="heatLeg"></div></div>
       <div id="heat" class="loading">Cargando…</div></section>
+    <section class="tile s12" data-help="check"><div class="lbl"><span>Checklist de compra · las que más cumplen</span></div><div id="check" class="loading">Cargando…</div></section>
     <section class="tile s12" data-help="tech"><div class="lbl"><span>Ranking técnico</span><div class="seg" id="techR"></div></div><div id="tech" class="loading">Cargando…</div></section>
     <section class="tile s6" data-help="top"><div class="lbl"><span>Top 10 · Score técnico</span><span class="dim2">las más fuertes del universo</span></div><div id="top" class="loading">Cargando…</div></section>
     <section class="tile s6" data-help="rsi"><div class="lbl"><span>RSI extremos</span></div><div id="rsi" class="loading">Cargando…</div></section>

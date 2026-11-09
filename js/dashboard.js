@@ -5,6 +5,7 @@ import { $, esc, loadLocal, saveLocal, state, META, initSupabase, loadSnapshots,
 import { startLive } from "/js/live.js";
 import { EARN_CSS, logo } from "/js/earnings.js";
 import { fetchArs } from "/js/ars.js";
+import { regimeGroups, expoOf } from "/js/regime.js";
 import { watchSymbols, getPortfolio } from "/js/lists.js";
 { const st = document.createElement("style"); st.textContent = EARN_CSS; document.head.appendChild(st); }
 
@@ -44,18 +45,8 @@ async function loadRegime() {
   const pos = Math.max(0, Math.min(100, (R.score + 100) / 2));
   // Puntaje 0-100 por bloques (+1 = puntaje completo, 0 = mitad, -1 = nada) + amplitud real del universo
   const B = await fetch("/data/breadth.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-  const st = Object.fromEntries(sg.map((x) => [x.k, x.state]));
-  const part = (k, w) => (st[k] == null ? null : ((st[k] + 1) / 2) * w);
-  const lin = (v, a, b2, w) => Math.max(0, Math.min(1, (v - a) / (b2 - a))) * w;
-  const a200 = B?.above200?.at(-1), nh = B?.nh?.at(-1), nl = B?.nl?.at(-1);
-  const groups = [
-    ["📈", "Índices (S&P, Nasdaq, small caps)", [[part("trend", 15), 15], [part("dd", 10), 10], [part("ew", 7.5), 7.5], [part("small", 7.5), 7.5]]],
-    ["🌐", "Amplitud (cuántas acciones acompañan)", [[a200 != null ? lin(a200, 30, 70, 15) : null, 15], [nh != null ? lin(nh - nl, -15, 15, 5) : null, 5], [part("breadth", 5), 5]]],
-    ["🧠", "Sentimiento (VIX)", [[part("vix", 8), 8], [part("term", 7), 7]]],
-    ["🏦", "Crédito y macro", [[part("credit", 8), 8], [part("cyc", 4), 4], [part("dxy", 4), 4], [part("rates", 4), 4]]],
-  ].map(([ic, l, xs]) => { const v = xs.filter(([p]) => p != null); return [ic, l, v.reduce((a, [p]) => a + p, 0), v.reduce((a, [, w]) => a + w, 0)]; });
-  const got = groups.reduce((a, g) => a + g[2], 0), max = groups.reduce((a, g) => a + g[3], 0), score = max ? Math.round((got / max) * 100) : 50;
-  const expo = score >= 70 ? ["75–100%", "cartera completa, sumar en retrocesos", "#22c55e"] : score >= 50 ? ["50–75%", "exposición normal, selectividad", "#84cc16"] : score >= 35 ? ["25–50%", "posiciones chicas, stops cortos", "#f59e0b"] : ["0–25%", "priorizar caja y defensivas", "#ef4444"];
+  const { groups, score, a200, nh, nl } = regimeGroups(R, B);
+  const expo = expoOf(score);
   const ang = (v) => Math.PI * (1 - v / 100), arc = (v) => { const x = 70 + 56 * Math.cos(ang(v)), y = 70 - 56 * Math.sin(ang(v)); return `M14,70 A56,56 0 0 1 ${x.toFixed(1)},${y.toFixed(1)}`; };
   let chartB = "";
   if (B?.above200?.length > 5) {

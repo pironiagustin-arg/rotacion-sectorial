@@ -1,5 +1,6 @@
 // Página Técnico: mapa de calor, ranking técnico, RSI extremos y sectores/subsectores (data/tech.json)
-import { ok, nf } from "/js/score.js";
+import { ok, nf, derive } from "/js/score.js";
+import { regimeGroups, expoOf } from "/js/regime.js";
 import { $, esc, loadLocal, saveLocal, initSupabase, loadSnapshots } from "/js/core.js";
 import { EARN_CSS, logo } from "/js/earnings.js";
 import { watchSymbols, getPortfolio } from "/js/lists.js";
@@ -181,15 +182,60 @@ async function loadCaps() {
     await initSupabase(); const snap = await loadSnapshots();
     D.mcap = new Map([...snap.rows.values()].map((r) => [r.s, r.mcap]));
     D.live = new Map([...snap.rows.values()].filter((r) => ok(r.chg)).map((r) => [r.s, r.chg]));
+    D.fund = new Map([...snap.rows.values()].map((r) => { const x = derive(r); return [r.s, { revG: x.revG, epsG: x.epsG }]; }));
   } catch (e) { console.warn(e); }
   if (!D.mcap?.size) D.mcap = new Map(D.tech?.rows.map((r) => [r.s, 1]) || []);
 }
 
 mountHelp({
+  check: "<b>Checklist de compra para momentum.</b> Arriba: si el mercado acompaña (régimen ≥50 = comprar normal; 35–50 = mitad del tamaño; menos de 35 = no comprar).<br>Después, 8 criterios por acción: <b>sector fuerte</b> (Líder o Mejorando), <b>acción Líder</b>, <b>tendencia ≥16/20</b>, <b>entrada ≥80</b>, <b>stop a 8% o menos</b>, <b>sin estirar</b> (menos de 12% sobre la media de 50 y RSI ≤65), <b>crece</b> (ventas y BPA en suba) y <b>sin balance en 7 días</b>.<br>Ordenadas por cuántos cumplen. <b>Cómo comprar:</b> entrá según el setup (rebote en la media 50, ruptura de la base o de máximos), stop 3% debajo de la media de 50 (máx. 7–8%), tamaño para perder 1% de la cartera si salta el stop, vendé un tercio a +20–25% y salí del resto si cierra 2 días bajo la media de 50.",
   heat: "<b>Cada cuadrado es una acción</b>: el tamaño es su capitalización y el color cuánto subió o bajó en el período elegido.<br><span class='g'>Verde</span> = sube · <span class='r'>rojo</span> = baja · gris = casi sin cambio. La barra de colores dice qué % satura el color.<br>Tocá el <b>nombre del sector</b> para ver solo ese sector, y una acción para abrir su ficha. Si un sector está todo verde en 1 mes y 3 meses, ahí está entrando el dinero.",
   tech: "<b>Qué busca:</b> acciones que <b>están mejorando</b> contra el S&P 500, con tendencia armada y sin estar estiradas.<br><b>Tendencia (20)</b>: precio sobre las medias de 50/150/200, ordenadas y con la de 200 subiendo.<br><b>Fuerza (20)</b>: cuánto le ganó al S&P 500 en 3–12 meses.<br><b>Mejora (25)</b>: la línea de fuerza relativa (precio ÷ S&P 500) sube en 1 y 3 meses; suma extra si está en máximos del año.<br><b>Contracción (15)</b>: volatilidad y rango achicándose (se prepara para moverse). Solo suma con tendencia.<br><b>Setup (20)</b>: cerca del máximo de 52 semanas y no más de ~12% sobre la media de 50.<br><b>Estado</b>: <span style='color:#22c55e'>Líder</span> = fuerte y sigue ganando · <span style='color:#3b82f6'>Mejorando</span> = débil pero dando vuelta · <span class='y'>Debilitándose</span> = fuerte pero perdiendo ritmo · <span class='r'>Rezagada</span>.<br><b>Cómo usarlo para comprar:</b> 1) elegí score 70+ en estado Líder o Mejorando; 2) sin ⚠ estirada (si está estirada, esperá que vuelva hacia la media de 50); 3) mejor si su sector también está Líder o Mejorando; 4) entrada cuando rompe el máximo de la consolidación con volumen, o en un retroceso a la media de 50 que rebota; 5) stop debajo del último mínimo o de la media de 50 (−7/−8% máximo). <br><b>Pestañas:</b> <b>Cerca de entrada</b> (la principal) = acciones fuertes que hoy están en zona de compra, ordenadas por puntaje de entrada: calidad técnica (40) + cercanía a la media de 50, RSI 40–55, compresión y posición en el rango (60). Muestra el tipo de setup y cuánto perdés si ponés el stop 3% debajo de la media de 50 (ideal menos de 8%). <b>Dando vuelta</b> = todavía débiles pero girando, ordenadas por Giro (cuánto le ganan al S&P en 3 semanas, mejora de la fuerza, medias que recuperan) + zona de compra: más riesgo, pero entrás antes.",
   top: "<b>Las 10 acciones con mayor score técnico</b> de todo el universo (tendencia, fuerza, mejora, contracción y setup).<br>Son las líderes del mercado, pero muchas ya subieron fuerte: el % al lado es la distancia a su media de 50. <span class='g'>Cerca de 0–5%</span> = todavía comprable · <span class='y'>más de 12% o ⚠ estirada</span> = esperar un retroceso a la media antes de entrar.<br>Para entradas concretas usá el cuadro <b>Cerca de entrada</b>.",
   rsi: "<b>RSI de 14 ruedas</b>: mide si la suba o baja reciente fue exagerada. No es señal de compra por sí solo: <b>se usa para el momento de entrada</b>.<br><span class='r'>Más de 70 = sobrecomprada</span>: no conviene entrar ahí; esperá que lateralice o retroceda (una acción líder puede quedarse arriba de 70 mucho tiempo, no es para vender por eso).<br><span class='g'>Menos de 30 = sobrevendida</span>: sirve solo si la acción sigue en tendencia alcista (sobre su media de 200) y su estado es Líder o Mejorando: es un retroceso dentro de una suba. Si está Rezagada, puede seguir cayendo.",
   secs: "<b>Qué busca:</b> en qué sectores y subsectores está <b>entrando</b> el dinero.<br>Cada sector tiene un punto de color con su <b>estado</b> (igual que el RRG): <span style='color:#22c55e'>verde Líder</span>, <span style='color:#3b82f6'>azul Mejorando</span>, <span class='y'>amarillo Debilitándose</span>, <span class='r'>rojo Rezagado</span>. La flecha es cuánto le ganó (▲) o perdió (▼) al S&P 500 en las últimas 3 semanas; están ordenados de mayor a menor mejora.<br><b>RS rating</b> (1–99): fuerza de 12 meses comparada con los otros sectores/subsectores.<br><b>Cómo usarlo:</b> buscá sectores en azul o verde con flecha ▲, después el subsector más fuerte dentro de ese sector, y adentro las acciones Líder o Mejorando con buen score técnico. Evitá comprar en sectores rojos aunque la acción se vea barata.",
 });
-loadTech().then(() => loadCaps()).then(() => renderHeat());
+async function loadMkt() {
+  const [R, B, w0, w1] = await Promise.all([fetch("/api/overview?view=regime").then((r) => (r.ok ? r.json() : null)).catch(() => null), fetch("/data/breadth.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null), ...[0, 1].map((w) => fetch("/api/overview?view=week&w=" + w).then((r) => (r.ok ? r.json() : null)).catch(() => null))]);
+  D.reg = R ? regimeGroups(R, B) : null;
+  D.earn = new Map(); for (const W of [w0, w1]) for (const d of W?.days || []) for (const e of d.earnings || []) D.earn.set(e.s, d.date);
+}
+// ---------- Checklist de compra (método momentum) ----------
+const CRIT = [
+  ["sec", "Sector fuerte", "Su sector está Líder o Mejorando (el dinero entra ahí)"],
+  ["lead", "Acción Líder", "Fuerte contra el S&P 500 y sigue ganando"],
+  ["trend", "Tendencia ≥16", "Precio sobre medias de 50/150/200, ordenadas y subiendo"],
+  ["ent", "Entrada ≥80", "Puntaje de entrada: calidad + zona de compra"],
+  ["risk", "Stop ≤8%", "Stop 3% debajo de la media de 50 a menos de 8% de distancia"],
+  ["calm", "Sin estirar", "Menos de 12% sobre la media de 50 y RSI 65 o menos"],
+  ["grow", "Crece", "Ventas y ganancias por acción creciendo"],
+  ["earn", "Sin balance 7 días", "No presenta resultados en los próximos 7 días (un balance puede saltar el stop)"],
+];
+function renderCheck() {
+  if (!D.tech) return;
+  const secQ = new Map(D.tech.sectors.map((x) => [x.sec, x.quad]));
+  const today = new Date(), lim = new Date(today.getTime() + 7 * 864e5).toISOString().slice(0, 10), t0 = today.toISOString().slice(0, 10);
+  const rows = D.tech.rows.map((r) => {
+    const e = entry(r), rk = stopRisk(r), f = D.fund?.get(r.s), ed = D.earn?.get(r.s);
+    const c = {
+      sec: [["lead", "impr"].includes(secQ.get(r.sec)), `Sector: ${QUAD[secQ.get(r.sec)]?.[0] || "—"}`],
+      lead: [r.quad === "lead", `Estado: ${QUAD[r.quad]?.[0] || "—"}`],
+      trend: [r.trend >= 16, `Tendencia ${r.trend}/20`],
+      ent: [(e?.v ?? 0) >= 80, `Entrada ${e?.v ?? "—"}`],
+      risk: [rk > 0 && rk <= 8, rk > 0 ? `Riesgo al stop −${nf(1).format(rk)}%` : "Debajo de la media de 50"],
+      calm: [r.s50 <= 12 && r.rsi <= 65, `${pt(r.s50)} vs media 50 · RSI ${nf(0).format(r.rsi)}`],
+      grow: [f ? f.revG > 0 && f.epsG > 0 : false, f ? `Ventas ${pt(f.revG)} · BPA ${pt(f.epsG)}` : "Sin datos"],
+      earn: [!(ed && ed >= t0 && ed <= lim), ed && ed >= t0 && ed <= lim ? `Balance el ${ed.slice(8)}/${ed.slice(5, 7)}` : "Sin balance cercano"],
+    };
+    return { ...r, e, rk, c, n: CRIT.filter(([k]) => c[k][0]).length };
+  }).sort((a, b) => b.n - a.n || (b.e?.v ?? 0) - (a.e?.v ?? 0)).slice(0, 15);
+  const g = D.reg, sc = g?.score, ex = sc != null ? expoOf(sc) : null;
+  const mk = sc == null ? "" : `<div class="ck-mk" style="border-color:${ex[2]};background:${ex[2]}14"><div><b style="color:${ex[2]};font-size:20px">${sc}</b><span>/100</span></div><div><b>Régimen de mercado: ${sc >= 50 ? "se puede comprar" : sc >= 35 ? "comprar con la mitad del tamaño" : "no es momento de comprar"}</b><br><span>Exposición sugerida ${ex[0]} · ${ex[1]}. ${sc < 50 ? "Con el mercado así, aunque una acción cumpla todo, usá posiciones chicas." : ""}</span></div></div>`;
+  const ic = (v, tip) => `<td title="${esc(tip)}"><span class="ck ${v ? "y" : "n"}">${v ? "✓" : "✗"}</span></td>`;
+  $("check").className = "";
+  $("check").innerHTML = mk + `<div class="tr-int">Las acciones que más criterios del método cumplen hoy. Pasá el mouse por cada ✓/✗ para ver el dato. Ideal: <b>8/8</b>; con 6–7 revisá qué le falta.</div>
+    <table class="tr-t"><thead><tr><th>#</th><th class="l">Acción</th><th>Cumple</th>${CRIT.map(([, l, t]) => `<th title="${esc(t)}">${l}</th>`).join("")}<th class="l">Setup</th></tr></thead><tbody>
+    ${rows.map((r, i) => `<tr data-sym="${esc(r.s)}"><td class="dim">${i + 1}</td><td class="l"><span class="tr-tk">${logo(r.s, r.ced || r.s, 20)}${tkOf(r)}</span></td><td class="tr-sc" style="color:${scCol(r.n / 8)}">${r.n}/8</td>${CRIT.map(([k]) => ic(r.c[k][0], r.c[k][1])).join("")}<td class="l" style="font-size:12.5px">${setupOf(r)[0]}</td></tr>`).join("")}</tbody></table>`;
+  goSym($("check"));
+}
+loadTech().then(() => Promise.all([loadCaps(), loadMkt()])).then(() => { renderHeat(); renderCheck(); });
