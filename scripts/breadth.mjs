@@ -81,7 +81,7 @@ const by = new Map(eRows.map((r) => [r.s, r]));
 const sectors = Object.entries(SECT).filter(([e]) => by.has(e)).map(([e, k]) => ({ etf: e, sec: k, ...by.get(e), subs: (SUB[e] || []).filter(([x]) => by.has(x)).map(([x, l]) => ({ etf: x, l, ...by.get(x) })) })).sort((a, b) => b.rs3w - a.rs3w);
 // Próximos balances de TODO el universo (no solo las grandes), para el criterio "sin balance en 7 días"
 const earn = {}, uni = new Set(syms);
-for (let k = 0; k <= 12; k++) {
+for (let k = 1; k <= 12; k++) { // desde mañana: los de hoy ya presentaron (corre después del cierre)
   const d = new Date(Date.now() + k * 864e5); if (d.getUTCDay() % 6 === 0) continue; const ds = d.toISOString().slice(0, 10);
   try { const j = await fetch(`https://api.nasdaq.com/api/calendar/earnings?date=${ds}`, { headers: { "User-Agent": UA, Accept: "application/json" } }).then((r) => r.json());
     for (const r of j?.data?.rows || []) if (uni.has(r.symbol) && !earn[r.symbol]) earn[r.symbol] = ds; } catch {}
