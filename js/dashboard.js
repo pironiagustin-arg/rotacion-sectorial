@@ -43,15 +43,60 @@ function heat(v, k, inv) {
   const sc = { d1: 3, w1: 6, m1: 10, m3: 18, ytd: 30, y1: 40 }[k] || 10, a = Math.min(1, Math.abs(v) / sc) * 0.55;
   return `background:${v >= 0 ? `rgba(34,197,94,${a})` : `rgba(239,68,68,${a})`}`;
 }
+const pt = (v) => (ok(v) ? (v >= 0 ? "+" : "") + nf(1).format(v) + "%" : "—"); // % en texto plano (para title)
+D.xaR = loadLocal("dash_xa_r", "m1");
 function renderCross() {
   const el = $("cross"); if (!el || !D.market) return;
-  const k = D.xaSort, rows = [...D.market].sort((a, b) => (b[k] ?? -1e9) - (a[k] ?? -1e9));
-  const fp = (m) => (m.symbol === "^TNX" ? nf(2).format(m.price) + "%" : /-USD$/.test(m.symbol) ? nf(0).format(m.price) : nf(2).format(m.price));
-  el.className = "xa-w";
-  el.innerHTML = `<table class="xa"><thead><tr><th class="l">Activo</th><th class="l">Clase</th><th>Precio</th>${XA_COLS.map(([c, l]) => `<th data-xs="${c}" class="${c === k ? "on" : ""}">${l}${c === k ? " ▾" : ""}</th>`).join("")}<th>3 meses</th></tr></thead><tbody>
-    ${rows.map((m) => `<tr><td class="l"><b>${esc(m.symbol.replace(/^\^/, "").replace("DX-Y.NYB", "DXY").replace("=F", ""))}</b><span class="nm">${esc(m.name)}</span></td><td class="l dim">${GROUPS[m.symbol] || ""}</td><td>${fp(m)}</td>
-      ${XA_COLS.map(([c]) => `<td class="h" style="${heat(m[c], c, m.symbol === "^VIX")}">${ok(m[c]) ? (m[c] >= 0 ? "+" : "") + nf(1).format(m[c]) + "%" : "—"}</td>`).join("")}<td>${spark(m.spark || [], (m.m3 ?? 0) >= 0, 90, 24)}</td></tr>`).join("")}</tbody></table>`;
-  el.querySelectorAll("[data-xs]").forEach((th) => (th.onclick = () => { D.xaSort = th.dataset.xs; saveLocal("dash_xa_sort", D.xaSort); renderCross(); }));
+  const k = D.xaR;
+  $("xaR").innerHTML = XA_COLS.map(([c, l]) => `<button data-xr="${c}" class="${c === k ? "on" : ""}">${l}</button>`).join("");
+  $("xaR").querySelectorAll("[data-xr]").forEach((b) => (b.onclick = () => { D.xaR = b.dataset.xr; saveLocal("dash_xa_r", D.xaR); renderCross(); }));
+  const rows = [...D.market].sort((a, b) => (b[k] ?? -1e9) - (a[k] ?? -1e9));
+  const tk = (m) => m.symbol.replace(/^\^/, "").replace("DX-Y.NYB", "DXY").replace("=F", "").replace("-USD", "");
+  el.className = "xg";
+  el.innerHTML = rows.map((m) => `<div style="${heat(m[k], k, m.symbol === "^VIX")}" title="${esc(m.name)} · ${GROUPS[m.symbol] || ""}\n1D ${pt(m.d1)} · 1S ${pt(m.w1)} · 1M ${pt(m.m1)} · 3M ${pt(m.m3)} · YTD ${pt(m.ytd)} · 1A ${pt(m.y1)}"><b>${esc(tk(m))}</b><span>${esc(m.name)}</span><em>${ok(m[k]) ? (m[k] >= 0 ? "+" : "") + nf(1).format(m[k]) + "%" : "—"}</em></div>`).join("");
+}
+
+// ---------- Ayudas "?" ----------
+const HELP = {
+  regime: "<b>Para qué sirve:</b> resume en un semáforo si el contexto acompaña a tomar riesgo. Junta 11 señales (tendencia del S&P, volatilidad, crédito, rotación, amplitud, dólar y tasas) y cuenta cuántas están a favor. <b>Cómo usarlo:</b> en Risk-on podés ser más agresivo con compras y tamaños; en Neutral, selectivo; en Risk-off, priorizar caja, defensivas y entrar de a partes. No es para timing diario: cambia lento y sirve como filtro de fondo. Pasá el mouse por cada señal para ver el detalle.",
+  cross: "<b>Para qué sirve:</b> ver de un vistazo hacia dónde va la plata entre clases de activos (acciones, bonos, dólar, materias primas, cripto). <b>Cómo leerlo:</b> si suben oro, bonos y dólar mientras caen acciones y cripto, el mercado se está protegiendo (risk-off). Si el petróleo sube fuerte junto con las tasas, presiona la inflación. En el VIX los colores van al revés: que suba es malo. Elegí el período arriba; pasá el mouse para ver todos los plazos.",
+  map: "<b>Para qué sirve:</b> ver qué países suben o bajan, usando el ETF de acciones de cada uno (en dólares). <b>Cómo usarlo:</b> detectar rotación hacia regiones (ej. emergentes vs desarrollados), países castigados que pueden ser oportunidad, o contagios (si cae toda Asia a la vez). Ojo: el rendimiento en dólares mezcla la bolsa local con la moneda. Pasá el mouse por un país para ver el ETF y todos los plazos.",
+};
+document.addEventListener("click", (e) => {
+  const b = e.target.closest?.(".hq"); if (!b) return;
+  const h = $("h_" + b.dataset.help); if (!h) return;
+  if (!h.innerHTML) h.innerHTML = HELP[b.dataset.help] || "";
+  h.classList.toggle("on"); b.classList.toggle("on");
+});
+
+// ---------- Mapa de mercados por país ----------
+D.mapR = loadLocal("dash_map_r", "m1");
+async function loadMap() {
+  const [w, c] = await Promise.all([fetch("/data/world.json").then((r) => r.json()), fetch("/api/overview?view=countries").then((r) => r.json())]);
+  D.world = w; D.countries = c.rows || []; renderMap();
+}
+function renderMap() {
+  if (!D.world || !D.countries) return;
+  const k = D.mapR, by = new Map(D.countries.map((r) => [r.id, r]));
+  $("mapR").innerHTML = XA_COLS.map(([c, l]) => `<button data-mr="${c}" class="${c === k ? "on" : ""}">${l}</button>`).join("");
+  $("mapR").querySelectorAll("[data-mr]").forEach((b) => (b.onclick = () => { D.mapR = b.dataset.mr; saveLocal("dash_map_r", D.mapR); renderMap(); }));
+  const sc = { d1: 3, w1: 6, m1: 12, m3: 20, ytd: 30, y1: 40 }[k] || 12;
+  const col = (v) => { if (!ok(v)) return "#1e293b"; const a = Math.min(1, Math.abs(v) / sc); const mix = (c1, c2) => c1.map((x, i) => Math.round(x + (c2[i] - x) * a)); const [r, g, b] = v >= 0 ? mix([51, 65, 85], [21, 128, 61]) : mix([51, 65, 85], [185, 28, 28]); return `rgb(${r},${g},${b})`; };
+  const paths = Object.entries(D.world.c).map(([id, f]) => { const r = by.get(id); return `<path class="${r ? "d" : ""}" d="${f.d}" fill="${r ? col(r[k]) : "#162033"}" ${r ? `data-id="${id}"` : ""}/>`; }).join("");
+  const rows = D.countries.filter((r) => ok(r[k])).sort((a, b) => b[k] - a[k]);
+  const line = (r) => `<div class="mp-r"><span>${esc(r.name)} <small class="dim">${esc(r.etf)}</small></span><b class="${r[k] >= 0 ? "pos" : "neg"}">${pc(r[k])}</b></div>`;
+  const regs = ["América", "Europa", "Asia", "Medio Oriente", "África"].map((g) => { const v = rows.filter((r) => r.reg === g).map((r) => r[k]); return v.length ? [g, v.reduce((a, b) => a + b, 0) / v.length] : null; }).filter(Boolean);
+  const up = rows.filter((r) => r[k] > 0).length;
+  $("map").className = "";
+  $("map").innerHTML = `<div class="mp"><div><svg viewBox="0 0 ${D.world.w} ${D.world.h}">${paths}</svg>
+      <div class="mp-leg"><span>${pc(-sc)}</span><i></i><span>${pc(sc)}</span><span style="margin-left:10px">${up} de ${rows.length} países en positivo</span></div></div>
+    <div class="mp-side"><h5>Mejores</h5>${rows.slice(0, 5).map(line).join("")}<h5 style="margin-top:12px">Peores</h5>${rows.slice(-5).reverse().map(line).join("")}
+      <div class="mp-reg">${regs.map(([g, v]) => `<div>${g}<b class="${v >= 0 ? "pos" : "neg"}">${pc(v)}</b></div>`).join("")}</div></div></div>`;
+  let tip = document.querySelector(".mp-tip"); if (!tip) { tip = document.createElement("div"); tip.className = "mp-tip"; document.body.appendChild(tip); }
+  $("map").querySelectorAll("path.d").forEach((p) => {
+    p.onmousemove = (e) => { const r = by.get(p.dataset.id); tip.innerHTML = `<b>${esc(r.name)}</b> · ${esc(r.etf)}<br>1D ${pc(r.d1)} · 1S ${pc(r.w1)} · 1M ${pc(r.m1)}<br>3M ${pc(r.m3)} · YTD ${pc(r.ytd)} · 1A ${pc(r.y1)}`; tip.style.display = "block"; tip.style.left = e.clientX + 14 + "px"; tip.style.top = e.clientY + 14 + "px"; };
+    p.onmouseleave = () => (tip.style.display = "none");
+  });
 }
 
 // ---------- Régimen de mercado y VIX ----------
@@ -63,14 +108,10 @@ async function loadRegime() {
   const name = { on: "Risk-on", off: "Risk-off", neutral: "Neutral" }[R.regime];
   const sub = { on: "Las señales favorecen tomar riesgo", off: "Las señales piden cautela", neutral: "Señales mezcladas: selectividad" }[R.regime];
   const pos = Math.max(0, Math.min(100, (R.score + 100) / 2));
-  $("regime").innerHTML = `<div class="lbl"><span>Régimen de mercado</span><span class="dim2">${sg.length} señales · tendencia, volatilidad, crédito, rotación, amplitud, dólar y tasas</span></div>
-    <div class="rg-top"><div class="rg-badge ${R.regime}"><div class="t">Hoy</div><div class="r">${name}</div><div style="font-size:12px;opacity:.85">${sub}</div></div>
-      <div><div class="rg-meter"><i style="left:${pos}%"></i></div><div class="rg-ml"><span>Risk-off</span><span>Neutral</span><span>Risk-on</span></div>
-      <div class="rg-cnt"><b class="pos">${on}</b> a favor · <b class="neg">${off}</b> en contra · <b>${sg.length - on - off}</b> neutrales</div></div></div>
-    <div class="rg-list">${sg.map((x) => `<div class="rg-row" title="${esc(x.why)}"><span class="d ${x.state > 0 ? "p" : x.state < 0 ? "n" : "z"}"></span>
-      <div style="min-width:0"><div class="nm">${esc(x.name)}</div><div class="why">${esc(x.why)}</div></div>
-      <div class="vv">${esc(dec(x.value))}<small>${esc(dec(x.detail))}</small></div>
-      <div>${x.spark ? spark(x.spark, x.state >= 0, 78, 26) : ""}</div></div>`).join("")}</div>`;
+  $("regime").innerHTML = `<div class="lbl"><span>Régimen de mercado <button class="hq" data-help="regime">?</button></span><span class="dim2"><b class="pos">${on}</b> a favor · <b class="neg">${off}</b> en contra · ${sg.length - on - off} neutrales</span></div><div class="hlp" id="h_regime"></div>
+    <div class="rg-c"><div class="rg-badge ${R.regime}" style="padding:8px 14px;min-width:0"><div class="r" style="font-size:20px">${name}</div><div style="font-size:11.5px;opacity:.85">${sub}</div></div>
+      <div><div class="rg-meter"><i style="left:${pos}%"></i></div><div class="rg-ml"><span>Risk-off</span><span>Neutral</span><span>Risk-on</span></div></div></div>
+    <div class="rg-chips">${sg.map((x) => `<span class="rg-chip" title="${esc(x.name)}: ${esc(dec(x.value))} (${esc(dec(x.detail))})\n${esc(x.why)}"><i style="background:${x.state > 0 ? "#22c55e" : x.state < 0 ? "#ef4444" : "#eab308"}"></i>${esc(x.name.replace(/ \(.*\)/, ""))} <b>${esc(dec(x.value))}</b></span>`).join("")}</div>`;
   // VIX
   const v = R.vix; if (!v) return;
   const lv = v.v < 16 ? ["Calma", "#22c55e"] : v.v <= 20 ? ["Normal", "#94a3b8"] : v.v <= 25 ? ["Nervioso", "#eab308"] : v.v <= 35 ? ["Miedo", "#f97316"] : ["Pánico", "#ef4444"];
@@ -271,7 +312,7 @@ async function loadPf() {
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando…";
   const res = await Promise.allSettled([
-    loadTape(), loadMarket(), loadRegime(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
+    loadTape(), loadMarket(), loadRegime(), loadMap(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
     loadUniverse().then(() => {
       const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR");
       const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]);

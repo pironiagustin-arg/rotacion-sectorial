@@ -206,8 +206,31 @@ async function regimeView(req, res) {
   return res.status(200).json({ regime, score: round(score * 100, 0), signals: sig, vix: vixOut, at: Date.now() });
 }
 
+// GET /api/overview?view=countries -> rendimiento de los ETF de cada país (iShares/Global X) para el mapa
+const COUNTRY_ETFS = [
+  ["840", "SPY", "Estados Unidos", "América"], ["124", "EWC", "Canadá", "América"], ["484", "EWW", "México", "América"], ["076", "EWZ", "Brasil", "América"],
+  ["032", "ARGT", "Argentina", "América"], ["152", "ECH", "Chile", "América"], ["604", "EPU", "Perú", "América"], ["170", "GXG", "Colombia", "América"],
+  ["826", "EWU", "Reino Unido", "Europa"], ["276", "EWG", "Alemania", "Europa"], ["250", "EWQ", "Francia", "Europa"], ["380", "EWI", "Italia", "Europa"],
+  ["724", "EWP", "España", "Europa"], ["528", "EWN", "Países Bajos", "Europa"], ["756", "EWL", "Suiza", "Europa"], ["752", "EWD", "Suecia", "Europa"],
+  ["578", "NORW", "Noruega", "Europa"], ["208", "EDEN", "Dinamarca", "Europa"], ["246", "EFNL", "Finlandia", "Europa"], ["056", "EWK", "Bélgica", "Europa"],
+  ["040", "EWO", "Austria", "Europa"], ["372", "EIRL", "Irlanda", "Europa"], ["616", "EPOL", "Polonia", "Europa"], ["300", "GREK", "Grecia", "Europa"],
+  ["792", "TUR", "Turquía", "Europa"], ["376", "EIS", "Israel", "Medio Oriente"], ["682", "KSA", "Arabia Saudita", "Medio Oriente"], ["784", "UAE", "Emiratos Árabes", "Medio Oriente"],
+  ["634", "QAT", "Qatar", "Medio Oriente"], ["710", "EZA", "Sudáfrica", "África"], ["356", "INDA", "India", "Asia"], ["156", "MCHI", "China", "Asia"],
+  ["392", "EWJ", "Japón", "Asia"], ["410", "EWY", "Corea del Sur", "Asia"], ["158", "EWT", "Taiwán", "Asia"], ["036", "EWA", "Australia", "Asia"],
+  ["554", "ENZL", "Nueva Zelanda", "Asia"], ["360", "EIDO", "Indonesia", "Asia"], ["764", "THD", "Tailandia", "Asia"], ["458", "EWM", "Malasia", "Asia"],
+  ["608", "EPHE", "Filipinas", "Asia"], ["704", "VNM", "Vietnam", "Asia"],
+];
+async function countriesView(req, res) {
+  const got = await Promise.all(COUNTRY_ETFS.map(([, s]) => daily(s).catch(() => [])));
+  const rows = COUNTRY_ETFS.map(([id, etf, name, reg], i) => (got[i].length > 5 ? { id, etf, name, reg, ...perf(got[i]) } : null)).filter(Boolean)
+    .map(({ spark, t, ...r }) => r);
+  res.setHeader("Cache-Control", "public, s-maxage=900, stale-while-revalidate=3600");
+  return res.status(200).json({ rows, at: Date.now() });
+}
+
 export default async function handler(req, res) {
   if (req.query?.view === "regime") return regimeView(req, res);
+  if (req.query?.view === "countries") return countriesView(req, res);
   if (req.query?.view === "macro") return macroView(req, res);
   if (req.query?.view === "chart") return chartView(req, res);
   if (req.query?.s) return liveQuotes(req, res);
