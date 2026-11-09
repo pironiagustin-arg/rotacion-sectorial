@@ -63,14 +63,15 @@ const META = new Map(UNIVERSE.map((r) => [r[0], r]));
 const ch = (v, k) => +((v.at(-1) / v.at(-1 - k) - 1) * 100).toFixed(2);
 const rows = [];
 syms.forEach((s, i) => { const m = series[i]; if (!m || m.size < 260) return; const t = tOf(m); if (!t) return; const v = [...m.values()];
-  rows.push({ s, n: META.get(s)?.[1] || s, sec: META.get(s)?.[2], ced: META.get(s)?.[5] || null, score: t.score, trend: t.trend, rs: t.rs, contr: t.contr, setup: t.setup, rsi: t.rsi, e200: t.e200, s50: t.s50, pos: t.pos, d1: ch(v, 1), w1: ch(v, 5), m1: ch(v, 21), m3: ch(v, 63), rsDiff: t.rsDiff }); });
+  rows.push({ s, n: META.get(s)?.[1] || s, sec: META.get(s)?.[2], ced: META.get(s)?.[5] || null, score: t.score, trend: t.trend, rs: t.rs, impr: t.impr, contr: t.contr, setup: t.setup, quad: t.quad, rs3w: t.rs3w, rs1m: t.rs1m, rs3m: t.rs3m, rsHi: t.rsHi, ext: t.ext, rsi: t.rsi, e200: t.e200, s50: t.s50, pos: t.pos, d1: ch(v, 1), w1: ch(v, 5), m1: ch(v, 21), m3: ch(v, 63), rsDiff: t.rsDiff }); });
 const eRows = [];
-etfs.forEach((e, i) => { const m = etfSeries[i]; if (!m || m.size < 260) return; const t = tOf(m); if (t) eRows.push({ s: e, rsDiff: t.rsDiff, score: t.score, rsi: t.rsi, e200: t.e200 }); });
-// RS rating 1-99 (percentil del rendimiento ponderado contra todo el universo + ETF)
-const all = [...rows, ...eRows].sort((a, b) => a.rsDiff - b.rsDiff);
-all.forEach((r, i) => (r.rsr = Math.max(1, Math.round(((i + 1) / all.length) * 99))));
+etfs.forEach((e, i) => { const m = etfSeries[i]; if (!m || m.size < 260) return; const t = tOf(m); if (t) eRows.push({ s: e, rsDiff: t.rsDiff, score: t.score, rsi: t.rsi, e200: t.e200, quad: t.quad, rs3w: t.rs3w, rs1m: t.rs1m, rs3m: t.rs3m, rsHi: t.rsHi }); });
+// RS rating 1-99: percentil del rendimiento ponderado. Acciones contra acciones; ETF de sectores/subsectores contra ETF
+// (antes se mezclaban: un ETF diversificado nunca puede llegar a los extremos de una acción individual).
+const pctl = (arr) => [...arr].sort((a, b) => a.rsDiff - b.rsDiff).forEach((r, i, a) => (r.rsr = Math.max(1, Math.round(((i + 1) / a.length) * 99))));
+pctl(rows); pctl(eRows);
 const by = new Map(eRows.map((r) => [r.s, r]));
-const sectors = Object.entries(SECT).filter(([e]) => by.has(e)).map(([e, k]) => ({ etf: e, sec: k, ...by.get(e), subs: (SUB[e] || []).filter(([x]) => by.has(x)).map(([x, l]) => ({ etf: x, l, ...by.get(x) })) })).sort((a, b) => b.rsr - a.rsr);
+const sectors = Object.entries(SECT).filter(([e]) => by.has(e)).map(([e, k]) => ({ etf: e, sec: k, ...by.get(e), subs: (SUB[e] || []).filter(([x]) => by.has(x)).map(([x, l]) => ({ etf: x, l, ...by.get(x) })) })).sort((a, b) => b.rs3w - a.rs3w);
 fs.writeFileSync(path.join(ROOT, "data", "tech.json"), JSON.stringify({ generated: out.generated, date: out.dates.at(-1), rows, sectors }));
 console.log(`Ranking técnico: ${rows.length} acciones · sectores: ${sectors.map((x) => x.etf + " " + x.rsr).join(", ")}`);
 console.log(`Amplitud: ${ok.length} acciones · último ${out.dates.at(-1)}: ${out.above200.at(-1)}% sobre MM200 · ${out.nh.at(-1)} máximos / ${out.nl.at(-1)} mínimos`);

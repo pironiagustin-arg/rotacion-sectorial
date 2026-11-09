@@ -213,7 +213,8 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
     const sp = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=2y&interval=1d", { headers: { "User-Agent": YH_UA } }).then((r) => r.json());
     const sx = sp.chart.result[0], spyBy = new Map(sx.timestamp.map((t, i) => [new Date(t * 1000).toISOString().slice(0, 10), sx.indicators.quote[0].close[i]]));
     const ds = dates.map((t) => new Date(t).toISOString().slice(0, 10));
-    tech = techScore(close, ds.map((d) => spyBy.get(d)).filter((v) => v != null));
+    const ix = ds.map((d, i) => (spyBy.get(d) != null && close[i] != null ? i : -1)).filter((i) => i >= 0);
+    tech = techScore(ix.map((i) => close[i]), ix.map((i) => spyBy.get(ds[i])));
   } catch { /* sin SPY: sin score técnico */ }
 
   return {
