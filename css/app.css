@@ -41,7 +41,7 @@
   .chip:hover { color:var(--text); border-color:var(--border2); }
   .chip.on { background:var(--accent); border-color:var(--accent); color:#fff; }
   .chip .c { opacity:.7; margin-left:4px; font-size:11px; }
-  input[type=search], input[type=text], input[type=number], select, textarea { background:var(--bg); border:1px solid var(--border2); border-radius:10px; padding:7px 10px; outline:none; }
+  input[type=search], input[type=text], input[type=number], input[type=date], select, textarea { color-scheme:dark; color:var(--text); background:var(--bg); border:1px solid var(--border2); border-radius:10px; padding:7px 10px; outline:none; }
   input:focus, select:focus, textarea:focus { border-color:var(--accent); }
   input[type=search] { width:240px; }
   .toggle { display:inline-flex; align-items:center; gap:8px; color:var(--muted); cursor:pointer; user-select:none; font-size:12.5px; }

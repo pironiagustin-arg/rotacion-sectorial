@@ -68,6 +68,7 @@
     <a id="navFund" href="/empresa.html">Fundamental</a>
     <a id="navWatch" href="/watchlist.html">Watchlist</a>
     <a href="/screener.html" id="navScreener">Screener</a>
+    <a href="/tecnico.html">Técnico</a>
     <span class="langsw"><button id="langEs">ES</button><button id="langEn">EN</button></span>
   </nav>
 </header>
@@ -96,10 +97,10 @@
     </div>
 
     <div class="quad-legend">
-      <span><span class="sw" style="background:#2F9E44"></span>Leading</span>
-      <span><span class="sw" style="background:#F59F00"></span>Weakening</span>
-      <span><span class="sw" style="background:#E03131"></span>Lagging</span>
-      <span><span class="sw" style="background:#4C6EF5"></span>Improving</span>
+      <span><span class="sw" style="background:#2F9E44"></span><b>Líder</b>: fuerte y ganando impulso</span>
+      <span><span class="sw" style="background:#F59F00"></span><b>Debilitándose</b>: fuerte pero perdiendo impulso</span>
+      <span><span class="sw" style="background:#E03131"></span><b>Rezagado</b>: débil y sin impulso</span>
+      <span><span class="sw" style="background:#4C6EF5"></span><b>Mejorando</b>: débil pero ganando impulso</span>
     </div>
     <p class="muted">Eje X: RS-Ratio vs S&P 500 · Eje Y: RS-Momentum. Click en una acción para resaltarla, ▶ para ver la película del movimiento.</p>
   </div>
@@ -148,10 +149,10 @@ const RRG_QUAD = {
     if (!a) return;
     const cx = Math.min(Math.max(x.getPixelForValue(100), a.left), a.right), cy = Math.min(Math.max(y.getPixelForValue(100), a.top), a.bottom);
     const Q = [
-      [cx, a.top, a.right - cx, cy - a.top, 'rgba(47,158,68,.10)', 'LEADING', '#2F9E44', 'right', 'top'],
-      [cx, cy, a.right - cx, a.bottom - cy, 'rgba(245,159,0,.10)', 'WEAKENING', '#F59F00', 'right', 'bottom'],
-      [a.left, cy, cx - a.left, a.bottom - cy, 'rgba(224,49,49,.10)', 'LAGGING', '#E03131', 'left', 'bottom'],
-      [a.left, a.top, cx - a.left, cy - a.top, 'rgba(76,110,245,.16)', 'IMPROVING', '#748FFC', 'left', 'top'],
+      [cx, a.top, a.right - cx, cy - a.top, 'rgba(47,158,68,.10)', 'LÍDER (Leading)', '#2F9E44', 'right', 'top'],
+      [cx, cy, a.right - cx, a.bottom - cy, 'rgba(245,159,0,.10)', 'DEBILITÁNDOSE (Weakening)', '#F59F00', 'right', 'bottom'],
+      [a.left, cy, cx - a.left, a.bottom - cy, 'rgba(224,49,49,.10)', 'REZAGADO (Lagging)', '#E03131', 'left', 'bottom'],
+      [a.left, a.top, cx - a.left, cy - a.top, 'rgba(76,110,245,.16)', 'MEJORANDO (Improving)', '#748FFC', 'left', 'top'],
     ];
     ctx.save();
     for (const [qx, qy, w, h, fill, label, col, hz, vt] of Q) {
@@ -308,10 +309,10 @@ function togglePlay() {
 
 
 function quadInfo(x, y) {
-  if (x >= 100 && y >= 100) return { key: 'leading', label: 'Leading', color: '#2F9E44' };
-  if (x >= 100 && y < 100) return { key: 'weakening', label: 'Weakening', color: '#F59F00' };
-  if (x < 100 && y < 100) return { key: 'lagging', label: 'Lagging', color: '#E03131' };
-  return { key: 'improving', label: 'Improving', color: '#4C6EF5' };
+  if (x >= 100 && y >= 100) return { key: 'leading', label: 'Líder', read: 'Mantener · buscar sus acciones líderes', color: '#2F9E44' };
+  if (x >= 100 && y < 100) return { key: 'weakening', label: 'Debilitándose', read: 'No sumar · cuidar ganancias', color: '#F59F00' };
+  if (x < 100 && y < 100) return { key: 'lagging', label: 'Rezagado', read: 'Evitar', color: '#E03131' };
+  return { key: 'improving', label: 'Mejorando', read: 'Vigilar: candidato a entrar', color: '#4C6EF5' };
 }
 
 function buildWatchlist() {
@@ -328,15 +329,16 @@ function buildWatchlist() {
     return { sym, last, q, dx, dy };
   }).sort((a, b) => b.last.x - a.last.x);
 
-  let html = '<table class="wl-table"><thead><tr><th>Ticker</th><th>Cuadrante</th><th>RS-Ratio</th><th>RS-Momentum</th><th>Δ período</th></tr></thead><tbody>';
+  let html = '<table class="wl-table"><thead><tr><th>Ticker</th><th>Estado</th><th title="RS-Ratio: más de 100 = más fuerte que el S&amp;P 500">Fuerza vs S&amp;P</th><th title="RS-Momentum: más de 100 = la fuerza está acelerando">Impulso</th><th title="Hacia dónde se movió desde el punto anterior de la cola">Hacia dónde va</th><th>Qué hacer</th></tr></thead><tbody>';
   rows.forEach(r => {
-    const arrow = r.dx == null ? '—' : (r.dx >= 0 ? '↗' : '↘') + ' ' + (r.dx >= 0 ? '+' : '') + r.dx.toFixed(2);
+    const arrow = r.dx == null ? '—' : r.dx >= 0 && r.dy >= 0 ? '<span style="color:#4ade80">↗ gana fuerza</span>' : r.dx < 0 && r.dy < 0 ? '<span style="color:#f87171">↙ pierde fuerza</span>' : r.dx >= 0 ? '<span style="color:#fbbf24">↘ fuerte pero frenando</span>' : '<span style="color:#93c5fd">↖ girando hacia arriba</span>';
     html += `<tr class="${selectedSymbol === r.sym ? 'sel' : ''}" data-sym="${r.sym}">
       <td class="wl-sym">${r.sym}</td>
       <td><span class="wl-quad" style="background:${r.q.color}22;color:${r.q.color}">${r.q.label}</span></td>
       <td class="wl-num">${r.last.x.toFixed(2)}</td>
       <td class="wl-num">${r.last.y.toFixed(2)}</td>
       <td class="wl-num">${arrow}</td>
+      <td class="muted" style="font-size:12.5px">${r.q.read}</td>
     </tr>`;
   });
   html += '</tbody></table>';

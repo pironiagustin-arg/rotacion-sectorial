@@ -37,7 +37,6 @@
     <a data-r="empresa" href="#empresa">Fundamental</a>
     <a data-r="watchlist" href="#watchlist">Watchlist</a>
     <a data-r="cartera" href="#cartera">Cartera</a>
-    <a data-r="cedears" href="#cedears">CEDEARs $</a>
     <a data-r="fondos" href="#fondos">Fondos</a>
     <a data-r="backtest" href="#backtest">Backtest</a>
   </nav>
@@ -47,7 +46,7 @@
 <iframe id="frame" title="Contenido"></iframe>
 <script type="module">
   import { UNIVERSE } from "/lib/universe.js";
-  const ROUTES = { dashboard: "/dashboard.html", rrg: "/rotation.html", "rrg-acciones": "/rotation-stocks.html", screener: "/screener.html", tecnico: "/tecnico.html", empresa: "/empresa.html", watchlist: "/watchlist.html", cartera: "/cartera.html", cedears: "/cedears.html", fondos: "/fondos.html", backtest: "/backtest.html" };
+  const ROUTES = { dashboard: "/dashboard.html", rrg: "/rotation.html", "rrg-acciones": "/rotation-stocks.html", screener: "/screener.html", tecnico: "/tecnico.html", empresa: "/empresa.html", watchlist: "/watchlist.html", cartera: "/cartera.html", fondos: "/fondos.html", backtest: "/backtest.html" };
   const BY_PATH = Object.fromEntries(Object.entries(ROUTES).map(([k, v]) => [v, k]));
   BY_PATH["/fundamentals.html"] = "empresa"; BY_PATH["/index.html"] = "dashboard";
   const frame = document.getElementById("frame"), loader = document.getElementById("loader");

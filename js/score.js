@@ -325,6 +325,8 @@ export function derive(raw, ov, fx) {
   if (r.sec === "fin") { r.roic = null; r.de = null; r.ndEbitda = null; r.gm = null; }
   if (ok(r.roic) && Math.abs(r.roic) > 150) r.roic = null;
   if (ok(r.evEbitda) && (r.evEbitda <= 0 || r.evEbitda > 300)) r.evEbitda = null;
+  // ADR con dividendo en moneda local y precio en dólares: el yield sale absurdo (KEP 13.000%). Más de 25% = dato roto.
+  if (ok(r.divY) && r.divY > 25) { r.divY = null; r.payout = null; }
   if (!(r.divY > 0)) r.payout = null;
   // Métricas de estados anuales (sync semanal)
   r.fx = fx || null;

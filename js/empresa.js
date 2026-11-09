@@ -350,8 +350,7 @@ async function renderByma() {
   el.innerHTML = `<span class="lab">${local ? "En BYMA" : "CEDEAR en BYMA"}</span> <b class="num">$ ${nf(a.ars < 100 ? 2 : 0).format(a.ars)}</b> ${ok(a.chg) ? `<span class="${a.chg >= 0 ? "pos" : "neg"}">${a.chg >= 0 ? "+" : ""}${nf(2).format(a.chg)}%</span>` : ""}
     ${a.usd ? `<span class="sep">·</span><span>US$ ${nf(2).format(a.usd)} <span class="na">(especie D, MEP)</span></span>` : ""}
     ${!local && a.ccl ? `<span class="sep">·</span><span>CCL implícito <b class="num">$ ${nf(2).format(a.ccl)}</b> <span class="${dc}">${a.dev >= 0 ? "+" : ""}${nf(2).format(a.dev)}% vs mediana · ${devTxt(a.dev)}</span></span>` : ""}
-    ${ratio ? `<span class="sep">·</span><span class="na">Ratio ${ratio}:1</span>` : ""}
-    <a href="/cedears.html" class="na" style="margin-left:8px;color:#93c5fd">Comparar →</a>`;
+    ${ratio ? `<span class="sep">·</span><span class="na">Ratio ${ratio}:1</span>` : ""}`;
 }
 
 // ---------- Noticias clave ----------

@@ -89,7 +89,7 @@ function groups() {
 function render() {
   const G = groups();
   if (!G.length) {
-    $("kpis").innerHTML = ""; $("view").innerHTML = `<div class="empty">Tu cartera está vacía. Agregá tu primera compra arriba: ticker, fecha, cantidad y precio.</div>`; $("expo").innerHTML = ""; return;
+    $("kpis").innerHTML = ""; $("view").innerHTML = `<div class="empty">Tu cartera está vacía. Agregá tu primera compra arriba: ticker, fecha, cantidad y precio.</div>`; $("expo").innerHTML = `<div class="na" style="font-size:12.5px;margin-top:10px">Cuando cargues compras vas a ver cómo se reparte tu cartera.</div>`; return;
   }
   const T = G.reduce((t, x) => ({ vUsd: t.vUsd + x.vUsd, vArs: t.vArs + x.vArs, cUsd: t.cUsd + x.costUsd, cArs: t.cArs + x.costArs, spy: t.spy + x.spyVal, day: t.day + (ok(x.chg) ? x.vArs - x.vArs / (1 + x.chg / 100) : 0) }), { vUsd: 0, vArs: 0, cUsd: 0, cArs: 0, spy: 0, day: 0 });
   const gU = T.vUsd - T.cUsd, gA = T.vArs - T.cArs, vsSpy = T.spy ? (T.vUsd / T.spy - 1) * 100 : null;
@@ -149,7 +149,7 @@ async function refreshPrices() {
   if (q?.q?.SPY?.px) K.spy = q.q.SPY.px;
   render();
   $("dot").className = "dot on";
-  $("statusTxt").innerHTML = `<span class="livedot"></span>Precios de BYMA en vivo · ${state.user ? "guardada en tu cuenta" : "guardada en este navegador (iniciá sesión para tenerla en todos tus dispositivos)"}`;
+  $("statusTxt").innerHTML = `Precios de BYMA en vivo · ${state.user ? "guardada en tu cuenta" : "guardada en este navegador (iniciá sesión para tenerla en todos tus dispositivos)"}`;
 }
 (async () => {
   $("dot").className = "dot load";
