@@ -202,6 +202,32 @@
   .wk-p { font-size:9.5px; font-weight:700; border-radius:5px; padding:2px 5px; } .wk-p.pre { background:rgba(251,191,36,.15); color:#fbbf24; } .wk-p.post { background:rgba(129,140,248,.18); color:#a5b4fc; }
   .wk-more { font-size:11px; color:#93c5fd; background:none; border:none; cursor:pointer; padding:4px 2px; font-family:inherit; }
   @media (max-width:1100px) { .wk { grid-template-columns:repeat(5,minmax(200px,1fr)); overflow-x:auto; } }
+
+  /* Ranking técnico */
+  .tr-t { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  .tr-t th { font-size:10.5px; color:var(--dim); font-weight:600; letter-spacing:.06em; text-transform:uppercase; padding:5px 6px; text-align:center; position:static; background:none; border-bottom:1px solid var(--border); }
+  .tr-t td { padding:6px; border-bottom:1px solid var(--border); text-align:center; font-size:13px; } .tr-t td.l, .tr-t th.l { text-align:left; }
+  .tr-t tr[data-sym] { cursor:pointer; } .tr-t tr[data-sym]:hover td { background:rgba(59,130,246,.06); }
+  .tr-tk { display:inline-flex; align-items:center; gap:7px; font-weight:700; }
+  .tr-sc { font-size:17px; font-weight:800; }
+  .tr-b { display:inline-block; width:56px; background:var(--panel2); border-radius:7px; padding:3px 4px 2px; font-size:11.5px; font-weight:600; }
+  .tr-b i { display:block; height:3px; border-radius:2px; background:#0f172a; margin-bottom:2px; overflow:hidden; } .tr-b u { display:block; height:100%; }
+  .rsi-l { margin-bottom:10px; } .rsi-l h5 { margin:0 0 6px; font-size:12px; display:flex; align-items:center; gap:6px; }
+  .rsi-r { display:flex; align-items:center; gap:8px; padding:5px 2px; border-bottom:1px solid var(--border); font-size:13px; cursor:pointer; }
+  .rsi-r .n { color:var(--dim); width:14px; font-size:11px; } .rsi-r .v { margin-left:auto; font-weight:700; font-variant-numeric:tabular-nums; border-radius:6px; padding:1px 8px; font-size:12px; }
+  .rsi-r .v.ob { background:rgba(239,68,68,.15); color:#f87171; } .rsi-r .v.os { background:rgba(34,197,94,.15); color:#4ade80; }
+  /* Sectores y subsectores */
+  .sx-tabs { display:flex; gap:4px; overflow-x:auto; background:var(--panel2); border-radius:12px; padding:4px; margin-bottom:12px; }
+  .sx-tabs button { background:none; border:none; color:var(--text); font:600 13px Inter,sans-serif; padding:7px 11px; border-radius:9px; cursor:pointer; white-space:nowrap; }
+  .sx-tabs button.on { background:var(--panel); box-shadow:inset 0 -2px 0 #22c55e; } .sx-tabs button b { font-weight:600; margin-left:5px; }
+  .sx-subs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+  .sx-subs span { border:1px solid var(--border2); border-radius:8px; padding:4px 9px; font-size:12px; color:var(--muted); } .sx-subs span b { margin-left:5px; }
+  .sx-g { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; }
+  .sx-c { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; cursor:pointer; } .sx-c:hover { border-color:var(--accent); }
+  .sx-c .h { display:flex; justify-content:space-between; align-items:center; font-weight:700; } .sx-c .h span { display:flex; align-items:center; gap:6px; }
+  .sx-c .nm { font-size:11.5px; color:var(--dim); margin:2px 0 6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sx-c .kv { display:flex; justify-content:space-between; font-size:12px; color:var(--muted); padding:2px 0; } .sx-c .kv b { font-variant-numeric:tabular-nums; }
+  .dot3 { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:5px; vertical-align:1px; }
   /* Números en fila */
   .nums { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
   .nums > div { min-width:0; } .nums .v { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; } .nums .l { font-size:11.5px; color:var(--dim); margin-top:2px; }
@@ -236,6 +262,9 @@
     <section class="tile s4" id="curve"><div class="lbl">Tasas EE.UU.</div><div class="loading">Cargando…</div></section>
 
     <section class="tile s12" id="mapT"><div class="lbl"><span>Mapa de mercados · ETF por país <button class="hq" data-help="map">?</button></span><div class="seg" id="mapR"></div></div><div class="hlp" id="h_map"></div><div id="map" class="loading">Cargando…</div></section>
+    <section class="tile s8"><div class="lbl"><span>Ranking técnico <button class="hq" data-help="tech">?</button></span><div class="seg" id="techR"></div></div><div class="hlp" id="h_tech"></div><div id="tech" class="loading">Cargando…</div></section>
+    <section class="tile s4"><div class="lbl"><span>RSI extremos <button class="hq" data-help="rsi">?</button></span></div><div class="hlp" id="h_rsi"></div><div id="rsi" class="loading">Cargando…</div></section>
+    <section class="tile s12"><div class="lbl"><span>Sectores y subsectores · fuerza relativa <button class="hq" data-help="secs">?</button></span></div><div class="hlp" id="h_secs"></div><div id="secs" class="loading">Cargando…</div></section>
     <section class="tile s12"><div class="lbl"><span>Activos <button class="hq" data-help="cross">?</button></span><div class="seg" id="xaR"></div></div><div class="hlp" id="h_cross"></div><div id="cross" class="loading">Cargando…</div></section>
 
     <section class="tile s4" id="candT"><div class="lbl"><span>Candidatas</span><a href="/screener.html">Screener →</a></div><div id="cands" class="loading">Cargando…</div></section>

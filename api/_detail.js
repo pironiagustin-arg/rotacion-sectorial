@@ -1,6 +1,7 @@
 // Ficha estilo Koyfin para /api/fundamentals?symbol=X&detail=1
 // Combina SEC (historia larga, trimestral desde ~2008) con Yahoo (últimos trimestres, acciones ajustadas por split,
 // remuneración en acciones). Si la SEC no coincide con Yahoo en los períodos que comparten, se descarta (pasa en bancos).
+import { techScore } from "../lib/tech.js";
 const DAY = 86400000;
 const YH_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const num = (x) => (x == null || !isFinite(x) ? null : +x);
@@ -211,33 +212,8 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
   try {
     const sp = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=2y&interval=1d", { headers: { "User-Agent": YH_UA } }).then((r) => r.json());
     const sx = sp.chart.result[0], spyBy = new Map(sx.timestamp.map((t, i) => [new Date(t * 1000).toISOString().slice(0, 10), sx.indicators.quote[0].close[i]]));
-    const c = close, n = c.length, last = c[n - 1];
-    if (n > 260) {
-      const sma = (k, end = n) => c.slice(end - k, end).reduce((a, b) => a + b, 0) / k;
-      const m50 = sma(50), m150 = sma(150), m200 = sma(200), m200p = sma(200, n - 21);
-      const tChecks = [[last > m50, "Precio sobre la media de 50"], [last > m150, "Precio sobre la media de 150"], [last > m200, "Precio sobre la media de 200"], [m50 > m150 && m150 > m200, "Medias ordenadas 50 > 150 > 200"], [m200 > m200p, "Media de 200 subiendo (1 mes)"]];
-      const trend = tChecks.filter(([v]) => v).length * 4;
-      const ds = dates.map((t) => new Date(t).toISOString().slice(0, 10));
-      const ret = (arr, k) => (arr.length > k && arr[arr.length - 1 - k] ? arr[arr.length - 1] / arr[arr.length - 1 - k] - 1 : 0);
-      const spyA = ds.map((d) => spyBy.get(d)).filter((v) => v != null);
-      const wr = (a) => 0.4 * ret(a, 63) + 0.2 * ret(a, 126) + 0.2 * ret(a, 189) + 0.2 * ret(a, 252);
-      const rsDiff = (wr(c) - wr(spyA)) * 100;
-      const rs = Math.max(0, Math.min(25, ((rsDiff + 10) / 50) * 25));
-      const lr = c.slice(-61).map((v, i, a) => (i ? Math.log(v / a[i - 1]) : null)).slice(1);
-      const sd = (a) => { const m = a.reduce((x, y) => x + y, 0) / a.length; return Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / a.length); };
-      const volR = sd(lr.slice(-10)) / sd(lr);
-      const rng = (k) => { const a = c.slice(-k); return (Math.max(...a) / Math.min(...a) - 1) * 100; };
-      const rngR = rng(15) / rng(60);
-      const contr = Math.max(0, Math.min(20, ((1.2 - volR) / 0.7) * 20)) + Math.max(0, Math.min(15, ((0.8 - rngR) / 0.6) * 15));
-      const y = c.slice(-252), hi = Math.max(...y), lo = Math.min(...y), fromHi = (last / hi - 1) * 100, fromLo = (last / lo - 1) * 100;
-      const setup = Math.max(0, Math.min(10, ((25 + fromHi) / 25) * 10)) + Math.max(0, Math.min(10, (fromLo / 30) * 10));
-      tech = {
-        score: Math.round(trend + rs + contr + setup), trend, rs: rd(rs, 1), contr: rd(contr, 1), setup: rd(setup, 1),
-        checks: tChecks.map(([v, l]) => [!!v, l]), rsDiff: rd(rsDiff, 1), volR: rd(volR, 2), rngR: rd(rngR, 2),
-        hi: rd(hi, 2), lo: rd(lo, 2), pos: rd(((last - lo) / (hi - lo || 1)) * 100, 0), fromHi: rd(fromHi, 1), fromLo: rd(fromLo, 1),
-        m50: rd(m50, 2), m150: rd(m150, 2), m200: rd(m200, 2),
-      };
-    }
+    const ds = dates.map((t) => new Date(t).toISOString().slice(0, 10));
+    tech = techScore(close, ds.map((d) => spyBy.get(d)).filter((v) => v != null));
   } catch { /* sin SPY: sin score técnico */ }
 
   return {

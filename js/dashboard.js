@@ -60,6 +60,9 @@ function renderCross() {
 const HELP = {
   regime: "<b>Para qué sirve:</b> un puntaje de 0 a 100 que resume si el contexto acompaña a tomar riesgo, y cuánto exponerte. Suma 4 bloques: índices (40 pts: tendencia del S&P, caída desde máximos, igual ponderado y small caps), amplitud del universo (25: % de tus ~300 acciones sobre su media de 200 ruedas y nuevos máximos vs mínimos), sentimiento (15: nivel y curva del VIX) y crédito/macro (20: high yield, cíclico vs defensivo, dólar y tasas). <b>Cómo usarlo:</b> en Risk-on podés ser más agresivo con compras y tamaños; en Neutral, selectivo; en Risk-off, priorizar caja, defensivas y entrar de a partes. No es para timing diario: cambia lento y sirve como filtro de fondo. Pasá el mouse por cada señal para ver el detalle.",
   cross: "<b>Para qué sirve:</b> ver de un vistazo hacia dónde va la plata entre clases de activos (acciones, bonos, dólar, materias primas, cripto). <b>Cómo leerlo:</b> si suben oro, bonos y dólar mientras caen acciones y cripto, el mercado se está protegiendo (risk-off). Si el petróleo sube fuerte junto con las tasas, presiona la inflación. En el VIX los colores van al revés: que suba es malo. Elegí el período arriba; pasá el mouse para ver todos los plazos.",
+  tech: "<b>Para qué sirve:</b> encontrar las acciones técnicamente más fuertes del universo (o de tu watchlist y cartera). <b>Cómo se arma (0-100):</b> Tendencia 20 (precio sobre sus medias de 50/150/200, medias ordenadas y la de 200 subiendo), Fuerza 25 (rendimiento de 3 a 12 meses contra el S&P), Contracción 35 (volatilidad y rango de los últimos días achicándose: la acción se comprime antes de un movimiento) y Setup 20 (cerca del máximo de 52 semanas y lejos del mínimo). RS es el percentil de fuerza relativa contra todo el universo (99 = la más fuerte). Más de 70 = líder técnica; combinalo con Oportunidades del Screener para que también tenga fundamentos.",
+  rsi: "<b>Para qué sirve:</b> ver las acciones más estiradas en cada dirección. El RSI de 14 días mide la velocidad de las subas y bajas: <b>más de 70 = sobrecomprada</b> (subió muy rápido, riesgo de pausa o corrección; no conviene perseguirla), <b>menos de 30 = sobrevendida</b> (cayó muy rápido, posible rebote). Ojo: en tendencias fuertes puede quedar en extremos mucho tiempo; usalo para elegir el momento de entrada, no como señal sola.",
+  secs: "<b>Para qué sirve:</b> ver qué sectores y nichos lideran el mercado. El número es el RS rating (1-99): percentil de su rendimiento de 3 a 12 meses contra todas las acciones y ETF. Elegí un sector arriba para ver sus subsectores (ETF temáticos) y las acciones del universo más fuertes de ese sector, con su distancia a la EMA200 y SMA50, RSI y RS rating. La idea: comprar las líderes de los sectores líderes.",
   week: "<b>Para qué sirve:</b> ver de un vistazo qué puede mover el mercado cada día: datos macro de EE.UU. (en naranja los de alto impacto, como inflación, empleo y la Fed) y los resultados de las empresas de más de US$ 15 mil millones. <b>Cómo leerlo:</b> en los datos, EST es lo que espera el mercado y ANT el dato anterior; cuando sale, el DATO se pinta de rojo si presiona a subir tasas y de verde si alivia. En resultados, ☀ PRE reporta antes de la apertura y ☾ POST después del cierre; una vez publicado ves el EPS real contra el estimado (verde = superó). Tus acciones (watchlist y cartera) aparecen primero, con borde azul.",
   map: "<b>Para qué sirve:</b> ver qué países suben o bajan, usando el ETF de acciones de cada uno (en dólares). <b>Cómo usarlo:</b> detectar rotación hacia regiones (ej. emergentes vs desarrollados), países castigados que pueden ser oportunidad, o contagios (si cae toda Asia a la vez). Ojo: el rendimiento en dólares mezcla la bolsa local con la moneda. Pasá el mouse por un país para ver el ETF y todos los plazos.",
 };
@@ -384,10 +387,58 @@ function renderWeek() {
   $("week").querySelectorAll("[data-sym]").forEach((x) => (x.onclick = () => { if (META.get(x.dataset.sym)) location.href = "/empresa.html?s=" + encodeURIComponent(x.dataset.sym); }));
 }
 
+// ---------- Ranking técnico, RSI extremos y sectores/subsectores (data/tech.json, se recalcula cada día hábil) ----------
+D.trMode = loadLocal("dash_tr_mode", "all");
+async function loadTech() {
+  D.tech = await fetch("/data/tech.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  if (!D.tech) { ["tech", "rsi", "secs"].forEach((id) => ($(id).innerHTML = '<div class="dim">Se genera con la próxima actualización diaria.</div>')); return; }
+  renderTech(); renderRsi(); renderSecs();
+}
+const scCol = (r) => (r >= 0.75 ? "#22c55e" : r >= 0.45 ? "#f59e0b" : "#ef4444");
+const tkOf = (r) => esc(r.ced || r.s);
+const goSym = (el) => el.querySelectorAll("[data-sym]").forEach((x) => (x.onclick = () => (location.href = "/empresa.html?s=" + encodeURIComponent(x.dataset.sym))));
+function renderTech() {
+  const mine = new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)]);
+  $("techR").innerHTML = [["all", "Universo"], ["mine", "Mis acciones"]].map(([k, l]) => `<button data-trm="${k}" class="${k === D.trMode ? "on" : ""}">${l}</button>`).join("");
+  $("techR").querySelectorAll("[data-trm]").forEach((b) => (b.onclick = () => { D.trMode = b.dataset.trm; saveLocal("dash_tr_mode", D.trMode); renderTech(); }));
+  const rows = D.tech.rows.filter((r) => D.trMode === "all" || mine.has(r.s)).sort((a, b) => b.score - a.score).slice(0, 10);
+  const cell = (v, m) => `<td><span class="tr-b"><i><u style="width:${(v / m) * 100}%;background:${scCol(v / m)}"></u></i><span style="color:${scCol(v / m)}">${nf(0).format(v)}</span></span></td>`;
+  $("tech").className = "";
+  $("tech").innerHTML = rows.length ? `<table class="tr-t"><thead><tr><th>#</th><th class="l">Acción</th><th>Score</th><th title="Precio sobre medias de 50/150/200, medias ordenadas y subiendo">Tend.</th><th title="Rendimiento ponderado 3-12 meses contra el S&P 500">Fuerza</th><th title="Volatilidad y rango achicándose (compresión antes de un movimiento)">Contr.</th><th title="Cerca del máximo de 52 semanas y lejos del mínimo">Setup</th><th title="RS rating: percentil de fuerza relativa contra todo el universo (1-99)">RS</th></tr></thead><tbody>
+    ${rows.map((r, i) => `<tr data-sym="${esc(r.s)}"><td class="dim">${i + 1}</td><td class="l"><span class="tr-tk">${logo(r.s, r.ced || r.s, 20)}${tkOf(r)}</span></td><td class="tr-sc" style="color:${scCol(r.score / 100)}">${r.score}</td>${cell(r.trend, 20)}${cell(r.rs, 25)}${cell(r.contr, 35)}${cell(r.setup, 20)}<td style="color:${scCol(r.rsr / 99)};font-weight:700">${r.rsr}</td></tr>`).join("")}</tbody></table>`
+    : '<div class="dim">Ninguna de tus acciones tiene datos técnicos (solo se calculan las que cotizan en EE.UU.).</div>';
+  goSym($("tech"));
+}
+function renderRsi() {
+  const r = D.tech.rows.filter((x) => ok(x.rsi));
+  const list = (arr, cls) => arr.map((x, i) => `<div class="rsi-r" data-sym="${esc(x.s)}"><span class="n">${i + 1}</span>${logo(x.s, x.ced || x.s, 20)}<b>${tkOf(x)}</b><span class="dim" style="font-size:11.5px">${esc((x.n || "").slice(0, 18))}</span><span class="v ${cls}">${nf(1).format(x.rsi)}</span></div>`).join("");
+  $("rsi").className = "";
+  $("rsi").innerHTML = `<div class="rsi-l"><h5><span class="dot3" style="background:#ef4444"></span>Sobrecompradas (RSI más alto)</h5>${list([...r].sort((a, b) => b.rsi - a.rsi).slice(0, 5), "ob")}</div>
+    <div class="rsi-l"><h5><span class="dot3" style="background:#22c55e"></span>Sobrevendidas (RSI más bajo)</h5>${list([...r].sort((a, b) => a.rsi - b.rsi).slice(0, 5), "os")}</div>`;
+  goSym($("rsi"));
+}
+D.secSel = null;
+function renderSecs() {
+  const S = D.tech.sectors; if (!S?.length) return;
+  const sel = S.find((x) => x.etf === D.secSel) || S[0];
+  const c = (v) => (v >= 70 ? "#4ade80" : v >= 40 ? "#fbbf24" : "#f87171");
+  const dotE = (v) => `<span class="dot3" style="background:${v >= 0 ? "#22c55e" : "#ef4444"}"></span>`;
+  const dotR = (v) => `<span class="dot3" style="background:${v >= 70 ? "#ef4444" : v <= 30 ? "#22c55e" : "#f59e0b"}"></span>`;
+  const stocks = D.tech.rows.filter((r) => r.sec === sel.sec).sort((a, b) => b.rsr - a.rsr).slice(0, 9);
+  $("secs").className = "";
+  $("secs").innerHTML = `<div class="sx-tabs">${S.map((x) => `<button data-sx="${x.etf}" class="${x === sel ? "on" : ""}" title="${esc(SEC_NAME[x.sec] || "")}">${x.etf}<b style="color:${c(x.rsr)}">${x.rsr}</b></button>`).join("")}</div>
+    <div class="sx-subs"><span style="border:none;padding-left:0">${esc(SEC_NAME[sel.sec] || sel.etf)} · subsectores:</span>${sel.subs.sort((a, b) => b.rsr - a.rsr).map((u) => `<span title="${esc(u.etf)} · RSI ${nf(1).format(u.rsi)} · ${pt(u.e200)} vs EMA200">${esc(u.l)} <b style="color:${c(u.rsr)}">${u.etf} ${u.rsr}</b></span>`).join("") || '<span>—</span>'}</div>
+    <div class="sx-g">${stocks.map((r) => `<div class="sx-c" data-sym="${esc(r.s)}"><div class="h"><span>${logo(r.s, r.ced || r.s, 20)}${tkOf(r)}</span><span class="${r.d1 >= 0 ? "pos" : "neg"}" style="font-size:12px">${r.d1 >= 0 ? "▲" : "▼"}${nf(1).format(Math.abs(r.d1))}%</span></div><div class="nm">${esc(r.n)}</div>
+      <div class="kv"><span>vs EMA200</span><b>${dotE(r.e200)}${pt(r.e200)}</b></div><div class="kv"><span>vs SMA50</span><b>${dotE(r.s50)}${pt(r.s50)}</b></div><div class="kv"><span>RSI 14</span><b>${dotR(r.rsi)}${nf(1).format(r.rsi)}</b></div><div class="kv"><span>RS rating</span><b style="color:${c(r.rsr)}">${r.rsr}</b></div></div>`).join("") || '<div class="dim">Sin acciones del universo en este sector.</div>'}</div>`;
+  $("secs").querySelectorAll("[data-sx]").forEach((b) => (b.onclick = () => { D.secSel = b.dataset.sx; renderSecs(); }));
+  goSym($("secs"));
+}
+const SEC_NAME = { tech: "Tecnología", fin: "Financiero", health: "Salud", discr: "Consumo discrecional", staples: "Consumo básico", energy: "Energía", ind: "Industrial", mat: "Materiales", util: "Servicios públicos", re: "Bienes raíces", comm: "Comunicaciones" };
+
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando…";
   const res = await Promise.allSettled([
-    loadTape(), loadMarket(), loadRegime(), loadMap(), loadWeek(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
+    loadTape(), loadMarket(), loadRegime(), loadMap(), loadWeek(), loadTech(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
     loadUniverse().then(() => {
       const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR");
       const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]);
