@@ -153,6 +153,14 @@
   .rg-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
   .rg-chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; background:var(--panel2); border-radius:8px; padding:4px 9px; cursor:help; }
   .rg-chip i { width:7px; height:7px; border-radius:50%; } .rg-chip b { font-weight:600; font-variant-numeric:tabular-nums; }
+  .rg-top2 { display:grid; grid-template-columns:170px 1fr; gap:16px; align-items:center; }
+  .rg-g { width:170px; height:auto; display:block; }
+  .rg-expo { border:1px solid; border-radius:12px; padding:10px 14px; text-align:center; } .rg-expo .t { font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--dim); } .rg-expo .v { font-size:22px; font-weight:800; } .rg-expo .s { font-size:12.5px; color:var(--muted); }
+  .rg-grp { margin-top:10px; } .rg-grp div { display:grid; grid-template-columns:minmax(0,1.4fr) 1fr 74px; gap:10px; align-items:center; padding:6px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  .rg-grp i { height:6px; background:var(--panel2); border-radius:3px; overflow:hidden; } .rg-grp u { display:block; height:100%; } .rg-grp b { text-align:right; font-variant-numeric:tabular-nums; font-size:12.5px; }
+  .rg-nh { font-size:12.5px; color:var(--muted); margin:10px 0 4px; }
+  .rg-bh { display:flex; justify-content:space-between; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim); margin:10px 0 4px; } .rg-bh b { color:#4ade80; font-size:13px; letter-spacing:0; }
+  .rg-bx { display:flex; justify-content:space-between; font-size:10px; color:var(--dim); margin-top:2px; }
   /* Activos compacto */
   .xg { display:grid; grid-template-columns:repeat(auto-fill,minmax(112px,1fr)); gap:6px; }
   .xg div { border-radius:8px; padding:7px 9px; background:var(--panel2); cursor:default; }
@@ -170,6 +178,30 @@
   .mp-leg { display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--dim); margin-top:6px; } .mp-leg i { flex:1; height:6px; border-radius:3px; background:linear-gradient(90deg,#b91c1c,#334155 50%,#15803d); max-width:220px; }
   .mp-tip { position:fixed; pointer-events:none; background:var(--panel2); border:1px solid var(--border2); border-radius:8px; padding:6px 10px; font-size:12px; z-index:50; display:none; white-space:nowrap; }
   @media (max-width:900px) { .mp { grid-template-columns:1fr; } }
+
+  /* Eventos de la semana */
+  .wk { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
+  .wk-d { background:var(--panel2); border:1px solid var(--border); border-radius:12px; display:flex; flex-direction:column; min-width:0; }
+  .wk-d.today { border-color:var(--accent); }
+  .wk-h { display:flex; justify-content:space-between; align-items:baseline; padding:9px 11px; border-bottom:1px solid var(--border); font-weight:700; font-size:12.5px; letter-spacing:.04em; }
+  .wk-h span { font-weight:400; font-size:10.5px; color:var(--dim); letter-spacing:0; }
+  .wk-b { padding:6px 8px 8px; max-height:480px; overflow-y:auto; }
+  .wk-s { font-size:10px; font-weight:600; letter-spacing:.08em; color:var(--dim); text-transform:uppercase; margin:8px 2px 5px; }
+  .wk-m { border:1px solid var(--border); border-left:3px solid #64748b; border-radius:8px; padding:6px 8px; margin-bottom:5px; background:var(--panel); }
+  .wk-m.hi { border-left-color:#f59e0b; background:rgba(245,158,11,.05); }
+  .wk-m .t { display:flex; justify-content:space-between; gap:6px; font-size:12px; font-weight:600; line-height:1.3; }
+  .wk-m .t small { font-weight:500; color:var(--dim); font-size:10.5px; white-space:nowrap; }
+  .wk-m .al { font-size:9px; font-weight:700; background:#f59e0b; color:#1a1300; border-radius:4px; padding:1px 4px; margin-left:4px; vertical-align:1px; }
+  .wk-m .v { display:flex; gap:4px; margin-top:5px; flex-wrap:wrap; }
+  .wk-m .v span { font-size:10.5px; border:1px solid var(--border2); border-radius:5px; padding:1px 5px; color:var(--muted); } .wk-m .v span b { color:var(--text); font-variant-numeric:tabular-nums; }
+  .wk-m .v span.hot { border-color:rgba(239,68,68,.5); } .wk-m .v span.hot b { color:#f87171; } .wk-m .v span.cool { border-color:rgba(34,197,94,.5); } .wk-m .v span.cool b { color:#4ade80; }
+  .wk-e { display:grid; grid-template-columns:22px minmax(0,1fr) auto; gap:7px; align-items:center; padding:5px 6px; border-radius:8px; margin-bottom:3px; background:var(--panel); cursor:pointer; }
+  .wk-e:hover { background:#1b2740; } .wk-e.mine { box-shadow:inset 0 0 0 1px rgba(59,130,246,.6); }
+  .wk-e .tk { font-weight:700; font-size:12.5px; } .wk-e .es { font-size:10.5px; color:var(--dim); display:block; font-variant-numeric:tabular-nums; }
+  .wk-e .es b { color:#fbbf24; font-weight:600; } .wk-e .es b.pos { color:#4ade80; } .wk-e .es b.neg { color:#f87171; }
+  .wk-p { font-size:9.5px; font-weight:700; border-radius:5px; padding:2px 5px; } .wk-p.pre { background:rgba(251,191,36,.15); color:#fbbf24; } .wk-p.post { background:rgba(129,140,248,.18); color:#a5b4fc; }
+  .wk-more { font-size:11px; color:#93c5fd; background:none; border:none; cursor:pointer; padding:4px 2px; font-family:inherit; }
+  @media (max-width:1100px) { .wk { grid-template-columns:repeat(5,minmax(200px,1fr)); overflow-x:auto; } }
   /* Números en fila */
   .nums { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
   .nums > div { min-width:0; } .nums .v { font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; } .nums .l { font-size:11.5px; color:var(--dim); margin-top:2px; }
@@ -213,7 +245,8 @@
     <section class="tile s6" id="dolT"><div class="lbl"><span>Dólar y CEDEARs</span><a href="/cedears.html">Ver todos →</a></div><div id="dolar" class="loading">Cargando…</div></section>
     <section class="tile s6" id="pfT"><div class="lbl"><span>Tu cartera</span><a href="/cartera.html">Abrir →</a></div><div id="pf" class="loading">Cargando…</div></section>
 
-    <section class="tile s12"><div class="lbl">Resultados de empresas · próximos 30 días</div><div id="earn" class="loading">Cargando…</div></section>
+    <section class="tile s12" id="weekT"><div class="lbl"><span id="weekL">Eventos de la semana <button class="hq" data-help="week">?</button></span><div class="seg" id="weekR"></div></div><div class="hlp" id="h_week"></div><div id="week" class="loading">Cargando…</div></section>
+    <section class="tile s12"><div class="lbl">Resultados de tus acciones · próximos 30 días</div><div id="earn" class="loading">Cargando…</div></section>
   </div>
 </main>
 <div id="toast" class="toast"></div>

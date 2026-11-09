@@ -58,8 +58,9 @@ function renderCross() {
 
 // ---------- Ayudas "?" ----------
 const HELP = {
-  regime: "<b>Para qué sirve:</b> resume en un semáforo si el contexto acompaña a tomar riesgo. Junta 11 señales (tendencia del S&P, volatilidad, crédito, rotación, amplitud, dólar y tasas) y cuenta cuántas están a favor. <b>Cómo usarlo:</b> en Risk-on podés ser más agresivo con compras y tamaños; en Neutral, selectivo; en Risk-off, priorizar caja, defensivas y entrar de a partes. No es para timing diario: cambia lento y sirve como filtro de fondo. Pasá el mouse por cada señal para ver el detalle.",
+  regime: "<b>Para qué sirve:</b> un puntaje de 0 a 100 que resume si el contexto acompaña a tomar riesgo, y cuánto exponerte. Suma 4 bloques: índices (40 pts: tendencia del S&P, caída desde máximos, igual ponderado y small caps), amplitud del universo (25: % de tus ~300 acciones sobre su media de 200 ruedas y nuevos máximos vs mínimos), sentimiento (15: nivel y curva del VIX) y crédito/macro (20: high yield, cíclico vs defensivo, dólar y tasas). <b>Cómo usarlo:</b> en Risk-on podés ser más agresivo con compras y tamaños; en Neutral, selectivo; en Risk-off, priorizar caja, defensivas y entrar de a partes. No es para timing diario: cambia lento y sirve como filtro de fondo. Pasá el mouse por cada señal para ver el detalle.",
   cross: "<b>Para qué sirve:</b> ver de un vistazo hacia dónde va la plata entre clases de activos (acciones, bonos, dólar, materias primas, cripto). <b>Cómo leerlo:</b> si suben oro, bonos y dólar mientras caen acciones y cripto, el mercado se está protegiendo (risk-off). Si el petróleo sube fuerte junto con las tasas, presiona la inflación. En el VIX los colores van al revés: que suba es malo. Elegí el período arriba; pasá el mouse para ver todos los plazos.",
+  week: "<b>Para qué sirve:</b> ver de un vistazo qué puede mover el mercado cada día: datos macro de EE.UU. (en naranja los de alto impacto, como inflación, empleo y la Fed) y los resultados de las empresas de más de US$ 15 mil millones. <b>Cómo leerlo:</b> en los datos, EST es lo que espera el mercado y ANT el dato anterior; cuando sale, el DATO se pinta de rojo si presiona a subir tasas y de verde si alivia. En resultados, ☀ PRE reporta antes de la apertura y ☾ POST después del cierre; una vez publicado ves el EPS real contra el estimado (verde = superó). Tus acciones (watchlist y cartera) aparecen primero, con borde azul.",
   map: "<b>Para qué sirve:</b> ver qué países suben o bajan, usando el ETF de acciones de cada uno (en dólares). <b>Cómo usarlo:</b> detectar rotación hacia regiones (ej. emergentes vs desarrollados), países castigados que pueden ser oportunidad, o contagios (si cae toda Asia a la vez). Ojo: el rendimiento en dólares mezcla la bolsa local con la moneda. Pasá el mouse por un país para ver el ETF y todos los plazos.",
 };
 document.addEventListener("click", (e) => {
@@ -100,6 +101,7 @@ function renderMap() {
 }
 
 // ---------- Régimen de mercado y VIX ----------
+const dLbl = (s) => { const [, m, d] = s.split("-"); return `${+d} ${MES[+m - 1]}`; };
 const dec = (x) => String(x).replace(/(\d)\.(\d)/g, "$1,$2");
 async function loadRegime() {
   const r = await fetch("/api/overview?view=regime"); if (!r.ok) throw new Error("regime");
@@ -108,9 +110,39 @@ async function loadRegime() {
   const name = { on: "Risk-on", off: "Risk-off", neutral: "Neutral" }[R.regime];
   const sub = { on: "Las señales favorecen tomar riesgo", off: "Las señales piden cautela", neutral: "Señales mezcladas: selectividad" }[R.regime];
   const pos = Math.max(0, Math.min(100, (R.score + 100) / 2));
-  $("regime").innerHTML = `<div class="lbl"><span>Régimen de mercado <button class="hq" data-help="regime">?</button></span><span class="dim2"><b class="pos">${on}</b> a favor · <b class="neg">${off}</b> en contra · ${sg.length - on - off} neutrales</span></div><div class="hlp" id="h_regime"></div>
-    <div class="rg-c"><div class="rg-badge ${R.regime}" style="padding:8px 14px;min-width:0"><div class="r" style="font-size:20px">${name}</div><div style="font-size:11.5px;opacity:.85">${sub}</div></div>
-      <div><div class="rg-meter"><i style="left:${pos}%"></i></div><div class="rg-ml"><span>Risk-off</span><span>Neutral</span><span>Risk-on</span></div></div></div>
+  // Puntaje 0-100 por bloques (+1 = puntaje completo, 0 = mitad, -1 = nada) + amplitud real del universo
+  const B = await fetch("/data/breadth.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const st = Object.fromEntries(sg.map((x) => [x.k, x.state]));
+  const part = (k, w) => (st[k] == null ? null : ((st[k] + 1) / 2) * w);
+  const lin = (v, a, b2, w) => Math.max(0, Math.min(1, (v - a) / (b2 - a))) * w;
+  const a200 = B?.above200?.at(-1), nh = B?.nh?.at(-1), nl = B?.nl?.at(-1);
+  const groups = [
+    ["📈", "Índices (S&P, Nasdaq, small caps)", [[part("trend", 15), 15], [part("dd", 10), 10], [part("ew", 7.5), 7.5], [part("small", 7.5), 7.5]]],
+    ["🌐", "Amplitud del universo", [[a200 != null ? lin(a200, 30, 70, 15) : null, 15], [nh != null ? lin(nh - nl, -15, 15, 5) : null, 5], [part("breadth", 5), 5]]],
+    ["🧠", "Sentimiento (VIX)", [[part("vix", 8), 8], [part("term", 7), 7]]],
+    ["🏦", "Crédito y macro", [[part("credit", 8), 8], [part("cyc", 4), 4], [part("dxy", 4), 4], [part("rates", 4), 4]]],
+  ].map(([ic, l, xs]) => { const v = xs.filter(([p]) => p != null); return [ic, l, v.reduce((a, [p]) => a + p, 0), v.reduce((a, [, w]) => a + w, 0)]; });
+  const got = groups.reduce((a, g) => a + g[2], 0), max = groups.reduce((a, g) => a + g[3], 0), score = max ? Math.round((got / max) * 100) : 50;
+  const expo = score >= 70 ? ["75–100%", "cartera completa, sumar en retrocesos", "#22c55e"] : score >= 50 ? ["50–75%", "exposición normal, selectividad", "#84cc16"] : score >= 35 ? ["25–50%", "posiciones chicas, stops cortos", "#f59e0b"] : ["0–25%", "priorizar caja y defensivas", "#ef4444"];
+  const ang = (v) => Math.PI * (1 - v / 100), arc = (v) => { const x = 70 + 56 * Math.cos(ang(v)), y = 70 - 56 * Math.sin(ang(v)); return `M14,70 A56,56 0 0 1 ${x.toFixed(1)},${y.toFixed(1)}`; };
+  let chartB = "";
+  if (B?.above200?.length > 5) {
+    const v = B.above200.slice(-60), d = B.dates.slice(-60), W2 = 520, H2 = 90, lo2 = Math.max(0, Math.min(...v) - 5), hi2 = Math.min(100, Math.max(...v) + 5);
+    const X2 = (i) => (i / (v.length - 1)) * W2, Y2 = (y) => H2 - ((y - lo2) / (hi2 - lo2)) * H2, pth = v.map((y, i) => `${i ? "L" : "M"}${X2(i).toFixed(1)},${Y2(y).toFixed(1)}`).join("");
+    const g50 = 50 > lo2 && 50 < hi2 ? `<line x1="0" x2="${W2}" y1="${Y2(50)}" y2="${Y2(50)}" stroke="#64748b" stroke-dasharray="4 4"/><text x="${W2 - 2}" y="${Y2(50) - 3}" fill="#64748b" font-size="9" text-anchor="end">50%</text>` : "";
+    chartB = `<div class="rg-bh"><span>% del universo sobre su media de 200 ruedas · últimos 3 meses</span><b>${nf(1).format(a200)}%</b></div>
+      <svg viewBox="0 0 ${W2} ${H2}" preserveAspectRatio="none" style="width:100%;height:${H2}px;display:block">${g50}<path d="${pth}L${W2},${H2}L0,${H2}Z" fill="#22c55e" opacity=".1"/><path d="${pth}" fill="none" stroke="#4ade80" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>
+      <div class="rg-bx"><span>${dLbl(d[0])}</span><span>${dLbl(d[Math.floor(d.length / 2)])}</span><span>${dLbl(d.at(-1))}</span></div>`;
+  }
+  const gc = (r) => (r >= 0.66 ? "#4ade80" : r >= 0.4 ? "#fbbf24" : "#f87171");
+  $("regime").innerHTML = `<div class="lbl"><span>Régimen de mercado <button class="hq" data-help="regime">?</button></span><span class="dim2">${B ? `${B.n} acciones · ` : ""}${sg.length} señales</span></div><div class="hlp" id="h_regime"></div>
+    <div class="rg-top2">
+      <svg viewBox="0 0 140 84" class="rg-g"><path d="M14,70 A56,56 0 0 1 126,70" fill="none" stroke="var(--panel2)" stroke-width="11" stroke-linecap="round"/><path d="${arc(score)}" fill="none" stroke="${expo[2]}" stroke-width="11" stroke-linecap="round"/><text x="70" y="62" text-anchor="middle" font-size="30" font-weight="800" fill="${expo[2]}">${score}</text><text x="70" y="79" text-anchor="middle" font-size="8.5" fill="#64748b">de 100 · ${name}</text></svg>
+      <div class="rg-expo" style="border-color:${expo[2]}55;background:${expo[2]}12"><div class="t">Exposición sugerida</div><div class="v" style="color:${expo[2]}">${expo[0]}</div><div class="s">${expo[1]}</div></div>
+    </div>
+    <div class="rg-grp">${groups.map(([ic, l, g, m]) => `<div><span>${ic} ${l}</span><i><u style="width:${m ? (g / m) * 100 : 0}%;background:${gc(m ? g / m : 0)}"></u></i><b style="color:${gc(m ? g / m : 0)}">${nf(0).format(g)}/${m} pts</b></div>`).join("")}</div>
+    ${nh != null ? `<div class="rg-nh">🆕 Nuevos máximos / mínimos de 52 semanas (último cierre): <b class="pos">${nh}</b> / <b class="neg">${nl}</b></div>` : ""}
+    ${chartB}
     <div class="rg-chips">${sg.map((x) => `<span class="rg-chip" title="${esc(x.name)}: ${esc(dec(x.value))} (${esc(dec(x.detail))})\n${esc(x.why)}"><i style="background:${x.state > 0 ? "#22c55e" : x.state < 0 ? "#ef4444" : "#eab308"}"></i>${esc(x.name.replace(/ \(.*\)/, ""))} <b>${esc(dec(x.value))}</b></span>`).join("")}</div>`;
   // VIX
   const v = R.vix; if (!v) return;
@@ -309,10 +341,53 @@ async function loadPf() {
     ${movers.length ? `<div class="pick"><span class="t">Lo que más se mueve hoy</span>${movers.map((x) => `<a href="/empresa.html?s=${encodeURIComponent(x.s)}">${logo(x.s, x.ced, 22)}${esc(x.ced)} <small class="${x.chg >= 0 ? "pos" : "neg"}">${x.chg >= 0 ? "+" : ""}${nf(1).format(x.chg)}%</small></a>`).join("")}</div>` : ""}`;
 }
 
+// ---------- Eventos de la semana: macro de EE.UU. + resultados de empresas grandes ----------
+D.wk = 0; D.wkOpen = new Set();
+const DIAS = ["DOM", "LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB"];
+async function loadWeek() {
+  $("weekR").innerHTML = [[-1, "Anterior"], [0, "Esta semana"], [1, "Próxima"]].map(([w, l]) => `<button data-wk="${w}" class="${w === D.wk ? "on" : ""}">${l}</button>`).join("");
+  $("weekR").querySelectorAll("[data-wk]").forEach((b) => (b.onclick = () => { D.wk = +b.dataset.wk; $("week").innerHTML = '<div class="dim">Cargando…</div>'; loadWeek(); }));
+  const r = await fetch("/api/overview?view=week&w=" + D.wk); if (!r.ok) throw new Error("week");
+  D.week = await r.json(); renderWeek();
+}
+function renderWeek() {
+  const W = D.week, mine = new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)]);
+  const fmtV = (v, e) => (v == null ? "—" : `${nf(Math.abs(v) < 10 && v % 1 ? (String(v).split(".")[1]?.length > 1 ? 2 : 1) : 0).format(v)}${e.unit === "%" ? "%" : e.scale || ""}`);
+  const today = new Date().toISOString().slice(0, 10);
+  const d0 = new Date(W.days[0].date + "T12:00:00"), d4 = new Date(W.days[4].date + "T12:00:00");
+  $("weekL").innerHTML = `Eventos de la semana <span class="dim2">${d0.getDate()} ${MES[d0.getMonth()]} – ${d4.getDate()} ${MES[d4.getMonth()]}</span> <button class="hq" data-help="week">?</button>`;
+  $("week").className = "wk";
+  $("week").innerHTML = W.days.map((d) => {
+    const dt = new Date(d.date + "T12:00:00"), open = D.wkOpen.has(d.date);
+    // macro: los de alto impacto siempre; del resto, los 3 primeros
+    const hi = d.macro.filter((e) => e.high), lo = d.macro.filter((e) => !e.high && (e.forecast != null || e.actual != null) && !/auction|mba |mortgage|redbook|api crude|eia /i.test(e.title)), shownM = open ? d.macro : [...hi, ...lo.slice(0, Math.max(1, 4 - hi.length))];
+    const mac = shownM.map((e) => {
+      const h = hawkDir(e.title), hot = e.actual != null && e.forecast != null && h !== 0 && fmtV(e.actual, e) !== fmtV(e.forecast, e) ? ((e.actual > e.forecast) === (h > 0) ? "hot" : "cool") : "";
+      const hh = new Date(e.t).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      return `<div class="wk-m ${e.high ? "hi" : ""}"><div class="t"><span>${esc(esName(e.title))}${e.high ? '<i class="al">ALTO</i>' : ""}</span><small>${hh}</small></div>
+        <div class="v">${e.actual != null ? `<span class="${hot}">DATO <b>${fmtV(e.actual, e)}</b></span>` : ""}<span>EST <b>${fmtV(e.forecast, e)}</b></span><span>ANT <b>${fmtV(e.previous, e)}</b></span></div></div>`;
+    }).join("");
+    const earn = (open ? d.earnings : d.earnings.slice(0, 12)).sort((a, b) => mine.has(b.s) - mine.has(a.s) || b.cap - a.cap).map((e) => {
+      const rep = e.eps != null, beat = rep && e.est != null ? (e.eps >= e.est ? "pos" : "neg") : "";
+      return `<div class="wk-e ${mine.has(e.s) ? "mine" : ""}" data-sym="${esc(e.s)}" title="${esc(e.n)} · cap. US$ ${nf(0).format(e.cap / 1e9)} MM${rep && e.surp != null ? ` · sorpresa ${e.surp > 0 ? "+" : ""}${nf(1).format(e.surp)}%` : ""}">${logo(e.s, e.s, 22)}
+        <div style="min-width:0"><span class="tk">${esc(e.s)}</span><span class="es">${rep ? `EPS <b class="${beat}">${nf(2).format(e.eps)}</b> vs ${e.est != null ? nf(2).format(e.est) : "—"}` : `EPS est <b>${e.est != null ? nf(2).format(e.est) : "—"}</b>`}</span></div>
+        ${e.when ? `<span class="wk-p ${e.when}">${e.when === "pre" ? "☀ PRE" : "☾ POST"}</span>` : ""}</div>`;
+    }).join("");
+    const more = d.macro.length > shownM.length || d.earnings.length > 12;
+    return `<div class="wk-d ${d.date === today ? "today" : ""}"><div class="wk-h">${DIAS[dt.getDay()]} ${dt.getDate()}<span>${d.macro.length + d.earnings.length} eventos</span></div><div class="wk-b">
+      ${mac ? `<div class="wk-s">Economía EE.UU.</div>${mac}` : ""}
+      ${earn ? `<div class="wk-s">Resultados · ${d.earnings.length}${d.nEarn > d.earnings.length ? ` <span style="text-transform:none;letter-spacing:0">(de ${d.nEarn}, las de +US$ 15 MM)</span>` : ""}</div>${earn}` : ""}
+      ${!mac && !earn ? '<div class="dim" style="font-size:12px;padding:8px">Sin eventos relevantes.</div>' : ""}
+      ${more || open ? `<button class="wk-more" data-wkday="${d.date}">${open ? "Ver menos" : "Ver todo"}</button>` : ""}</div></div>`;
+  }).join("");
+  $("week").querySelectorAll("[data-wkday]").forEach((b) => (b.onclick = () => { const k = b.dataset.wkday; D.wkOpen.has(k) ? D.wkOpen.delete(k) : D.wkOpen.add(k); renderWeek(); }));
+  $("week").querySelectorAll("[data-sym]").forEach((x) => (x.onclick = () => { if (META.get(x.dataset.sym)) location.href = "/empresa.html?s=" + encodeURIComponent(x.dataset.sym); }));
+}
+
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando…";
   const res = await Promise.allSettled([
-    loadTape(), loadMarket(), loadRegime(), loadMap(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
+    loadTape(), loadMarket(), loadRegime(), loadMap(), loadWeek(), loadSectors(), loadMacro(), loadCrypto(), loadDolar(),
     loadUniverse().then(() => {
       const syms = [...new Set([...watchSymbols(), ...getPortfolio().positions.map((p) => p.s)])].filter((s) => META.get(s)?.[3] !== "AR");
       const all = UNIVERSE.filter((r) => r[3] !== "AR" && !r[4].includes("REF")).map((r) => r[0]);

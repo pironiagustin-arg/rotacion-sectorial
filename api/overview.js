@@ -228,9 +228,37 @@ async function countriesView(req, res) {
   return res.status(200).json({ rows, at: Date.now() });
 }
 
+// GET /api/overview?view=week&w=0 -> eventos de la semana (lunes a viernes): datos macro de EE.UU. y resultados de empresas
+// grandes (Nasdaq: EPS estimado, antes/después del mercado y, si ya reportó, EPS real y sorpresa). w=1 = semana siguiente.
+const money = (s) => { const v = Number(String(s || "").replace(/[$,()]/g, "")); return isFinite(v) && String(s || "").trim() && s !== "N/A" ? (String(s).includes("(") ? -v : v) : null; };
+async function weekView(req, res) {
+  const now = new Date(), d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const dow = d.getUTCDay(); d.setUTCDate(d.getUTCDate() - ((dow + 6) % 7) + (dow === 6 || dow === 0 ? 7 : 0) + 7 * (Number(req.query?.w) || 0));
+  const days = [0, 1, 2, 3, 4].map((i) => new Date(+d + i * 864e5).toISOString().slice(0, 10));
+  const minCap = Number(req.query?.cap) || 15e9;
+  const NUA = { "User-Agent": UA, Accept: "application/json", "Accept-Language": "en-US,en;q=0.9" };
+  const [cal, ...earn] = await Promise.all([
+    fetch(`https://economic-calendar.tradingview.com/events?from=${days[0]}T00:00:00Z&to=${days[4]}T23:59:59Z&countries=US`, { headers: { "User-Agent": UA, Origin: "https://www.tradingview.com" } }).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ...days.map((dd) => fetch(`https://api.nasdaq.com/api/calendar/earnings?date=${dd}`, { headers: NUA }).then((r) => (r.ok ? r.json() : null)).catch(() => null)),
+  ]);
+  const out = days.map((dd, i) => {
+    const macro = (cal?.result || []).filter((e) => e.date?.slice(0, 10) === dd && e.importance >= 0 && !/holiday|speaks|speech|election/i.test(e.title))
+      .map((e) => ({ t: Date.parse(e.date), title: e.title, period: e.period || "", actual: e.actual, forecast: e.forecast, previous: e.previous, unit: e.unit || "", scale: e.scale || "", high: e.importance >= 1 }))
+      .sort((a, b) => b.high - a.high || a.t - b.t);
+    const rows = earn[i]?.data?.rows || [];
+    const er = rows.map((r) => ({ s: r.symbol, n: r.name, cap: money(r.marketCap), est: money(r.epsForecast), eps: money(r.eps), surp: r.surprise != null && r.surprise !== "N/A" ? Number(r.surprise) : null,
+      when: /pre-market/.test(r.time) ? "pre" : /after-hours/.test(r.time) ? "post" : "" }))
+      .filter((r) => r.cap >= minCap && !/\.[A-Z]$/.test(r.s)).sort((a, b) => b.cap - a.cap).slice(0, 40);
+    return { date: dd, macro, earnings: er, nEarn: rows.length };
+  });
+  res.setHeader("Cache-Control", "public, s-maxage=1800, stale-while-revalidate=7200");
+  return res.status(200).json({ days: out, at: Date.now() });
+}
+
 export default async function handler(req, res) {
   if (req.query?.view === "regime") return regimeView(req, res);
   if (req.query?.view === "countries") return countriesView(req, res);
+  if (req.query?.view === "week") return weekView(req, res);
   if (req.query?.view === "macro") return macroView(req, res);
   if (req.query?.view === "chart") return chartView(req, res);
   if (req.query?.s) return liveQuotes(req, res);
