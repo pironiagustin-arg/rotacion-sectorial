@@ -60,6 +60,7 @@ function renderCross() {
 const HELP = {
   regime: "<b>Para qué sirve:</b> un puntaje de 0 a 100 que resume si el contexto acompaña a tomar riesgo, y cuánto exponerte. Suma 4 bloques: índices (40 pts: tendencia del S&P, caída desde máximos, igual ponderado y small caps), amplitud del universo (25: % de tus ~300 acciones sobre su media de 200 ruedas y nuevos máximos vs mínimos), sentimiento (15: nivel y curva del VIX) y crédito/macro (20: high yield, cíclico vs defensivo, dólar y tasas). <b>Cómo usarlo:</b> en Risk-on podés ser más agresivo con compras y tamaños; en Neutral, selectivo; en Risk-off, priorizar caja, defensivas y entrar de a partes. No es para timing diario: cambia lento y sirve como filtro de fondo. Pasá el mouse por cada señal para ver el detalle.",
   cross: "<b>Para qué sirve:</b> ver de un vistazo hacia dónde va la plata entre clases de activos (acciones, bonos, dólar, materias primas, cripto). <b>Cómo leerlo:</b> si suben oro, bonos y dólar mientras caen acciones y cripto, el mercado se está protegiendo (risk-off). Si el petróleo sube fuerte junto con las tasas, presiona la inflación. En el VIX los colores van al revés: que suba es malo. Elegí el período arriba; pasá el mouse para ver todos los plazos.",
+  heat: "<b>Para qué sirve:</b> ver en un vistazo si la suba o la baja del día es amplia o la mueven pocas empresas grandes. Cada cuadro es una acción del universo: el tamaño es su capitalización y el color, la variación del día (verde sube, rojo baja; más intenso = más movimiento, hasta ±3%). Agrupado por sector. Si el S&P sube pero el mapa está mayormente rojo, la suba es de pocas mega caps (frágil).",
   tech: "<b>Para qué sirve:</b> encontrar las acciones técnicamente más fuertes del universo (o de tu watchlist y cartera). <b>Cómo se arma (0-100):</b> Tendencia 20 (precio sobre sus medias de 50/150/200, medias ordenadas y la de 200 subiendo), Fuerza 25 (rendimiento de 3 a 12 meses contra el S&P), Contracción 35 (volatilidad y rango de los últimos días achicándose: la acción se comprime antes de un movimiento) y Setup 20 (cerca del máximo de 52 semanas y lejos del mínimo). RS es el percentil de fuerza relativa contra todo el universo (99 = la más fuerte). Más de 70 = líder técnica; combinalo con Oportunidades del Screener para que también tenga fundamentos.",
   rsi: "<b>Para qué sirve:</b> ver las acciones más estiradas en cada dirección. El RSI de 14 días mide la velocidad de las subas y bajas: <b>más de 70 = sobrecomprada</b> (subió muy rápido, riesgo de pausa o corrección; no conviene perseguirla), <b>menos de 30 = sobrevendida</b> (cayó muy rápido, posible rebote). Ojo: en tendencias fuertes puede quedar en extremos mucho tiempo; usalo para elegir el momento de entrada, no como señal sola.",
   secs: "<b>Para qué sirve:</b> ver qué sectores y nichos lideran el mercado. El número es el RS rating (1-99): percentil de su rendimiento de 3 a 12 meses contra todas las acciones y ETF. Elegí un sector arriba para ver sus subsectores (ETF temáticos) y las acciones del universo más fuertes de ese sector, con su distancia a la EMA200 y SMA50, RSI y RS rating. La idea: comprar las líderes de los sectores líderes.",
@@ -232,6 +233,7 @@ async function loadUniverse() {
   const rows = [...snap.rows.values()].map((r) => derive(r, state.ov.get(r.s), state.fund.get(r.s)));
   scoreAll(rows, { userMult: userMult(), profW: userProfW() });
   D.mcap = new Map(rows.map((r) => [r.s, r.mcap]));
+  D.uniRows = rows; renderHeat();
   const ext = rows.filter((r) => r.c !== "AR" && !(r.mk || "").includes("REF"));
   const cands = ext.filter((r) => r.cand && r.profile !== "crypto").sort((a, b) => b.score - a.score).slice(0, 6);
   $("cands").className = "";
@@ -443,6 +445,42 @@ function renderSecs() {
   goSym($("secs"));
 }
 const SEC_NAME = { tech: "Tecnología", fin: "Financiero", health: "Salud", discr: "Consumo discrecional", staples: "Consumo básico", energy: "Energía", ind: "Industrial", mat: "Materiales", util: "Servicios públicos", re: "Bienes raíces", comm: "Comunicaciones" };
+
+// ---------- Mapa de calor del universo (estilo Finviz): tamaño = capitalización, color = variación del día ----------
+function squarify(items, x, y, w, h) {
+  // items: [{v, ...}] ordenados desc; devuelve [{...item, x, y, w, h}]
+  const out = [], total = items.reduce((a, b) => a + b.v, 0); if (!total) return out;
+  let rest = items.map((it) => ({ ...it, a: (it.v / total) * w * h }));
+  while (rest.length) {
+    const side = Math.min(w, h); let row = [], best = Infinity;
+    for (const it of rest) {
+      const r2 = [...row, it], s2 = r2.reduce((a, b) => a + b.a, 0), mx = Math.max(...r2.map((z) => z.a)), mn = Math.min(...r2.map((z) => z.a));
+      const worst = Math.max((side * side * mx) / (s2 * s2), (s2 * s2) / (side * side * mn));
+      if (worst > best) break; best = worst; row = r2;
+    }
+    const s2 = row.reduce((a, b) => a + b.a, 0), thick = s2 / side; let off = 0;
+    for (const it of row) { const len = it.a / thick; if (w >= h) out.push({ ...it, x, y: y + off, w: thick, h: len }); else out.push({ ...it, x: x + off, y, w: len, h: thick }); off += len; }
+    if (w >= h) { x += thick; w -= thick; } else { y += thick; h -= thick; }
+    rest = rest.slice(row.length);
+  }
+  return out;
+}
+function renderHeat() {
+  const el = $("heat"); if (!el || !D.uniRows) return;
+  const rows = D.uniRows.filter((r) => r.c !== "AR" && r.mcap > 0 && ok(r.chg) && !/\./.test(r.s)).sort((a, b) => b.mcap - a.mcap).slice(0, 160);
+  const bySec = new Map(); for (const r of rows) { if (!bySec.has(r.sec)) bySec.set(r.sec, []); bySec.get(r.sec).push(r); }
+  const secs = [...bySec.entries()].map(([k, l]) => ({ k, l, v: l.reduce((a, b) => a + b.mcap, 0) })).sort((a, b) => b.v - a.v);
+  const col = (v) => { const a = Math.min(1, Math.abs(v) / 3); return v >= 0 ? `rgb(${Math.round(48 - 28 * a)},${Math.round(64 + 100 * a)},${Math.round(80 - 20 * a)})` : `rgb(${Math.round(64 + 150 * a)},${Math.round(60 - 25 * a)},${Math.round(72 - 30 * a)})`; };
+  const up = rows.filter((r) => r.chg > 0).length;
+  $("heatN").textContent = `${rows.length} acciones más grandes · ${up} suben, ${rows.length - up} bajan`;
+  el.className = "hm";
+  const W0 = el.clientWidth || 1200, H0 = el.clientHeight || 520;
+  el.innerHTML = squarify(secs, 0, 0, 100, 100).map((S) => {
+    const cells = squarify(S.l.map((r) => ({ ...r, v: r.mcap })), 0, 0, 100, 100);
+    return `<div class="sc" style="left:${S.x}%;top:${S.y}%;width:${S.w}%;height:${S.h}%"><span>${esc(SEC_NAME[S.k] || S.k)}</span>${cells.map((c) => { const cw = (c.w / 100) * (S.w / 100) * W0, ch = (c.h / 100) * (S.h / 100) * H0, mid = cw > 34 && ch > 17, big = cw > 50 && ch > 34; return `<div class="cl" data-sym="${esc(c.s)}" style="left:${c.x}%;top:${c.y}%;width:${c.w}%;height:${c.h}%;background:${col(c.chg)}" title="${esc(c.ced || c.s)} · ${esc(c.n || "")}\n${c.chg >= 0 ? "+" : ""}${nf(2).format(c.chg)}% · cap. US$ ${nf(0).format(c.mcap / 1e9)} MM">${mid ? `<b style="font-size:${big ? (cw > 120 ? 14 : 12) : 10}px">${esc(c.ced || c.s)}</b>${big ? `<i>${c.chg >= 0 ? "+" : ""}${nf(1).format(c.chg)}%</i>` : ""}` : ""}</div>`; }).join("")}</div>`;
+  }).join("");
+  goSym(el);
+}
 
 async function loadAll() {
   $("dot").className = "dot load"; $("statusTxt").textContent = "Cargando…";

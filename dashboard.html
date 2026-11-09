@@ -206,6 +206,13 @@
   .wk-more { font-size:11px; color:#93c5fd; background:none; border:none; cursor:pointer; padding:4px 2px; font-family:inherit; }
   @media (max-width:1100px) { .wk { grid-template-columns:repeat(5,minmax(200px,1fr)); overflow-x:auto; } }
 
+  /* Mapa de calor */
+  .hm { position:relative; width:100%; height:520px; border-radius:10px; overflow:hidden; background:var(--bg); }
+  .hm .sc { position:absolute; border:1px solid var(--bg); box-sizing:border-box; }
+  .hm .sc > span { position:absolute; left:4px; top:2px; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:rgba(255,255,255,.75); z-index:2; text-shadow:0 1px 2px #000; pointer-events:none; }
+  .hm .cl { position:absolute; border:1px solid rgba(11,18,32,.9); box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; cursor:pointer; color:#fff; text-align:center; line-height:1.1; }
+  .hm .cl:hover { outline:2px solid #fff; z-index:3; } .hm .cl b { font-size:12px; } .hm .cl i { font-style:normal; font-size:10.5px; opacity:.9; }
+  @media (max-width:700px) { .hm { height:420px; } }
   /* Ranking técnico */
   .tr-t { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
   .tr-t th { font-size:10.5px; color:var(--dim); font-weight:600; letter-spacing:.06em; text-transform:uppercase; padding:5px 6px; text-align:center; position:static; background:none; border-bottom:1px solid var(--border); }
@@ -265,6 +272,7 @@
     <section class="tile s4" id="curve"><div class="lbl">Tasas EE.UU.</div><div class="loading">Cargando…</div></section>
 
     <section class="tile s12" id="mapT"><div class="lbl"><span>Mapa de mercados · ETF por país <button class="hq" data-help="map">?</button></span><div class="seg" id="mapR"></div></div><div class="hlp" id="h_map"></div><div id="map" class="loading">Cargando…</div></section>
+    <section class="tile s12"><div class="lbl"><span>Mapa de calor del universo · hoy <button class="hq" data-help="heat">?</button></span><span class="dim2" id="heatN"></span></div><div class="hlp" id="h_heat"></div><div id="heat" class="loading">Cargando…</div></section>
     <section class="tile s8"><div class="lbl"><span>Ranking técnico <button class="hq" data-help="tech">?</button></span><div class="seg" id="techR"></div></div><div class="hlp" id="h_tech"></div><div id="tech" class="loading">Cargando…</div></section>
     <section class="tile s4"><div class="lbl"><span>RSI extremos <button class="hq" data-help="rsi">?</button></span></div><div class="hlp" id="h_rsi"></div><div id="rsi" class="loading">Cargando…</div></section>
     <section class="tile s12"><div class="lbl"><span>Sectores y subsectores · fuerza relativa <button class="hq" data-help="secs">?</button></span></div><div class="hlp" id="h_secs"></div><div id="secs" class="loading">Cargando…</div></section>
