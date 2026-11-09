@@ -199,7 +199,7 @@ mountHelp({
 async function loadMkt() {
   const [R, B, w0, w1] = await Promise.all([fetch("/api/overview?view=regime").then((r) => (r.ok ? r.json() : null)).catch(() => null), fetch("/data/breadth.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).catch(() => null), ...[0, 1].map((w) => fetch("/api/overview?view=week&w=" + w).then((r) => (r.ok ? r.json() : null)).catch(() => null))]);
   D.reg = R ? regimeGroups(R, B) : null;
-  D.earn = new Map(); for (const W of [w0, w1]) for (const d of W?.days || []) for (const e of d.earnings || []) D.earn.set(e.s, d.date);
+  D.earn = new Map(Object.entries(D.tech?.earn || {})); for (const W of [w0, w1]) for (const d of W?.days || []) for (const e of d.earnings || []) if (!D.earn.has(e.s)) D.earn.set(e.s, d.date);
 }
 // ---------- Tu setup: compresión entre techo bajista y AVWAP, ruptura con volumen ----------
 const COIL = { breakout: ["🚀 Rompió con volumen", "#22c55e", 0], weak: ["Rompió sin volumen", "#fbbf24", 2], coil: ["Comprimiendo", "#3b82f6", 1], base: ["Lateralizando", "#94a3b8", 3] };

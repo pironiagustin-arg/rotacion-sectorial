@@ -65,7 +65,11 @@ const tOf = (m) => { const k = [...m.keys()].filter((d) => spy.has(d)); return t
 const META = new Map(UNIVERSE.map((r) => [r[0], r]));
 const ch = (v, k) => +((v.at(-1) / v.at(-1 - k) - 1) * 100).toFixed(2);
 const rows = [];
-syms.forEach((s, i) => { const m = series[i]; if (!m || m.size < 260) return; const t = tOf(m); if (!t) return; const v = [...m.values()];
+const lastDay = spyKeys.at(-1);
+let stale = 0;
+syms.forEach((s, i) => { const m = series[i]; if (!m || m.size < 260) return;
+  if ([...m.keys()].at(-1) !== lastDay) { stale++; return; } // sin la última rueda: el dato estaría viejo
+  const t = tOf(m); if (!t) return; const v = [...m.values()];
   rows.push({ s, n: META.get(s)?.[1] || s, sec: META.get(s)?.[2], ced: META.get(s)?.[5] || null, score: t.score, trend: t.trend, rs: t.rs, impr: t.impr, contr: t.contr, setup: t.setup, quad: t.quad, rs3w: t.rs3w, rs1m: t.rs1m, rs3m: t.rs3m, rsHi: t.rsHi, ext: t.ext, rsi: t.rsi, e200: t.e200, s50: t.s50, pos: t.pos, d1: ch(v, 1), w1: ch(v, 5), m1: ch(v, 21), m3: ch(v, 63), rsDiff: t.rsDiff, coil: m.ohlc ? coilSetup(m.ohlc) : null }); });
 const eRows = [];
 etfs.forEach((e, i) => { const m = etfSeries[i]; if (!m || m.size < 260) return; const t = tOf(m); if (t) eRows.push({ s: e, rsDiff: t.rsDiff, score: t.score, rsi: t.rsi, e200: t.e200, quad: t.quad, rs3w: t.rs3w, rs1m: t.rs1m, rs3m: t.rs3m, rsHi: t.rsHi }); });
@@ -75,6 +79,16 @@ const pctl = (arr) => [...arr].sort((a, b) => a.rsDiff - b.rsDiff).forEach((r, i
 pctl(rows); pctl(eRows);
 const by = new Map(eRows.map((r) => [r.s, r]));
 const sectors = Object.entries(SECT).filter(([e]) => by.has(e)).map(([e, k]) => ({ etf: e, sec: k, ...by.get(e), subs: (SUB[e] || []).filter(([x]) => by.has(x)).map(([x, l]) => ({ etf: x, l, ...by.get(x) })) })).sort((a, b) => b.rs3w - a.rs3w);
-fs.writeFileSync(path.join(ROOT, "data", "tech.json"), JSON.stringify({ generated: out.generated, date: out.dates.at(-1), rows, sectors }));
+// Próximos balances de TODO el universo (no solo las grandes), para el criterio "sin balance en 7 días"
+const earn = {}, uni = new Set(syms);
+for (let k = 0; k <= 12; k++) {
+  const d = new Date(Date.now() + k * 864e5); if (d.getUTCDay() % 6 === 0) continue; const ds = d.toISOString().slice(0, 10);
+  try { const j = await fetch(`https://api.nasdaq.com/api/calendar/earnings?date=${ds}`, { headers: { "User-Agent": UA, Accept: "application/json" } }).then((r) => r.json());
+    for (const r of j?.data?.rows || []) if (uni.has(r.symbol) && !earn[r.symbol]) earn[r.symbol] = ds; } catch {}
+}
+// Si falló la descarga de muchas acciones (Yahoo limita), no piso el archivo bueno del día anterior
+if (rows.length < syms.length * 0.8 || sectors.length < 9) { console.error(`::warning::Ranking técnico incompleto (${rows.length}/${syms.length} acciones, ${sectors.length} sectores): no se actualiza`); }
+else fs.writeFileSync(path.join(ROOT, "data", "tech.json"), JSON.stringify({ generated: out.generated, date: out.dates.at(-1), rows, sectors, earn }));
+if (stale) console.log(`${stale} acciones sin la última rueda (excluidas)`);
 console.log(`Ranking técnico: ${rows.length} acciones · sectores: ${sectors.map((x) => x.etf + " " + x.rsr).join(", ")}`);
 console.log(`Amplitud: ${ok.length} acciones · último ${out.dates.at(-1)}: ${out.above200.at(-1)}% sobre MM200 · ${out.nh.at(-1)} máximos / ${out.nl.at(-1)} mínimos`);

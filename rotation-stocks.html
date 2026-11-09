@@ -57,6 +57,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/theme.css">
 <script src="/js/embed.js"></script>
+<script>
+// Dentro del RRG unificado: sin márgenes propios y avisa su alto para que el marco no tenga scroll
+if (window.parent !== window) {
+  document.documentElement.classList.add("in-rrg");
+  const send = () => { const c = document.querySelector(".container"); parent.postMessage({ rrgH: Math.ceil(c.getBoundingClientRect().bottom + scrollY) + 8 }, location.origin); };
+  addEventListener("load", () => { send(); new ResizeObserver(send).observe(document.body); });
+}
+</script>
+<style>html.in-rrg .container { padding:0 !important; max-width:none !important; } html.in-rrg body { background:transparent; }</style>
 </head>
 <body>
 <header>
@@ -64,7 +73,6 @@
   <nav>
     <a id="navDash" href="/">Dashboard</a>
     <a id="navRrg" href="/rotation.html">RRG</a>
-    <a id="navRrgStocks" href="/rotation-stocks.html" class="active">RRG Acciones</a>
     <a id="navFund" href="/empresa.html">Fundamental</a>
     <a id="navWatch" href="/watchlist.html">Watchlist</a>
     <a href="/screener.html" id="navScreener">Screener</a>
@@ -107,7 +115,7 @@
 
   <div class="panel">
     <div class="controls-row" style="margin-bottom:10px;">
-      <b style="font-size:14px;">Watchlist — cuadrante actual</b>
+      <b style="font-size:14px;">Estado actual de cada acción</b>
     </div>
     <div id="watchlistWrap"><p class="muted">Agregá tickers arriba para ver en qué cuadrante está cada uno.</p></div>
   </div>

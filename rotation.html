@@ -65,7 +65,6 @@
   <nav>
     <a id="navDash" href="/">Dashboard</a>
     <a id="navRrg" href="/rotation.html" class="active">RRG</a>
-    <a id="navRrgStocks" href="/rotation-stocks.html">RRG Acciones</a>
     <a id="navFund" href="/empresa.html">Fundamental</a>
     <a id="navWatch" href="/watchlist.html">Watchlist</a>
     <a href="/screener.html" id="navScreener">Screener</a>
@@ -112,7 +111,13 @@
     <p class="muted" style="margin:-4px 0 10px;font-size:12.5px;line-height:1.5"><b>Cómo leerlo:</b> la rotación gira en sentido horario: Mejorando → Líder → Debilitándose → Rezagado. El mejor momento para entrar a un sector es cuando está en <b style="color:#748FFC">Mejorando</b> yendo hacia Líder (↗). "Fuerza vs S&amp;P" mayor a 100 = rinde más que el índice; "Impulso" mayor a 100 = esa fuerza está acelerando.</p>
     <div id="watchlistWrap"><p class="muted">Cargando…</p></div>
   </div>
+  <h2 style="font-size:18px;margin:28px 0 4px">🔄 Acciones</h2>
+  <p class="muted" style="margin:0 0 4px;font-size:12.5px">Mismo gráfico para las acciones que elijas, contra el S&amp;P 500. Agregá tickers en el campo de abajo.</p>
+  <iframe id="rrgStocks" src="/rotation-stocks.html" title="RRG de acciones" style="width:100%;border:0;display:block;height:1400px;margin:0 -0px" scrolling="no"></iframe>
 </div>
+<script>
+window.addEventListener("message", function (e) { if (e.origin === location.origin && e.data && e.data.rrgH) document.getElementById("rrgStocks").style.height = e.data.rrgH + "px"; });
+</script>
 <script>
 const RANGES = [{k:'1m',label:'1M'},{k:'3m',label:'3M'},{k:'6m',label:'6M'},{k:'1y',label:'1A'}];
 const TAIL = 8; // puntos de cola visibles en modo estático
