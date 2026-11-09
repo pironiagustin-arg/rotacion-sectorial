@@ -147,13 +147,15 @@ async function backtest() {
 }
 
 // ---------- 13F: grandes fondos ----------
+// Lista curada: los inversores más seguidos, no "mil fondos". Scion (Burry) cerró en 2025 y dejó de presentar 13F.
 const FUNDS = [
   [1067983, "Berkshire Hathaway", "Warren Buffett"], [1336528, "Pershing Square", "Bill Ackman"], [1536411, "Duquesne Family Office", "Stanley Druckenmiller"],
-  [1656456, "Appaloosa", "David Tepper"], [1040273, "Third Point", "Dan Loeb"], [1709323, "Himalaya Capital", "Li Lu"], [1061768, "Baupost", "Seth Klarman"],
-  [1112520, "Akre Capital", "Chuck Akre"], [1569205, "Fundsmith", "Terry Smith"], [1103804, "Viking Global", "Andreas Halvorsen"],
-  [1061165, "Lone Pine", "Stephen Mandel"], [1167483, "Tiger Global", "Chase Coleman"], [1135730, "Coatue", "Philippe Laffont"],
-  [1697748, "ARK Invest", "Cathie Wood"], [1350694, "Bridgewater", "Ray Dalio (fundador)"],
+  [1656456, "Appaloosa", "David Tepper"], [1541617, "Altimeter Capital", "Brad Gerstner"], [1088875, "Baillie Gifford", "James Anderson / Tom Slater"],
+  [1423053, "Citadel Advisors", "Ken Griffin"], [1697748, "ARK Invest", "Cathie Wood"], [1061768, "Baupost", "Seth Klarman"],
+  [1135730, "Coatue", "Philippe Laffont"],
 ];
+// Fondos con miles de posiciones (Citadel, Baillie Gifford): solo se mapean las más grandes
+const MAX_POS = 400;
 const secGet = async (u) => { await sleep(130); const r = await fetch(u, { headers: { "User-Agent": SEC_UA } }); if (!r.ok) throw new Error(u + " " + r.status); return r; };
 const _norm = (s) => String(s || "").toUpperCase().replace(/&AMP;/g, "&").replace(/[^A-Z0-9& ]/g, " ")
   .replace(/\b(INC|INCORPORATED|CORP|CORPORATION|CO|COMPANY|LTD|LIMITED|PLC|HLDGS?|HOLDINGS?|GROUP|SA|NV|AG|SE|ADR|ADS|SPONSORED|SPON|NEW|DEL|CL [A-C]|CLASS [A-C]|COM|THE|N V|S A|LP|LLC|TR|TRUST)\b/g, " ").replace(/\s+/g, " ").trim();
@@ -207,10 +209,11 @@ async function funds() {
       if (cur) raw.push({ cik, name, who, hr, cur, prev });
     } catch (e) { console.log(`${name}: error ${e.message}`); }
   }
-  const map = await figiMap(raw.flatMap((x) => [...x.cur.keys(), ...(x.prev ? x.prev.keys() : [])]));
+  const topK = (m) => [...m.values()].sort((a, b) => b.value - a.value).slice(0, MAX_POS).map((x) => x.cusip);
+  const map = await figiMap(raw.flatMap((x) => [...topK(x.cur), ...(x.prev ? topK(x.prev).filter((c) => !x.cur.has(c)) : [])]));
   const ALIAS = { GOOG: "GOOGL", "BRK-A": "BRK-B", FOX: "FOXA", NWS: "NWSA", "BF-A": "BF-B", "LEN-B": "LEN", UA: "UAA" };
   const mapSym = (cusip) => { const t = map[cusip] || null; return t ? ALIAS[t] || t : null; };
-  const managers = [], bySymbol = {};
+  const managers = [], bySymbol = {}, allHold = [];
   for (const { cik, name, who, hr, cur, prev } of raw) {
     {
       const total = [...cur.values()].reduce((s, x) => s + x.value, 0);
@@ -225,14 +228,31 @@ async function funds() {
       }).sort((a, b) => b.value - a.value);
       const curT = new Set([...cur.keys()].map((c) => mapSym(c) || c));
       const soldM = new Map();
-      if (prev) for (const p of prev.values()) { const t = mapSym(p.cusip) || p.cusip; if (curT.has(t)) continue; const g = soldM.get(t) || { s: uniSyms.has(t) ? t : null, t: mapSym(p.cusip), name: p.name, value: 0, status: "sold" }; g.value += p.value; soldM.set(t, g); }
-      const sold = [...soldM.values()].sort((a, b) => b.value - a.value);
+      if (prev) for (const p of prev.values()) { if (cur.has(p.cusip)) continue; const t = mapSym(p.cusip) || p.cusip; if (curT.has(t)) continue; const g = soldM.get(t) || { s: uniSyms.has(t) ? t : null, t: mapSym(p.cusip), name: p.name, value: 0, status: "sold" }; g.value += p.value; soldM.set(t, g); }
+      const sold = [...soldM.values()].filter((x) => x.t).sort((a, b) => b.value - a.value);
+      allHold.push({ name, rows, sold });
       managers.push({ cik, name, who, date: hr[0].date, period: hr[0].period, total, n: rows.length, top: rows.slice(0, 25), news: rows.filter((r) => r.status === "new").slice(0, 10), adds: rows.filter((r) => r.status === "add").slice(0, 10), trims: rows.filter((r) => r.status === "trim").slice(0, 10), sold: sold.slice(0, 10) });
       for (const r of [...rows, ...sold]) if (r.s) (bySymbol[r.s] ||= []).push({ fund: name, who, pct: r.pct ?? null, chg: r.chg ?? null, status: r.status, value: r.value, period: hr[0].period });
       console.log(`${name}: ${rows.length} posiciones, ${rows.filter((r) => r.s).length} en el universo`);
     }
   }
-  fs.writeFileSync(path.join(DATA, "funds.json"), JSON.stringify({ generated: new Date().toISOString(), managers, bySymbol }));
+  // Agregados entre fondos: más repetidas, nuevas, compras y ventas en consenso (con todas las posiciones mapeadas, no solo el top)
+  const agg = new Map();
+  const touch = (r) => { const k = r.t || r.name; if (!k || /^[0-9A-Z]{9}$/.test(k) && !r.t) return null; if (!agg.has(k)) agg.set(k, { t: r.t, s: r.s, name: r.name, hold: [], news: [], adds: [], trims: [], sold: [] }); return agg.get(k); };
+  for (const { name, rows, sold } of allHold) {
+    for (const r of rows) { if (!r.t) continue; const g = touch(r); if (!g) continue; g.hold.push({ f: name, pct: r.pct, chg: r.chg, st: r.status });
+      if (r.status === "new") g.news.push({ f: name, pct: r.pct }); else if (r.status === "add") g.adds.push({ f: name, pct: r.pct, chg: r.chg }); else if (r.status === "trim") g.trims.push({ f: name, pct: r.pct, chg: r.chg }); }
+    for (const r of sold) { const g = touch(r); if (g) g.sold.push({ f: name }); }
+  }
+  const A = [...agg.values()], wsum = (a) => a.reduce((x, y) => x + (y.pct || 0), 0);
+  const pick = (f, sort, n = 40) => A.filter(f).sort(sort).slice(0, n);
+  const summary = {
+    common: pick((g) => g.hold.length >= 2, (a, b) => b.hold.length - a.hold.length || wsum(b.hold) - wsum(a.hold)),
+    news: pick((g) => g.news.length >= 1, (a, b) => b.news.length - a.news.length || wsum(b.news) - wsum(a.news)),
+    buys: pick((g) => g.news.length + g.adds.length >= 2, (a, b) => (b.news.length * 2 + b.adds.length) - (a.news.length * 2 + a.adds.length) || wsum([...b.news, ...b.adds]) - wsum([...a.news, ...a.adds])),
+    sells: pick((g) => g.sold.length + g.trims.length >= 2, (a, b) => (b.sold.length * 2 + b.trims.length) - (a.sold.length * 2 + a.trims.length)),
+  };
+  fs.writeFileSync(path.join(DATA, "funds.json"), JSON.stringify({ generated: new Date().toISOString(), managers, bySymbol, summary }));
 }
 
 const mode = process.argv[2];

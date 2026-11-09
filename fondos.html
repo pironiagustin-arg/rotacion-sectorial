@@ -21,6 +21,17 @@
   .tk { display:inline-block; font-size:11.5px; padding:2px 7px; border-radius:99px; border:1px solid var(--border2); margin:0 4px 4px 0; color:var(--text); text-decoration:none; }
   .tk.ced { border-color:#1d4ed8; } .tk.off { color:var(--dim); }
   a.tk:hover { color:#93c5fd; }
+  .sum4 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  @media (max-width:900px) { .sum4 { grid-template-columns:1fr; } }
+  .cons { width:100%; } .cons td { vertical-align:middle; padding:7px 6px; }
+  .cons td:nth-child(1) { width:72px; } .cons td:nth-child(2) { width:150px; } .cons td:nth-child(4) { width:44px; }
+  @media (max-width:640px) { .cons td:nth-child(2) { display:none; } }
+  .fp { display:inline-block; font-size:11px; padding:2px 7px; border-radius:99px; margin:2px 3px 2px 0; white-space:nowrap; border:1px solid transparent; }
+  .fp.new { background:rgba(34,197,94,.18); color:#4ade80; border-color:rgba(34,197,94,.35); }
+  .fp.add { background:rgba(34,197,94,.08); color:#86efac; }
+  .fp.trim { background:rgba(239,68,68,.08); color:#fca5a5; }
+  .fp.sold { background:rgba(239,68,68,.18); color:#f87171; border-color:rgba(239,68,68,.35); }
+  .fp.hold { background:var(--panel2); color:var(--muted); }
   .cons { table-layout:fixed; width:100%; } .cons td { font-size:13px; white-space:normal; vertical-align:top; } .cons td:nth-child(1) { width:78px; } .cons td:nth-child(2) { width:170px; }
 </style>
 </head>
@@ -29,11 +40,14 @@
 <main>
   <div class="top"><div><h1>Qué compran los grandes fondos</h1><div class="status"><span class="dot" id="dot"></span><span id="statusTxt">Cargando…</span></div></div>
     <div class="actions"><label class="toggle"><input type="checkbox" id="onlyCed" checked> Solo acciones con CEDEAR</label></div></div>
-  <div class="help">Datos de los formularios 13F que los fondos grandes presentan a la SEC cada trimestre (45 días después del cierre). Muestran sus posiciones en acciones de EE.UU. al final del trimestre y cuánto cambiaron contra el anterior. No incluyen posiciones cortas ni bonos, y llegan con demora: sirven para ver convicción, no para seguirlos día a día. Los tickers en azul tienen CEDEAR.</div>
-  <div class="grid2" style="margin-bottom:12px">
-    <div class="card"><h3>Compras en consenso</h3><div class="who">Acciones que más fondos abrieron o aumentaron el último trimestre</div><div id="buys"></div></div>
-    <div class="card"><h3>Ventas en consenso</h3><div class="who">Acciones que más fondos redujeron o vendieron</div><div id="sells"></div></div>
+  <div class="help">Seguimos 10 inversores: Buffett, Ackman, Druckenmiller, Tepper, Gerstner (Altimeter), Baillie Gifford, Griffin (Citadel), Cathie Wood (ARK), Klarman (Baupost) y Laffont (Coatue). Citadel opera miles de posiciones como cobertura, así que sus movimientos pesan menos como señal de convicción. Datos de los formularios 13F que los fondos grandes presentan a la SEC cada trimestre (45 días después del cierre). Muestran sus posiciones en acciones de EE.UU. al final del trimestre y cuánto cambiaron contra el anterior. No incluyen posiciones cortas ni bonos, y llegan con demora: sirven para ver convicción, no para seguirlos día a día. Los tickers en azul tienen CEDEAR.</div>
+  <div class="sum4" style="margin-bottom:12px">
+    <div class="card"><h3>🟢 Compras en consenso</h3><div class="who">Las que más fondos abrieron o aumentaron el último trimestre</div><div id="buys"></div></div>
+    <div class="card"><h3>🔴 Ventas en consenso</h3><div class="who">Las que más fondos redujeron o vendieron del todo</div><div id="sells"></div></div>
+    <div class="card"><h3>🔁 Las que más se repiten</h3><div class="who">En cuántas de las 10 carteras está cada acción y cuánto pesa en cada una</div><div id="common"></div></div>
+    <div class="card"><h3>✨ Posiciones nuevas</h3><div class="who">Acciones que aparecen por primera vez en la cartera de algún fondo</div><div id="news"></div></div>
   </div>
+  <h2 style="margin:18px 0 8px;font-size:17px">Fondo por fondo</h2>
   <div class="grid2" id="funds"></div>
 </main>
 <div id="toast" class="toast"></div>

@@ -14,19 +14,19 @@ const chip = (x, extra = "") => {
 };
 const keep = (x) => !F.only || hasCed(x);
 
+// Resumen entre los 10 fondos: compras y ventas en consenso, más repetidas y posiciones nuevas
+const SHORT = { "Berkshire Hathaway": "Buffett", "Pershing Square": "Ackman", "Duquesne Family Office": "Druckenmiller", "Appaloosa": "Tepper", "Altimeter Capital": "Gerstner", "Baillie Gifford": "Baillie Gifford", "Citadel Advisors": "Griffin", "ARK Invest": "ARK", "Baupost": "Klarman", "Coatue": "Coatue" };
+const sh = (f) => SHORT[f] || f;
+const pill = (cls, txt, title = "") => `<span class="fp ${cls}" title="${esc(title)}">${esc(txt)}</span>`;
 function consensus() {
-  const agg = new Map();
-  for (const m of F.d.managers) {
-    for (const [arr, w] of [[m.news, 2], [m.adds, 1], [m.trims, -1], [m.sold, -2]]) for (const x of arr) {
-      const k = x.s || x.t || x.name; if (!k) continue;
-      const g = agg.get(k) || { x, buy: [], sell: [], score: 0 };
-      (w > 0 ? g.buy : g.sell).push(`${m.name}${w === 2 ? " (nueva)" : w === -2 ? " (vendió todo)" : ""}`); g.score += w; agg.set(k, g);
-    }
-  }
-  const list = [...agg.values()].filter((g) => keep(g.x));
-  const tbl = (arr, side) => arr.length ? `<table class="cons"><tbody>${arr.map((g) => `<tr><td class="l">${chip(g.x)}</td><td class="l na">${esc((BY_SYM.get(g.x.s)?.[1] || g.x.name || "").slice(0, 28))}</td><td class="l" style="font-size:12px">${esc(g[side].join(", "))}</td></tr>`).join("")}</tbody></table>` : `<div class="na">Sin coincidencias.</div>`;
-  $("buys").innerHTML = tbl(list.filter((g) => g.buy.length >= 2).sort((a, b) => b.buy.length - a.buy.length || b.score - a.score).slice(0, 12), "buy");
-  $("sells").innerHTML = tbl(list.filter((g) => g.sell.length >= 2).sort((a, b) => b.sell.length - a.sell.length || a.score - b.score).slice(0, 12), "sell");
+  const S = F.d.summary, N = F.d.managers.length;
+  if (!S) { $("buys").innerHTML = $("sells").innerHTML = '<div class="na">Se genera en la próxima actualización.</div>'; return; }
+  const row = (g, who, right) => `<tr><td class="l">${chip(g)}</td><td class="l na" style="font-size:12px">${esc((BY_SYM.get(g.s)?.[1] || g.name || "").slice(0, 26))}</td><td class="l">${who}</td><td class="num">${right}</td></tr>`;
+  const tbl = (list, f) => { const l = list.filter(keep).slice(0, 12); return l.length ? `<table class="cons"><tbody>${l.map(f).join("")}</tbody></table>` : '<div class="na">Sin coincidencias.</div>'; };
+  $("buys").innerHTML = tbl(S.buys, (g) => row(g, [...g.news.map((x) => pill("new", sh(x.f), `Nueva: ${nf(1).format(x.pct || 0)}% de la cartera`)), ...g.adds.map((x) => pill("add", `${sh(x.f)} +${nf(0).format(x.chg || 0)}%`, `Aumentó ${nf(0).format(x.chg || 0)}% · ${nf(1).format(x.pct || 0)}% de la cartera`))].join(""), `<b class="pos">${g.news.length + g.adds.length}</b>`));
+  $("sells").innerHTML = tbl(S.sells, (g) => row(g, [...g.sold.map((x) => pill("sold", sh(x.f), "Vendió todo")), ...g.trims.map((x) => pill("trim", `${sh(x.f)} ${nf(0).format(x.chg || 0)}%`, `Redujo · queda ${nf(1).format(x.pct || 0)}% de la cartera`))].join(""), `<b class="neg">${g.sold.length + g.trims.length}</b>`));
+  $("common").innerHTML = tbl(S.common, (g) => row(g, g.hold.sort((a, b) => (b.pct || 0) - (a.pct || 0)).map((x) => pill(x.st === "new" || x.st === "add" ? "add" : x.st === "trim" ? "trim" : "hold", `${sh(x.f)} ${nf(1).format(x.pct || 0)}%`, x.st === "new" ? "Posición nueva" : x.st === "add" ? `Aumentó ${nf(0).format(x.chg || 0)}%` : x.st === "trim" ? `Redujo ${nf(0).format(x.chg || 0)}%` : "Mantuvo")).join(""), `<b>${g.hold.length}</b><span class="na">/${N}</span>`));
+  $("news").innerHTML = tbl(S.news, (g) => row(g, g.news.map((x) => pill("new", `${sh(x.f)} ${nf(1).format(x.pct || 0)}%`, "Peso en su cartera")).join(""), `<b class="pos">${g.news.length}</b>`));
 }
 function funds() {
   $("funds").innerHTML = F.d.managers.map((m) => {
