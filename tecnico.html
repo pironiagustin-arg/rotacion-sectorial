@@ -28,6 +28,9 @@
   .t10 .n { color:var(--dim); font-size:11px; } .t10 .sc2 { font-size:17px; font-weight:800; text-align:right; } .t10 .nm2 { color:var(--dim); font-size:11.5px; margin-left:6px; }
   .ck { display:inline-flex; width:22px; height:22px; border-radius:6px; align-items:center; justify-content:center; font-weight:800; font-size:12px; } .ck.y { background:rgba(34,197,94,.15); color:#4ade80; } .ck.n { background:rgba(239,68,68,.12); color:#f87171; }
   .ck-mk { display:flex; gap:14px; align-items:center; border:1px solid; border-radius:12px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:var(--muted); line-height:1.45; } .ck-mk span { color:var(--muted); } .ck-mk b { color:var(--text); }
+  .steps { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:12px; } .steps div { background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:9px 12px; font-size:13px; color:var(--muted); display:flex; align-items:center; gap:9px; } .steps b { display:inline-flex; width:22px; height:22px; border-radius:50%; background:#3b82f6; color:#fff; align-items:center; justify-content:center; font-size:12px; flex:none; }
+  @media (max-width:800px) { .steps { grid-template-columns:1fr 1fr; } }
+  .sx-row:hover { background:rgba(59,130,246,.06); }
   .tr-int { font-size:12.5px; color:var(--muted); line-height:1.5; margin:-2px 0 10px; } .tr-int b { color:var(--text); }
   .hm-stats { display:flex; gap:14px; font-size:12px; color:var(--muted); }
 </style>
@@ -40,15 +43,13 @@
 <main>
   <div class="head"><h1>Análisis técnico</h1><span class="dim2" id="asof"></span></div>
   <div class="bento">
+    <section class="tile s12" data-help="how"><div class="lbl"><span>La estrategia · tendencia + fuerza relativa + volumen</span></div><div id="mkt"></div>
+      <div class="steps"><div><b>1</b>Mercado acompaña</div><div><b>2</b>Sector Líder o Mejorando</div><div><b>3</b>Acción con las 5 ✓</div><div><b>4</b>Comprar en el gatillo, con stop</div></div></section>
+    <section class="tile s12" data-help="secs"><div class="lbl"><span>Sectores · dónde está entrando el dinero</span></div><div id="secs" class="loading">Cargando…</div></section>
+    <section class="tile s12" data-help="sig"><div class="lbl"><span>Señales de compra</span><div class="seg" id="sigR"></div></div><div id="sig" class="loading">Cargando…</div></section>
     <section class="tile s12" data-help="heat"><div class="lbl"><span>Mapa de calor</span><span class="dim2" id="heatN"></span></div>
       <div class="hm-bar"><div class="seg" id="heatP"></div><div class="seg" id="heatU"></div><span id="heatZ"></span><span class="sp"></span><div class="hm-leg" id="heatLeg"></div></div>
       <div id="heat" class="loading">Cargando…</div></section>
-    <section class="tile s12" data-help="check"><div class="lbl"><span>Checklist de compra · las que más cumplen</span></div><div id="check" class="loading">Cargando…</div></section>
-    <section class="tile s12" data-help="coil"><div class="lbl"><span>Tu setup · compresión entre techo bajista y AVWAP</span></div><div id="coil" class="loading">Cargando…</div></section>
-    <section class="tile s12" data-help="tech"><div class="lbl"><span>Ranking técnico</span><div class="seg" id="techR"></div></div><div id="tech" class="loading">Cargando…</div></section>
-    <section class="tile s6" data-help="top"><div class="lbl"><span>Top 10 · Score técnico</span><span class="dim2">las más fuertes del universo</span></div><div id="top" class="loading">Cargando…</div></section>
-    <section class="tile s6" data-help="rsi"><div class="lbl"><span>RSI extremos</span></div><div id="rsi" class="loading">Cargando…</div></section>
-    <section class="tile s12" data-help="secs"><div class="lbl"><span>Sectores y subsectores · fuerza relativa</span></div><div id="secs" class="loading">Cargando…</div></section>
   </div>
 </main>
 <div class="hm-tip" id="tip"></div>

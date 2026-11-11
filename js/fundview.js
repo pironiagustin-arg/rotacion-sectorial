@@ -220,24 +220,33 @@ function render() {
 }
 
 // Score técnico (0-100): tendencia 20 + fuerza relativa vs S&P 25 + contracción de volatilidad 35 + setup 20
-let TECH_RANK = null;
-function fillRank() {
-  const el = document.getElementById("ktRank"); if (!el) return;
-  const go = (j) => { const rows = [...(j?.rows || [])].sort((a, b) => b.score - a.score), i = rows.findIndex((r) => r.s === D.symbol); if (i >= 0) el.innerHTML = `#${i + 1} de ${rows.length}${i < 10 ? ' · <b style="color:#4ade80">top 10</b>' : ""}`; };
-  if (TECH_RANK) return go(TECH_RANK);
-  fetch("/data/tech.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((j) => { TECH_RANK = j; go(j); }).catch(() => {});
+// Misma estrategia que la página Técnico: 5 condiciones + sector (de data/tech.json) + gatillo
+let TECH_DATA = null;
+const SECQ_TXT = { lead: ["Líder", "#22c55e"], impr: ["Mejorando", "#3b82f6"], weak: ["Debilitándose", "#f59e0b"], lag: ["Rezagado", "#ef4444"] };
+function fillSector() {
+  const el = document.getElementById("ktSec"); if (!el) return;
+  const go = (j) => { const r = j?.rows?.find((x) => x.s === D.symbol); const sx = r && j.sectors.find((x) => x.sec === r.sec); if (!sx) { el.innerHTML = '<span class="dim">Sector: sin datos</span>'; return; }
+    const ok2 = sx.quad === "lead" || (sx.quad === "impr" && sx.trendW), t = sx.quad === "impr" && !sx.trendW ? ["Vigilar (sin tendencia semanal)", "#94a3b8"] : SECQ_TXT[sx.quad];
+    el.innerHTML = `<span class="ck ${ok2 ? "y" : "n"}">${ok2 ? "✓" : "✗"}</span> Sector (${sx.etf}): <b style="color:${t[1]}">${t[0]}</b>${ok2 ? "" : " · no se compra en sectores débiles"}`; };
+  if (TECH_DATA) return go(TECH_DATA);
+  fetch("/data/tech.json", { cache: "no-cache" }).then((r) => (r.ok ? r.json() : null)).then((j) => { TECH_DATA = j; go(j); }).catch(() => {});
 }
 function techCard() {
-  const T = D.tech; if (!T) return "";
-  setTimeout(fillRank, 0);
-  const col = (r) => (r >= 0.75 ? "#22c55e" : r >= 0.45 ? "#f59e0b" : "#ef4444");
-  const sc = T.score, C = 2 * Math.PI * 34, c0 = col(sc / 100);
-  const bar = (l, v, m, tip) => `<div class="kt-r" title="${esc(tip)}"><span>${l}</span><i><u style="width:${(v / m) * 100}%;background:${col(v / m)}"></u></i><b>${nf(v, v % 1 ? 1 : 0)}/${m}</b></div>`;
-  return `<div class="kf-card kt"><h4 class="kf-h">Score técnico <span class="kt-rank" id="ktRank"></span><button class="kf-q2" title="Puntaje de 0 a 100 que premia acciones que están mejorando contra el S&P 500. Tendencia (20): precio sobre sus medias de 50/150/200, ordenadas y subiendo. Fuerza (20): rendimiento de 3 a 12 meses contra el S&P 500. Mejora (25): la línea de fuerza relativa (precio ÷ S&P 500) sube en 1 y 3 meses y está en máximos. Contracción (15): volatilidad y rango achicándose, solo con tendencia. Setup (20): cerca del máximo de 52 semanas y sin estar estirada sobre la media de 50. 70+ = buena para buscar entrada; menos de 40 = débil. Para comprar: score alto, estado Líder o Mejorando, sin estirar, y entrar en ruptura de consolidación o rebote en la media de 50 con stop de 7-8%.">?</button></h4>
-    <div class="kt-in"><svg viewBox="0 0 84 84" class="kt-g"><circle cx="42" cy="42" r="34" fill="none" stroke="var(--panel2)" stroke-width="7"/><circle cx="42" cy="42" r="34" fill="none" stroke="${c0}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(C * sc) / 100} ${C}" transform="rotate(-90 42 42)"/><text x="42" y="49" text-anchor="middle" font-size="22" font-weight="800" fill="${c0}">${sc}</text></svg>
-      <div class="kt-bars">${bar("Tendencia", T.trend, 20, T.checks.map(([ok2, l]) => (ok2 ? "✓ " : "✗ ") + l).join("\n"))}${bar("Fuerza", T.rs, 20, `Rendimiento ponderado ${T.rsDiff >= 0 ? "+" : ""}${nf(T.rsDiff, 1)} pts vs S&P 500`)}${T.impr != null ? bar("Mejora", T.impr, 25, `Línea de fuerza relativa: ${T.rs1m >= 0 ? "+" : ""}${nf(T.rs1m, 1)}% en 1 mes · ${T.rs3m >= 0 ? "+" : ""}${nf(T.rs3m, 1)}% en 3 meses${T.rsHi ? " · en máximos del año" : ""}`) : ""}${bar("Contracción", T.contr, 15, `Volatilidad 10 días / 60 días: ${nf(T.volR, 2)} · rango 15 días / 60 días: ${nf(T.rngR, 2)} (menos de 1 = se comprime)`)}${bar("Setup", T.setup, 20, `${nf(T.fromHi, 1)}% del máximo de 52 semanas · +${nf(T.fromLo, 0)}% del mínimo · ${nf(T.s50, 1)}% sobre la media de 50${T.ext ? " (estirada)" : ""}`)}</div></div>
-    ${T.quad ? `<div class="kt-st" style="color:${{ lead: "#22c55e", impr: "#3b82f6", weak: "#f59e0b", lag: "#ef4444" }[T.quad]}">${{ lead: "● Líder: fuerte y sigue ganando contra el S&P 500", impr: "● Mejorando: todavía débil pero en las últimas 3 semanas le gana contra el S&P 500", weak: "● Debilitándose: fue fuerte pero en las últimas 3 semanas pierde contra el S&P 500", lag: "● Rezagada: débil y sigue perdiendo contra el S&P 500" }[T.quad]}${T.ext ? ' <span style="color:#fbbf24">· ⚠ estirada, esperar retroceso</span>' : ""}</div>` : ""}
-    <div class="kt-rg"><div class="kt-rl"><span>Posición en el rango de 52 semanas</span><b>${T.pos}%</b></div><div class="kt-bar"><i style="left:${T.pos}%"></i></div><div class="kt-rl dim"><span>$${nf(T.lo, 2)} mín.</span><span>$${nf(T.hi, 2)} máx.</span></div></div></div>`;
+  const T = D.tech; if (!T || !T.pillars) return "";
+  setTimeout(fillSector, 0);
+  const m2 = (v) => "$" + nf(v, 2);
+  const P = [
+    ["trendD", "Tendencia diaria", `Precio ${m2(T.px)} · EMA20 ${m2(T.e20)} · EMA50 ${m2(T.e50)} · EMA200 ${m2(T.e200)}`],
+    ["trendW", "Tendencia semanal", `Precio ${m2(T.cw)} · EMA20s ${m2(T.w20)} · EMA50s ${m2(T.w50)}${T.w200 != null ? ` · EMA200s ${m2(T.w200)}` : ""}`],
+    ["rs", "Fuerza relativa", `${T.rsLvl >= 0 ? "+" : ""}${nf(T.rsLvl, 1)}% vs su promedio de 6 meses · ${T.rs3w >= 0 ? "+" : ""}${nf(T.rs3w, 1)}% contra el S&P en 3 semanas`],
+    ["mom", "MACD + RSI", `MACD ${nf(T.macd, 2)} vs señal ${nf(T.macdSig, 2)} · RSI ${nf(T.rsi, 0)}`],
+    ["vol", "Volumen", `Volumen en subas ÷ bajas (50 ruedas): ${nf(T.ud, 2)}x`],
+  ];
+  const S = { buy: ["COMPRAR", "#22c55e", "Cumple todo y hoy se activó el gatillo"], ready: ["Preparada", "#3b82f6", `Comprar si cierra arriba de ${m2(T.pivot)} con volumen`], wait: ["Esperar", "#f59e0b", T.why === "estirada" ? "Estirada: esperar retroceso a la EMA20" : "Stop lejos: esperar retroceso a la EMA20"], near: ["Le falta 1", "#94a3b8", "Cumple 4 de 5 condiciones"], no: ["No", "#64748b", `Cumple ${T.nOk} de 5`] }[T.sig];
+  return `<div class="kf-card kt"><h4 class="kf-h">Análisis técnico <button class="kf-q2" title="La misma estrategia de la página Técnico. 5 condiciones: tendencia diaria (EMA20 > EMA50 > EMA200, precio sobre la EMA50), tendencia semanal, fuerza relativa contra el S&P 500 (sobre su promedio de 6 meses y subiendo en 3 semanas), MACD sobre su señal con RSI 45-70, y volumen de acumulación. Además, el sector tiene que estar Líder o Mejorando. COMPRAR = todo ✓ y se activó el gatillo (ruptura con volumen o rebote en EMA20/50). Preparada = falta el gatillo. Esperar = estirada o stop lejos.">?</button></h4>
+    <div class="kt-sig" style="border-color:${S[1]};background:${S[1]}14"><b style="color:${S[1]}">${S[0]}</b><span>${S[2]}</span></div>
+    <div class="kt-pl">${P.map(([k, l, tip]) => `<div title="${esc(tip)}"><span class="ck ${T.pillars[k] ? "y" : "n"}">${T.pillars[k] ? "✓" : "✗"}</span>${l}<small>${esc(tip)}</small></div>`).join("")}<div id="ktSec" class="dim">Sector…</div></div>
+    <div class="kt-lv"><div><span>Gatillo</span><b>${m2(T.pivot)}</b><small>${T.toPivot >= 0 ? "+" : ""}${nf(T.toPivot, 1)}%</small></div><div><span>Stop</span><b>${m2(T.stop)}</b><small class="${T.risk <= 8 ? "pos" : "neg"}">−${nf(T.risk, 1)}%</small></div><div><span>vs EMA20</span><b>${T.d20 >= 0 ? "+" : ""}${nf(T.d20, 1)}%</b><small>${T.d20 > 8 ? "estirada" : "ok"}</small></div></div></div>`;
 }
 
 function renderBody() {

@@ -1,7 +1,7 @@
 // Ficha estilo Koyfin para /api/fundamentals?symbol=X&detail=1
 // Combina SEC (historia larga, trimestral desde ~2008) con Yahoo (últimos trimestres, acciones ajustadas por split,
 // remuneración en acciones). Si la SEC no coincide con Yahoo en los períodos que comparten, se descarta (pasa en bancos).
-import { techScore } from "../lib/tech.js";
+import { strategy } from "../lib/tech.js";
 const DAY = 86400000;
 const YH_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
 const num = (x) => (x == null || !isFinite(x) ? null : +x);
@@ -207,15 +207,16 @@ export async function buildDetail({ symbol, m, daily, summary, base, secShares, 
   const perNow = [...M.per].reverse().find((v) => v != null);
   const pegFwd = perNow != null && gProj > 0 ? rd(perNow / gProj, 2) : null;
 
-  // ── Score técnico (estilo Minervini): tendencia, fuerza relativa vs S&P, contracción de volatilidad y setup ──
+  // ── Estrategia técnica (la misma de la página Técnico): 5 condiciones diarias/semanales + gatillo ──
   let tech = null;
   try {
-    const sp = await fetch("https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=2y&interval=1d", { headers: { "User-Agent": YH_UA } }).then((r) => r.json());
-    const sx = sp.chart.result[0], spyBy = new Map(sx.timestamp.map((t, i) => [new Date(t * 1000).toISOString().slice(0, 10), sx.indicators.quote[0].close[i]]));
-    const ds = dates.map((t) => new Date(t).toISOString().slice(0, 10));
-    const ix = ds.map((d, i) => (spyBy.get(d) != null && close[i] != null ? i : -1)).filter((i) => i >= 0);
-    tech = techScore(ix.map((i) => close[i]), ix.map((i) => spyBy.get(ds[i])));
-  } catch { /* sin SPY: sin score técnico */ }
+    const get = (sy) => fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sy)}?range=5y&interval=1d`, { headers: { "User-Agent": YH_UA } }).then((r) => r.json()).then((j) => j.chart.result[0]);
+    const [sx, ox] = await Promise.all([get("SPY"), get(symbol)]);
+    const day = (t) => new Date(t * 1000).toISOString().slice(0, 10);
+    const spyBy = new Map(sx.timestamp.map((t, i) => [day(t), sx.indicators.quote[0].close[i]]));
+    const q = ox.indicators.quote[0], ix = ox.timestamp.map((t, i) => i).filter((i) => q.close[i] != null && q.high[i] != null && q.low[i] != null && spyBy.get(day(ox.timestamp[i])) != null);
+    tech = strategy({ d: ix.map((i) => day(ox.timestamp[i])), h: ix.map((i) => q.high[i]), l: ix.map((i) => q.low[i]), c: ix.map((i) => q.close[i]), v: ix.map((i) => q.volume[i] || 0) }, ix.map((i) => spyBy.get(day(ox.timestamp[i]))));
+  } catch { /* sin datos: sin análisis técnico */ }
 
   return {
     symbol, asOf: new Date().toISOString(), tech,
